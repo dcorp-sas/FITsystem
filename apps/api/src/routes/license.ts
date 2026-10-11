@@ -68,7 +68,15 @@ export function licenseRoutes(app: FastifyInstance) {
     try {
       const input = validate(licenseValidateSchema, request.body);
       const license = await validateLicense(input.installationId, input.licenseKey ?? null);
-      return ok(reply, { info: licenseInfo(license) });
+      return ok(reply, {
+        info: licenseInfo(license),
+        config: {
+          trialDays: env.LICENSE_TRIAL_DAYS,
+          contact: env.LICENSE_CONTACT,
+          site: env.LICENSE_SITE,
+          online: Boolean(env.LICENSE_SERVER),
+        },
+      });
     } catch (error) {
       return fail(reply, error);
     }
@@ -138,6 +146,7 @@ export function licenseRoutes(app: FastifyInstance) {
           plan: parsed.plan,
           seats: parsed.seats,
           status: 'ACTIVE',
+          client: parsed.client,
           machineName: input.machineName ?? null,
           activatedAt: new Date(),
           expiresAt: parsed.expiresAt,
@@ -148,6 +157,7 @@ export function licenseRoutes(app: FastifyInstance) {
           plan: parsed.plan,
           seats: parsed.seats,
           status: 'ACTIVE',
+          client: parsed.client,
           expiresAt: parsed.expiresAt,
           lastCheckAt: new Date(),
         },
@@ -166,12 +176,12 @@ export function licenseRoutes(app: FastifyInstance) {
   app.post('/license/generate', async (request, reply) => {
     try {
       requireAdminKey(request.headers as Record<string, unknown>);
-      const body = (request.body ?? {}) as { plan?: string; seats?: number; expiresAt?: string };
+      const body = (request.body ?? {}) as { plan?: string; seats?: number; expiresAt?: string; client?: string };
       const plan = (body.plan ?? 'BASIC').toUpperCase() as LicensePlanName;
       if (!(plan in LICENSE_PLANS)) throw new HttpError(400, 'Plan invalido');
       const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
-      const key = generateLicenseKey(plan, body.seats, expiresAt);
-      return ok(reply, { key, plan, seats: body.seats ?? LICENSE_PLANS[plan].seats });
+      const key = generateLicenseKey(plan, body.seats, expiresAt, body.client);
+      return ok(reply, { key, plan, client: body.client ?? null, seats: body.seats ?? LICENSE_PLANS[plan].seats });
     } catch (error) {
       return fail(reply, error);
     }

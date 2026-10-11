@@ -10,6 +10,11 @@ export const metadata: Metadata = {
 };
 
 const CONTACT_EMAIL = 'contacto@fitsystem.app';
+const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
+const TRIAL_DAYS = 7;
+const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
+const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
+const APK_URL = `${DOWNLOAD_BASE}/FIT-System-Android.apk`;
 
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
@@ -45,11 +50,11 @@ const PLANS = [
     name: 'Prueba',
     tag: 'TRIAL',
     price: 'Gratis',
-    period: '14 días',
+    period: `${TRIAL_DAYS} días`,
     popular: false,
-    features: ['Hasta 10 socios con app', 'Todos los módulos', 'Soporte por email', 'Sin tarjeta'],
-    cta: 'Probar ahora',
-    href: '/login',
+    features: [`Hasta 10 socios con app`, 'Todos los módulos', 'Soporte por email', 'Sin tarjeta'],
+    cta: 'Descargar gratis',
+    href: '#descargas',
   },
   {
     name: 'Básico',
@@ -106,7 +111,11 @@ const FAQS = [
   },
   {
     q: '¿Hay permanencia mínima?',
-    a: 'No. La prueba es gratis por 14 días y las licencias se renuevan por el período que elijas. Sin contratos atados.',
+    a: `No. La prueba es gratis por ${TRIAL_DAYS} días y las licencias se renuevan por el período que elijas. Sin contratos atados.`,
+  },
+  {
+    q: '¿Cómo consigo el código de licencia?',
+    a: `Al terminar la prueba de ${TRIAL_DAYS} días, la app te muestra un ID de instalación. Enviás ese ID a nuestro contacto y te devolvemos el código de licencia (FIT-) para activar el sistema. La activación se hace una sola vez desde la propia app.`,
   },
 ];
 
@@ -387,15 +396,17 @@ export default function LandingPage() {
                 icon: 'dashboard' as IconName,
                 title: 'Escritorio (Windows)',
                 text: 'La app completa del gimnasio, con todos los módulos. Funciona sin internet.',
-                cta: 'Solicitar instalador',
-                href: '#contacto',
+                cta: 'Descargar para Windows',
+                href: SETUP_URL,
+                note: `Incluye ${TRIAL_DAYS} días de prueba gratis`,
               },
               {
                 icon: 'mobile' as IconName,
                 title: 'App del socio',
-                text: 'Android e iOS. Cada socio ve su cuota, rutinas, novedades y paga desde el celular.',
-                cta: 'Solicitar acceso',
-                href: '#contacto',
+                text: 'Android. Cada socio ve su cuota, rutinas, novedades y paga desde el celular.',
+                cta: 'Descargar APK',
+                href: APK_URL,
+                note: 'Se habilita según los socios de tu licencia',
               },
               {
                 icon: 'reports' as IconName,
@@ -403,6 +414,7 @@ export default function LandingPage() {
                 text: 'Accedé a tu gestión desde cualquier navegador con tu usuario y contraseña.',
                 cta: 'Iniciar sesión',
                 href: '/login',
+                note: 'Para administradores y recepción',
               },
             ].map((item) => (
               <div key={item.title} className="flex flex-col rounded-2xl border border-line bg-base p-6">
@@ -410,16 +422,43 @@ export default function LandingPage() {
                   <Icon name={item.icon} size={22} />
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-text">{item.title}</h3>
-                <p className="mt-1.5 flex-1 text-sm leading-relaxed text-text-muted">{item.text}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{item.text}</p>
+                <p className="mt-2 text-xs text-text-muted">{item.note}</p>
                 <a
                   href={item.href}
-                  className="mt-5 inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
+                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
                 >
+                  <Icon name="import" size={16} />
                   {item.cta}
                 </a>
               </div>
             ))}
           </div>
+
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 rounded-2xl border border-line bg-base p-6 text-center sm:flex-row sm:justify-between sm:text-left">
+            <div>
+              <p className="text-sm font-semibold text-text">
+                Instalá gratis y probá {TRIAL_DAYS} días completos
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                Al terminar la prueba, enviás el ID de instalación y te damos tu código de licencia.
+              </p>
+            </div>
+            <a
+              href={`mailto:${CONTACT_EMAIL}?subject=Solicito%20c%C3%B3digo%20de%20licencia%20FIT%20System`}
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+            >
+              <Icon name="notifications" size={16} />
+              Solicitar código de licencia
+            </a>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-text-muted">
+            ¿Preferís la versión portable?{' '}
+            <a href={PORTABLE_URL} className="text-primary-light transition-colors hover:underline">
+              Descargar FIT System Portable
+            </a>
+          </p>
         </div>
       </section>
 

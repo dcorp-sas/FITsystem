@@ -18,6 +18,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@fitsystem/license": "workspace:*",
     "@fitsystem/types": "workspace:*",
     "@fitsystem/utils": "workspace:*",
     "@fitsystem/validators": "workspace:*",

@@ -957,12 +957,15 @@ model License {
   seats            Int       @default(10)
   seatsUsed        Int       @default(0)
   status           String    @default("TRIAL")
+  client           String?
   machineName      String?
   activatedAt      DateTime?
   expiresAt        DateTime?
   lastCheckAt      DateTime?
   licenseServerUrl String?
   signature        String?
+  cert             String?
+  source           String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

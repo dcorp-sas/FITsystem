@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIT System · Licencias</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3EF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="index.css">
+</head>
+<body>
+<header>
+  <div class="brand">FIT<span> System</span> <small>· Licencias</small></div>
+  <button class="btn ghost" id="logout" hidden>Salir</button>
+</header>
+
+<section id="login" class="card center">
+  <h2>Acceso proveedor</h2>
+  <label class="fld"><span>Usuario</span><input id="u" class="input" autocomplete="username"></label>
+  <label class="fld"><span>Contraseña</span><input id="p" class="input" type="password" autocomplete="current-password"></label>
+  <button class="btn primary" id="btnLogin">Entrar</button>
+  <div id="lgErr" class="mini-err" hidden></div>
+</section>
+
+<main id="app" hidden>
+  <div class="cards" id="stats"></div>
+
+  <div class="card">
+    <div class="row between"><h3 style="margin:0">Respaldo</h3></div>
+    <p class="muted small" style="margin:8px 0 0">El plan gratuito puede usar disco temporal: descargá un respaldo periódicamente y guardalo afuera. Los respaldos incluyen emisiones y asientos (no las contraseñas).</p>
+    <div class="form-row" style="margin-top:12px">
+      <button class="btn sm" id="btnBkp">Descargar respaldo</button>
+      <label class="btn sm ghost" style="cursor:pointer">Restaurar respaldo<input id="btnRestFile" type="file" accept=".json,application/json" hidden></label>
+    </div>
+    <div id="mBkp" class="muted small"></div>
+  </div>
+
+  <div class="card">
+    <h3>Nueva licencia</h3>
+    <div class="form-row">
+      <label class="fld grow"><span>Cliente</span><input id="fCliente" class="input" placeholder="Nombre del gimnasio"></label>
+      <label class="fld"><span>Plan</span>
+        <select id="fPlan" class="input">
+          <option>BASIC</option><option selected>PRO</option><option>ENTERPRISE</option>
+        </select>
+      </label>
+      <label class="fld"><span>Días (≤3650)</span><input id="fDias" class="input" type="number" min="1" max="3650" value="365"></label>
+      <label class="fld"><span>Asientos</span><input id="fAsientos" class="input" type="number" min="1" value="100" title="Cantidad de socios con acceso a la app móvil"></label>
+      <label class="fld grow"><span>Notas</span><input id="fNotas" class="input" placeholder="opcional"></label>
+      <button class="btn primary" id="fCrear">Emitir</button>
+    </div>
+    <div id="fMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h3 style="margin:0">Emisiones</h3><span class="muted small"><button class="btn sm" id="btnRefresh">↻ Actualizar</button></span></div>
+    <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Cliente</th><th>Plan</th><th>Días</th><th>Vence</th><th>Asientos</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  let token = localStorage.getItem('fit_lic_token') || '';
+  const hdr = () => ({ 'Content-Type':'application/json', ...(token ? { Authorization:'Bearer '+token } : {}) });
+  async function api(method, path, body){
+    const res = await fetch(path, { method, headers: hdr(), body: body ? JSON.stringify(body) : undefined });
+    const data = await res.json().catch(()=>({}));
+    if(res.status === 401 && path.indexOf('/api/login') < 0){ showLogin(); throw new Error('Sesión vencida'); }
+    if(!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+    return data;
+  }
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt = ts => new Date(ts).toLocaleDateString('es-AR');
+  const fmtDT = ts => new Date(ts).toLocaleString('es-AR');
+  const planColor = p => ({BASIC:'blue',PRO:'amber',ENTERPRISE:'red'}[p] || 'gray');
+
+  function showLogin(){ $('app').hidden = true; $('logout').hidden = true; $('login').hidden = false; }
+  function showApp(){ $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false; }
+
+  $('btnLogin').onclick = async ()=>{
+    $('lgErr').hidden = true;
+    try{
+      const r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:$('u').value,pass:$('p').value})});
+      const d = await r.json();
+      if(!r.ok){ $('lgErr').textContent = d.error||'Error'; $('lgErr').hidden=false; return; }
+      token = d.token; localStorage.setItem('fit_lic_token', token);
+      await load();
+      showApp();
+    }catch(e){ $('lgErr').textContent = e.message; $('lgErr').hidden=false; }
+  };
+  $('logout').onclick = ()=>{ localStorage.removeItem('fit_lic_token'); token=''; showLogin(); };
+  $('u').addEventListener('keydown', e=>{ if(e.key==='Enter') $('p').focus(); });
+  $('p').addEventListener('keydown', e=>{ if(e.key==='Enter') $('btnLogin').click(); });
+
+  async function load(){
+    const st = await api('GET','/api/licenses/stats');
+    const s = st.stats;
+    $('stats').innerHTML =
+      card(s.total,'Licencias emitidas')+card(s.activadas,'Con activación')+card(s.asientos,'Asientos en uso')+card(s.vencidas,'Vencidas')+
+      '<div class="card chips-inline">'+ (s.porPlan.length ? s.porPlan.map(p=>`<span class="chip">${esc(p.plan)} · ${p.c}</span>`).join('') : '<span class="muted small">Sin planes</span>') +'</div>';
+    const lr = await api('GET','/api/licenses');
+    renderRows(lr.licenses);
+  }
+  function card(n,label){ return `<div class="card stat"><b>${n}</b><span>${label}</span></div>`; }
+
+  function renderRows(list){
+    $('rows').innerHTML = list.length ? list.map((l,i)=>`
+      <tr>
+        <td><b>${esc(l.client)}</b>${(l.notas?'<div class="muted small">'+esc(l.notas)+'</div>':'')}</td>
+        <td><span class="badge ${planColor(l.plan)}">${esc(l.plan)}</span></td>
+        <td class="r">${l.days}</td>
+        <td class="r">${fmt(l.expires)}${l.expires<Date.now()?' <span class="badge red">vencida</span>':''}</td>
+        <td class="r">${l.seats_used}/${l.seats}</td>
+        <td><span class="badge ${l.state==='emitida'?'blue':'green'}">${esc(l.state)}</span>
+            ${l.seats_used>0?' <span class="badge green">en uso</span>':''}</td>
+        <td class="r">
+          <button class="btn sm" data-copy="${esc(l.key)}">copiar clave</button>
+          <button class="btn sm" data-act="${i}">activaciones ${l.activations.length?'('+l.activations.length+')':''}</button>
+          <button class="btn sm danger" data-del="${esc(l.key)}">eliminar</button>
+        </td>
+      </tr>
+      ${l.activations.length?`
+      <tr id="act-${i}" class="act-row" hidden>
+        <td colspan="7">
+          ${l.activations.map(a=>`
+            <div class="act">
+              <span class="badge ${a.active?'green':'gray'}">${a.active?'activa':'revocada'}</span>
+              <b>${esc(a.install_id)}</b> ${esc(a.sede)?'· '+esc(a.sede):''} · ${esc(a.last_ip)} · ${fmtDT(a.activated_at)}
+              ${a.active?`<button class="btn sm danger" data-revoke="${esc(l.key)}|${esc(a.install_id)}">revocar asiento</button>`:''}
+            </div>`).join('')}
+        </td>
+      </tr>`:''}
+    `).join('') : '<tr><td colspan="7" class="muted">Sin emisiones todavía</td></tr>';
+
+    document.querySelectorAll('[data-copy]').forEach(b=> b.onclick = ()=>{
+      const k = b.dataset.copy;
+      navigator.clipboard.writeText(k).then(()=> toast('Clave copiada'), ()=> prompt('Copiá la clave:', k));
+    });
+    document.querySelectorAll('[data-del]').forEach(b=> b.onclick = async ()=>{
+      if(!confirm('¿Eliminar esta emisión y sus activaciones?')) return;
+      try{ await fetch('/api/licenses',{method:'DELETE',headers:{'Authorization':'Bearer '+token,'X-License-Key':encodeURIComponent(b.dataset.del)}}); await load(); }
+      catch(e){ toast(e.message,'err'); }
+    });
+    document.querySelectorAll('[data-act]').forEach(b=> b.onclick = ()=>{
+      const row = $('act-'+b.dataset.act); if(row) row.hidden = !row.hidden;
+    });
+    document.querySelectorAll('[data-revoke]').forEach(b=> b.onclick = async ()=>{
+      const [key,installId] = b.dataset.revoke.split('|');
+      if(!confirm('¿Revocar este asiento?')) return;
+      try{ await api('POST','/api/license/revoke',{key,installId}); await load(); }
+      catch(e){ toast(e.message,'err'); }
+    });
+  }
+
+  $('fCrear').onclick = async ()=>{
+    $('fMsg').innerHTML='';
+    try{
+      const dias = Number($('fDias').value)||365;
+      if(dias>3650) throw new Error('Máximo 3650 días');
+      const r = await api('POST','/api/licenses',{ client:$('fCliente').value, plan:$('fPlan').value, days:dias, seats:Number($('fAsientos').value)||1, notas:$('fNotas').value });
+      $('fMsg').innerHTML = `<div class="mini-ok">Licencia emitida — vence ${fmt(r.expires)}</div>
+        <div class="keybox">${esc(r.key)}<button class="btn sm" data-cop2="${esc(r.key)}">copiar</button></div>`;
+      $('fMsg').querySelector('[data-cop2]').onclick = e=>{
+        const k = e.target.dataset.cop2;
+        navigator.clipboard.writeText(k).then(()=>toast('Clave copiada'), ()=>prompt('Copiá la clave:', k));
+      };
+      $('fCliente').value='';
+      await load();
+    }catch(e){ $('fMsg').innerHTML = `<div class="mini-err">${esc(e.message)}</div>`; }
+  };
+  $('btnRefresh').onclick = load;
+
+  $('btnBkp').onclick = async ()=>{
+    try{
+      const bkp = await api('GET','/api/backup');
+      const blob = new Blob([JSON.stringify(bkp,null,2)],{type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'fitsystem-licensador-backup-'+new Date().toISOString().slice(0,10)+'.json';
+      a.click(); URL.revokeObjectURL(a.href);
+      $('mBkp').textContent = 'Respaldo listo: '+bkp.licenses.length+' emisiones, '+bkp.activations.length+' asientos.';
+    }catch(e){ toast(e.message,'err'); }
+  };
+  $('btnRestFile').onchange = async (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    try{
+      if(!confirm('Esto reemplaza TODO el estado del panel con el respaldo elegido. ¿Continuar?')) return;
+      const obj = JSON.parse(await f.text());
+      const r = await api('POST','/api/restore', obj);
+      $('mBkp').textContent = `Restaurado: ${r.licenses} emisiones, ${r.activations} asientos.`;
+      toast('Respaldo restaurado');
+      await load();
+    }catch(e){ toast('No se pudo restaurar: '+e.message,'err'); }
+    ev.target.value='';
+  };
+
+  function toast(msg,cls){ const t=document.createElement('div'); t.className='toast '+(cls||''); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
+
+  (async function init(){
+    if(token){
+      try{ await load(); showApp(); }
+      catch(e){ showLogin(); }
+    } else showLogin();
+  })();
+})();
+</script>
+</body>
+</html>

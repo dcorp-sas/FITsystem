@@ -68,10 +68,11 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "FIT-System-Setup.exe"
     },
     "portable": {
-      "artifactName": "FIT-System-Portable-${version}.exe"
+      "artifactName": "FIT-System-Portable.exe"
     }
   }
 }

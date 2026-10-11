@@ -1,0 +1,109 @@
+# FIT System - Blueprint de Render.
+# Deploy: dashboard.render.com -> New -> Blueprint -> elegí este repo.
+# Al crear, Render pedirá las variables marcadas con sync:false.
+#
+# Este blueprint despliega:
+#   1) fitsystem-licensador -> servicio de licencias del proveedor (Node, sin deps).
+#   2) fitsystem-web        -> web pública (landing + panel) con Next.js.
+#
+# NOTA sobre la API del gimnasio: la app de escritorio corre su propia API local
+# con SQLite (DATABASE_URL=file:...), por eso NO se despliega aquí. Si más adelante
+# querés administrar el gimnasio desde la nube, hay que desplegar la API con
+# PostgreSQL (cambiar el provider de apps/api/prisma/schema.prisma a postgresql)
+# y apuntar NEXT_PUBLIC_API_URL al servicio. El bloque comentado al final lo deja listo.
+services:
+  # ---------------------------------------------------------------------------
+  # Licensador (sistema de licencias del proveedor)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: fitsystem-licensador
+    runtime: node
+    plan: free
+    rootDir: apps/licensador
+    buildCommand: ""
+    startCommand: "node server.js"
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS
+        sync: false
+      # Firmas: definí LICENSE_SECRET (modo HMAC) o LICENSE_PRIVATE_KEY (Ed25519).
+      - key: LICENSE_SECRET
+        sync: false
+      - key: LICENSE_PRIVATE_KEY
+        sync: false
+      - key: LICENSE_PUBLIC_KEY
+        sync: false
+    # AVISO: en el plan free el disco es EFÍMERO: las licencias y activaciones se
+    # pierden al reiniciar/redeployar (las claves HMAC siguen siendo válidas y se
+    # re-importan al activar, pero se olvidan revocaciones y asientos).
+    # Para conservar los datos, pasá a un plan pago y descomentá el disco:
+    # disk:
+    #   name: licensador-data
+    #   mountPath: /opt/render/project/src/apps/licensador/data
+    #   sizeGB: 1
+
+  # ---------------------------------------------------------------------------
+  # Web pública (landing + panel) - Next.js sobre monorepo pnpm
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: fitsystem-web
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: "corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @fitsystem/web build"
+    startCommand: "pnpm --filter @fitsystem/web exec next start -p $PORT"
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: NODE_ENV
+        value: production
+      # URL pública de la API del gimnasio. Se incrusta en el build (NEXT_PUBLIC_*).
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # (Opcional) API del gimnasio en la nube + PostgreSQL.
+  # Requiere: apps/api/prisma/schema.prisma provider = "postgresql".
+  # ---------------------------------------------------------------------------
+  # - type: web
+  #   name: fitsystem-api
+  #   runtime: node
+  #   plan: free
+  #   rootDir: .
+  #   buildCommand: "corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @fitsystem/api build && pnpm --filter @fitsystem/api prisma:generate"
+  #   startCommand: "pnpm --filter @fitsystem/api exec node dist/index.js"
+  #   healthCheckPath: /api/health
+  #   envVars:
+  #     - key: NODE_VERSION
+  #       value: 22.16.0
+  #     - key: NODE_ENV
+  #       value: production
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: fitsystem-db
+  #         property: connectionString
+  #     - key: JWT_SECRET
+  #       generateValue: true
+  #     - key: LICENSE_SECRET
+  #       sync: false
+  #     - key: LICENSE_TRIAL_DAYS
+  #       value: 7
+  #     - key: LICENSE_SERVER
+  #       sync: false
+  #     - key: LICENSE_PUBLIC_KEY
+  #       sync: false
+  #     - key: WEB_ORIGIN
+  #       sync: false
+
+# databases:
+#   - name: fitsystem-db
+#     plan: free
+#     databaseName: fitsystem
+#     postgresMajorVersion: 16

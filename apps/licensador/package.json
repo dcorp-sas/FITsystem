@@ -1,0 +1,13 @@
+{
+  "name": "fitsystem-licensador",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FIT System — sistema de licencias del proveedor (emisión, activación en línea y revocación).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

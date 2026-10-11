@@ -26,11 +26,21 @@ interface LicenseInfo {
   plan: string;
   seats: number;
   status: string;
+  client?: string | null;
   expiresAt: string | null;
   daysLeft: number | null;
   isUsable: boolean;
   hasKey: boolean;
 }
+
+interface LicenseConfig {
+  trialDays: number;
+  contact: string;
+  site: string;
+  online: boolean;
+}
+
+let licenseConfig: LicenseConfig = { trialDays: 7, contact: '', site: '', online: false };
 
 function log(...args: unknown[]) {
   const line = `[${new Date().toISOString()}] ${args
@@ -135,6 +145,7 @@ async function checkLicense(): Promise<LicenseInfo | null> {
   const installationId = getInstallationId();
   const res = await apiJson('POST', '/api/license/validate', { installationId });
   licenseInfo = (res?.data?.info as LicenseInfo) ?? null;
+  if (res?.data?.config) licenseConfig = { ...licenseConfig, ...(res.data.config as Partial<LicenseConfig>) };
   return licenseInfo;
 }
 
@@ -142,11 +153,18 @@ function activationHtml(info: LicenseInfo | null): string {
   const installationId = getInstallationId();
   const statusText = info
     ? info.isUsable
-      ? `Plan ${info.plan} · vence en ${info.daysLeft ?? '-'} días`
+      ? info.plan === 'TRIAL'
+        ? `Prueba gratuita · quedan ${info.daysLeft ?? '-'} días`
+        : `Plan ${info.plan} · vence en ${info.daysLeft ?? '-'} días`
       : info.status === 'EXPIRED'
         ? 'La licencia venció'
         : 'Sin licencia activa'
     : 'Sin licencia activa';
+  const trialDays = licenseConfig.trialDays;
+  const contactLine =
+    licenseConfig.contact || licenseConfig.site
+      ? `Contacto: ${licenseConfig.contact || licenseConfig.site}`
+      : 'Escribinos para obtener tu código de licencia.';
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -168,10 +186,13 @@ function activationHtml(info: LicenseInfo | null): string {
   button { width: 100%; height: 46px; margin-top: 18px; border: none; border-radius: 10px; cursor: pointer;
     background: #2563eb; color: #fff; font-size: 15px; font-weight: 600; }
   button:disabled { opacity: .6; cursor: default; }
+  button.ghost { margin-top: 10px; height: 40px; background: transparent; color: #8fa0bd;
+    border: 1px solid #233150; font-size: 13px; font-weight: 500; }
+  button.ghost:hover { color: #e6ecf7; border-color: #2563eb; }
   .status { margin-top: 14px; font-size: 13px; text-align: center; min-height: 18px; }
   .err { color: #ef4444; }
   .ok { color: #22c55e; }
-  .meta { margin-top: 18px; padding-top: 14px; border-top: 1px solid #233150; color: #8fa0bd; font-size: 11px; word-break: break-all; }
+  .meta { margin-top: 18px; padding-top: 14px; border-top: 1px solid #233150; color: #8fa0bd; font-size: 11px; word-break: break-all; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -180,15 +201,17 @@ function activationHtml(info: LicenseInfo | null): string {
     <h1>Activación de licencia</h1>
     <p class="sub">${statusText}</p>
     <label>Clave de licencia</label>
-    <input id="key" placeholder="FIT-PLAN-ASIENTOS-VENCIMIENTO-FIRMA" autocomplete="off" />
+    <input id="key" placeholder="FIT-··················" autocomplete="off" />
     <button id="btn">Activar</button>
+    <button id="req" class="ghost">Solicitar código de licencia</button>
     <div id="status" class="status"></div>
-    <div class="meta">ID de instalación: ${installationId}</div>
+    <div class="meta">Prueba de ${trialDays} días incluida.<br/>ID de instalación: ${installationId}<br/>${contactLine}</div>
   </div>
   <script>
     const btn = document.getElementById('btn');
     const statusEl = document.getElementById('status');
     const keyEl = document.getElementById('key');
+    const reqBtn = document.getElementById('req');
     async function activate() {
       const key = keyEl.value.trim();
       if (!key) { statusEl.className = 'status err'; statusEl.textContent = 'Ingresá una clave.'; return; }
@@ -214,6 +237,7 @@ function activationHtml(info: LicenseInfo | null): string {
     }
     btn.addEventListener('click', activate);
     keyEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') activate(); });
+    if (reqBtn) reqBtn.addEventListener('click', () => { window.fitsystem.requestCode(); });
     keyEl.focus();
   </script>
 </body>
@@ -249,7 +273,7 @@ async function createActivationWindow() {
 function registerLicenseIpc() {
   ipcMain.handle('license:get', async () => {
     if (!licenseInfo) await checkLicense().catch(() => undefined);
-    return { installationId: getInstallationId(), info: licenseInfo };
+    return { installationId: getInstallationId(), info: licenseInfo, config: licenseConfig };
   });
 
   ipcMain.handle('license:activate', async (_event, key: string) => {
@@ -275,6 +299,19 @@ function registerLicenseIpc() {
       activationWindow = null;
     }
     if (!mainWindow) await createWindow();
+    return true;
+  });
+
+  ipcMain.handle('license:request', async () => {
+    const installationId = getInstallationId();
+    const subject = encodeURIComponent('Solicitud de código de licencia FIT System');
+    const body = encodeURIComponent(
+      `Hola, quiero activar FIT System.\n\nID de instalación: ${installationId}\nEquipo: ${os.hostname()}\n`,
+    );
+    const target = licenseConfig.contact
+      ? `mailto:${licenseConfig.contact}?subject=${subject}&body=${body}`
+      : licenseConfig.site;
+    if (target) await shell.openExternal(target);
     return true;
   });
 }

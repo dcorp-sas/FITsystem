@@ -1,0 +1,3 @@
+# Datos locales del Licensador (clave privada, base de datos, respaldos).
+data/
+node_modules/

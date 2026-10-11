@@ -125,11 +125,11 @@ export default function LicensePage() {
 
         <Card title="Activar o renovar licencia">
           <form onSubmit={activate} className="space-y-4">
-            <Field label="Clave de licencia" hint="Formato: FIT-PLAN-ASIENTOS-VENCIMIENTO-FIRMA">
+            <Field label="Clave de licencia" hint="Pegá el código FIT- que te enviamos">
               <Input
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="FIT-PRO-500-20271231-XXXXXXXX"
+                placeholder="FIT-····················"
               />
             </Field>
             <Button type="submit" loading={saving} disabled={!key.trim()}>
