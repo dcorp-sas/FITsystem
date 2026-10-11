@@ -22,8 +22,20 @@ function verifiers(): Verifier[] {
       /* clave publica invalida: se ignora */
     }
   }
-  list.push(env.LICENSE_SECRET);
+  if (env.LICENSE_SECRET) list.push(env.LICENSE_SECRET);
   return list;
+}
+
+function issueSigner(): Verifier {
+  if (env.LICENSE_PRIVATE_KEY) {
+    try {
+      return { type: 'ed25519', key: JSON.parse(Buffer.from(env.LICENSE_PRIVATE_KEY, 'base64').toString('utf8')) };
+    } catch {
+      /* clave privada invalida */
+    }
+  }
+  if (env.LICENSE_SECRET) return env.LICENSE_SECRET;
+  throw new HttpError(500, 'No hay firmante configurado (definí LICENSE_SECRET o LICENSE_PRIVATE_KEY)');
 }
 
 /*
@@ -68,7 +80,7 @@ export function generateLicenseKey(
   const days = expiresAt
     ? Math.max(1, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000))
     : config.days;
-  return issue({ client: client ?? 'Cliente', plan, seats: finalSeats, days, issued: Date.now() }, verifiers()[verifiers().length - 1] ?? env.LICENSE_SECRET);
+  return issue({ client: client ?? 'Cliente', plan, seats: finalSeats, days, issued: Date.now() }, issueSigner());
 }
 
 export function parseLicenseKey(key: string): ParsedLicense {
