@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "FIT System Socios",
+    "slug": "fitsystem-socios",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "fitsystem",
+    "splash": {
+      "backgroundColor": "#0b1120"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.fitsystem.socios"
+    },
+    "android": {
+      "package": "app.fitsystem.socios",
+      "adaptiveIcon": {
+        "backgroundColor": "#0b1120",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiUrl": "http://10.0.2.2:3001"
+    }
+  }
+}

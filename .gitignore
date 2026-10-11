@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Desktop packaging artifacts
+apps/desktop/build-resources/
+apps/desktop/release/
+
+# Mobile (Expo)
+.expo/
+apps/mobile/android/
+apps/mobile/ios/
+*.apk
+*.aab
+*.ipa
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-journal
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Misc
+coverage/
+.vercel/

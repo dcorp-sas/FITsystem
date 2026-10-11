@@ -1,0 +1,988 @@
+// FIT System - Esquema de base de datos
+// SQLite (dev). Los "enums" se representan como String para compatibilidad con SQLite.
+// Cambiar a PostgreSQL en produccion es directo via DATABASE_URL y provider.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Organizacion, sedes y usuarios
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  taxId     String? // CUIT / RUC / NIT
+  email     String?
+  phone     String?
+  address   String?
+  logoUrl   String?
+  currency  String   @default("ARS")
+  timezone  String   @default("America/Argentina/Buenos_Aires")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches      Branch[]
+  users         User[]
+  settings      Setting[]
+  members       Member[]
+  plans         Plan[]
+  productCats   ProductCategory[]
+  products      Product[]
+  instructors   Instructor[]
+  equipment     Equipment[]
+  templates     NotificationTemplate[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+  memberships   Membership[]
+  payments      Payment[]
+  cashSessions  CashSession[]
+  cashMovements CashMovement[]
+  stockMoves    StockMovement[]
+  sales         Sale[]
+  attendance    Attendance[]
+  gymClasses    GymClass[]
+  importBatches ImportBatch[]
+
+  portalAccounts PortalAccount[]
+  routines       Routine[]
+  newsPosts      NewsPost[]
+  paymentIntents PaymentIntent[]
+
+  @@map("organizations")
+}
+
+model Branch {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  code           String?
+  address        String?
+  phone          String?
+  email          String?
+  openingTime    String   @default("06:00")
+  closingTime    String   @default("23:00")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  users         User[]
+  members       Member[]
+  memberships   Membership[]
+  payments      Payment[]
+  cashSessions  CashSession[]
+  cashMovements CashMovement[]
+  sales         Sale[]
+  stockMoves    StockMovement[]
+  attendance    Attendance[]
+  instructors   Instructor[]
+  gymClasses    GymClass[]
+  classSessions ClassSession[]
+  equipment     Equipment[]
+  activityLogs  ActivityLog[]
+  importBatches ImportBatch[]
+  newsPosts     NewsPost[]
+
+  @@unique([organizationId, name])
+  @@map("branches")
+}
+
+// Roles: OWNER | ADMIN | MANAGER | RECEPTIONIST | INSTRUCTOR | ACCOUNTANT
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String? // NULL = acceso a todas las sedes
+  name           String
+  email          String   @unique
+  passwordHash   String
+  role           String   @default("RECEPTIONIST")
+  phone          String?
+  avatarUrl      String?
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch           Branch?          @relation(fields: [branchId], references: [id])
+  membershipsSold  Membership[]     @relation("MembershipSoldBy")
+  paymentsReceived Payment[]        @relation("PaymentReceivedBy")
+  cashSessionsOpened CashSession[]  @relation("CashSessionOpenedBy")
+  cashSessionsClosed CashSession[]  @relation("CashSessionClosedBy")
+  cashMovements    CashMovement[]
+  sales            Sale[]
+  attendanceReg    Attendance[]     @relation("AttendanceRegisteredBy")
+  reservations     Reservation[]    @relation("ReservationCreatedBy")
+  activityLogs     ActivityLog[]
+  importBatches    ImportBatch[]
+  instructor       Instructor?
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Configuracion / credenciales por organizacion (MercadoPago, ARCA, WhatsApp...)
+// ---------------------------------------------------------------------------
+
+// category: GENERAL | MERCADOPAGO | ARCA | WHATSAPP | SMTP | PUSH
+model Setting {
+  id             String   @id @default(cuid())
+  organizationId String
+  category       String   @default("GENERAL")
+  key            String
+  value          String?
+  isSecret       Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, category, key])
+  @@map("settings")
+}
+
+// ---------------------------------------------------------------------------
+// Socios
+// ---------------------------------------------------------------------------
+
+// status: ACTIVE | PENDING | SUSPENDED | INACTIVE | FROZEN
+model Member {
+  id                   String    @id @default(cuid())
+  organizationId       String
+  branchId             String
+  memberCode           String
+  firstName            String
+  lastName             String
+  documentType         String? // DNI | CUIT | PASSPORT | OTHER
+  documentNumber       String?
+  email                String?
+  phone                String?
+  birthDate            DateTime?
+  gender               String? // MALE | FEMALE | OTHER | UNDISCLOSED
+  address              String?
+  city                 String?
+  photoUrl             String?
+  emergencyName        String?
+  emergencyPhone       String?
+  notes                String?
+  status               String    @default("ACTIVE")
+  joinedAt             DateTime  @default(now())
+  lastVisitAt          DateTime?
+  totalVisits          Int       @default(0)
+  createdBy            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch            @relation(fields: [branchId], references: [id])
+  memberships    Membership[]
+  payments       Payment[]
+  sales          Sale[]
+  attendance     Attendance[]
+  reservations   Reservation[]
+  notifications  Notification[]
+  cashMovements  CashMovement[]
+
+  portalAccount  PortalAccount?
+  routines       Routine[]
+  paymentIntents PaymentIntent[]
+
+  @@unique([organizationId, memberCode])
+  @@index([organizationId, status])
+  @@index([lastName, firstName])
+  @@map("members")
+}
+
+// ---------------------------------------------------------------------------
+// Planes y membresias
+// ---------------------------------------------------------------------------
+
+// type: MONTHLY | WEEKLY | DAILY_PASS | PACKAGE | ANNUAL
+model Plan {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  type           String   @default("MONTHLY")
+  price          Float    @default(0)
+  currency       String   @default("ARS")
+  durationDays   Int      @default(30)
+  sessionsLimit  Int? // para paquetes
+  allowFreeze    Boolean  @default(false)
+  maxFreezeDays  Int      @default(0)
+  freezeFee      Float    @default(0)
+  signupFee      Float    @default(0)
+  color          String   @default("#2563eb")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+
+  @@unique([organizationId, name])
+  @@map("plans")
+}
+
+// status: ACTIVE | EXPIRED | CANCELLED | FROZEN | PENDING
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String
+  memberId       String
+  planId         String
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("ACTIVE")
+  price          Float    @default(0)
+  discount       Float    @default(0)
+  autoRenew      Boolean  @default(false)
+  frozenDays     Int      @default(0)
+  soldById       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch             @relation(fields: [branchId], references: [id])
+  member       Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  plan         Plan               @relation(fields: [planId], references: [id])
+  soldBy       User?              @relation("MembershipSoldBy", fields: [soldById], references: [id])
+  payments     Payment[]
+  freezes      MembershipFreeze[]
+  attendance   Attendance[]
+
+  @@index([organizationId, status])
+  @@index([endDate])
+  @@map("memberships")
+}
+
+model MembershipFreeze {
+  id           String   @id @default(cuid())
+  membershipId String
+  startDate    DateTime
+  endDate      DateTime
+  days         Int      @default(0)
+  reason       String?
+  fee          Float    @default(0)
+  createdBy    String?
+  createdAt    DateTime @default(now())
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@map("membership_freezes")
+}
+
+// ---------------------------------------------------------------------------
+// Pagos, caja y cobranzas
+// ---------------------------------------------------------------------------
+
+// method: CASH | TRANSFER | CARD | MERCADOPAGO_QR | MERCADOPAGO_POINT | MERCADOPAGO_LINK | OTHER
+// status: PENDING | COMPLETED | FAILED | REFUNDED | CANCELLED
+// concept: MEMBERSHIP | ENROLLMENT | FREEZE | PRODUCT | CLASS | OTHER
+model Payment {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String
+  memberId       String?
+  membershipId   String?
+  concept        String   @default("MEMBERSHIP")
+  method         String   @default("CASH")
+  status         String   @default("COMPLETED")
+  amount         Float    @default(0)
+  currency       String   @default("ARS")
+  reference      String? // nro de recibo / operacion
+  providerId     String? // id externo (MercadoPago payment id, etc.)
+  providerStatus String?
+  providerData   String? // JSON string
+  paidAt         DateTime @default(now())
+  receivedById   String?
+  notes          String?
+  invoiceNumber  String? // numero de comprobante ARCA
+  invoiceStatus  String? // PENDING | ISSUED | FAILED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  member       Member?      @relation(fields: [memberId], references: [id])
+  membership   Membership?  @relation(fields: [membershipId], references: [id])
+  receivedBy   User?        @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+
+  @@index([organizationId, paidAt])
+  @@index([memberId])
+  @@map("payments")
+}
+
+// status: OPEN | CLOSED
+model CashSession {
+  id             String    @id @default(cuid())
+  organizationId String
+  branchId       String
+  openedById     String
+  closedById     String?
+  status         String    @default("OPEN")
+  openingAmount  Float     @default(0)
+  closingAmount  Float?
+  expectedAmount Float?
+  difference     Float?
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  notes          String?
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch         @relation(fields: [branchId], references: [id])
+  openedBy     User           @relation("CashSessionOpenedBy", fields: [openedById], references: [id])
+  closedBy     User?          @relation("CashSessionClosedBy", fields: [closedById], references: [id])
+  movements    CashMovement[]
+
+  @@index([organizationId, status])
+  @@map("cash_sessions")
+}
+
+// type: INCOME | EXPENSE
+// category: MEMBERSHIP | PRODUCT_SALE | ENROLLMENT | FREEZE | CLASS | VOUCHER | SALARY | RENT | SUPPLIES | MAINTENANCE | TAXES | SERVICES | OTHER
+model CashMovement {
+  id              String   @id @default(cuid())
+  organizationId  String
+  branchId        String
+  cashSessionId   String?
+  type            String   @default("INCOME")
+  category        String   @default("OTHER")
+  method          String   @default("CASH")
+  amount          Float    @default(0)
+  description     String?
+  memberId        String?
+  userId          String?
+  referenceId     String?
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  cashSession  CashSession? @relation(fields: [cashSessionId], references: [id])
+  member       Member?      @relation(fields: [memberId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@map("cash_movements")
+}
+
+// ---------------------------------------------------------------------------
+// Minishop e inventario
+// ---------------------------------------------------------------------------
+
+model ProductCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, name])
+  @@map("product_categories")
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String
+  categoryId     String?
+  name           String
+  sku            String?
+  barcode        String?
+  description    String?
+  cost           Float    @default(0)
+  price          Float    @default(0)
+  stock          Int      @default(0)
+  minStock       Int      @default(0)
+  unit           String   @default("unidad")
+  imageUrl       String?
+  isActive       Boolean  @default(true)
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ProductCategory? @relation(fields: [categoryId], references: [id])
+  saleItems    SaleItem[]
+  stockMoves   StockMovement[]
+
+  @@unique([organizationId, sku])
+  @@map("products")
+}
+
+// type: IN | OUT | ADJUSTMENT | SALE | RETURN
+model StockMovement {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String
+  productId      String
+  type           String   @default("ADJUSTMENT")
+  quantity       Int      @default(0)
+  unitCost       Float    @default(0)
+  reason         String?
+  referenceId    String?
+  userId         String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, productId])
+  @@map("stock_movements")
+}
+
+// status: COMPLETED | CANCELLED
+model Sale {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String
+  memberId       String?
+  userId         String
+  number         String
+  subtotal       Float    @default(0)
+  discount       Float    @default(0)
+  total          Float    @default(0)
+  method         String   @default("CASH")
+  status         String   @default("COMPLETED")
+  paymentId      String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  member       Member?      @relation(fields: [memberId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  items        SaleItem[]
+
+  @@index([organizationId, createdAt])
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  productId String
+  name      String
+  quantity  Int     @default(1)
+  unitPrice Float   @default(0)
+  subtotal  Float   @default(0)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
+}
+
+// ---------------------------------------------------------------------------
+// Acceso y asistencia
+// ---------------------------------------------------------------------------
+
+// method: QR | MANUAL | FINGERPRINT | FACE | CARD
+// status: ALLOWED | REJECTED
+model Attendance {
+  id              String    @id @default(cuid())
+  organizationId  String
+  branchId        String
+  memberId        String
+  membershipId    String?
+  method          String    @default("MANUAL")
+  status          String    @default("ALLOWED")
+  rejectionReason String?
+  checkedInAt     DateTime  @default(now())
+  checkedOutAt    DateTime?
+  registeredById  String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membership   Membership?  @relation(fields: [membershipId], references: [id])
+  registeredBy User?        @relation("AttendanceRegisteredBy", fields: [registeredById], references: [id])
+
+  @@index([organizationId, checkedInAt])
+  @@index([memberId])
+  @@map("attendance")
+}
+
+// ---------------------------------------------------------------------------
+// Clases, profesores y reservas
+// ---------------------------------------------------------------------------
+
+model Instructor {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  userId         String?  @unique
+  name           String
+  email          String?
+  phone          String?
+  specialty      String?
+  hourlyRate     Float    @default(0)
+  classRate      Float    @default(0)
+  commissionPct  Float    @default(0)
+  color          String   @default("#0ea5e9")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?                 @relation(fields: [branchId], references: [id])
+  user         User?                   @relation(fields: [userId], references: [id])
+  availability InstructorAvailability[]
+  classes      GymClass[]
+  sessions     ClassSession[]
+  payments     InstructorPayment[]
+
+  @@unique([organizationId, name])
+  @@map("instructors")
+}
+
+model InstructorAvailability {
+  id           String @id @default(cuid())
+  instructorId String
+  weekday      Int // 0=domingo ... 6=sabado
+  startTime    String @default("08:00")
+  endTime      String @default("12:00")
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@map("instructor_availability")
+}
+
+model GymClass {
+  id           String   @id @default(cuid())
+  organizationId String
+  branchId     String
+  instructorId String?
+  name         String
+  description  String?
+  capacity     Int      @default(20)
+  durationMin  Int      @default(60)
+  room         String?
+  color        String   @default("#2563eb")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch          @relation(fields: [branchId], references: [id])
+  instructor   Instructor?     @relation(fields: [instructorId], references: [id])
+  sessions     ClassSession[]
+
+  @@unique([organizationId, branchId, name])
+  @@map("gym_classes")
+}
+
+// status: SCHEDULED | ONGOING | DONE | CANCELLED
+model ClassSession {
+  id           String   @id @default(cuid())
+  classId      String
+  branchId     String
+  instructorId String?
+  startAt      DateTime
+  endAt        DateTime
+  capacity     Int      @default(20)
+  room         String?
+  status       String   @default("SCHEDULED")
+  createdAt    DateTime @default(now())
+
+  gymClass     GymClass      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  instructor   Instructor?   @relation(fields: [instructorId], references: [id])
+  reservations Reservation[]
+
+  @@index([startAt])
+  @@map("class_sessions")
+}
+
+// status: RESERVED | ATTENDED | NO_SHOW | CANCELLED | WAITLIST
+model Reservation {
+  id           String   @id @default(cuid())
+  sessionId    String
+  memberId     String
+  status       String   @default("RESERVED")
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  session   ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member    Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation("ReservationCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([sessionId, memberId])
+  @@map("reservations")
+}
+
+// status: PENDING | PAID | CANCELLED
+model InstructorPayment {
+  id           String   @id @default(cuid())
+  instructorId String
+  periodStart  DateTime
+  periodEnd    DateTime
+  hours        Float    @default(0)
+  classesCount Int      @default(0)
+  rate         Float    @default(0)
+  commission   Float    @default(0)
+  amount       Float    @default(0)
+  status       String   @default("PENDING")
+  paidAt       DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@map("instructor_payments")
+}
+
+// ---------------------------------------------------------------------------
+// Equipos y mantenimiento
+// ---------------------------------------------------------------------------
+
+// status: OPERATIONAL | MAINTENANCE | OUT_OF_SERVICE | RETIRED
+model Equipment {
+  id             String    @id @default(cuid())
+  organizationId String
+  branchId       String
+  name           String
+  category       String?
+  brand          String?
+  model          String?
+  serialNumber   String?
+  location       String?
+  purchaseDate   DateTime?
+  warrantyUntil  DateTime?
+  status         String    @default("OPERATIONAL")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch             @relation(fields: [branchId], references: [id])
+  orders       MaintenanceOrder[]
+
+  @@map("equipment")
+}
+
+// type: PREVENTIVE | CORRECTIVE
+// status: OPEN | IN_PROGRESS | DONE | CANCELLED
+model MaintenanceOrder {
+  id          String    @id @default(cuid())
+  equipmentId String
+  type        String    @default("CORRECTIVE")
+  title       String
+  description String?
+  priority    String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  status      String    @default("OPEN")
+  assignedTo  String?
+  cost        Float     @default(0)
+  scheduledAt DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_orders")
+}
+
+// ---------------------------------------------------------------------------
+// Notificaciones y plantillas
+// ---------------------------------------------------------------------------
+
+// channel: WHATSAPP | EMAIL | PUSH | SMS
+// event: WELCOME | MEMBERSHIP_EXPIRING | MEMBERSHIP_EXPIRED | PAYMENT_CONFIRMATION | RENEWAL_REMINDER | DEBT_NOTICE | CUSTOM
+model NotificationTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  channel        String   @default("WHATSAPP")
+  event          String   @default("CUSTOM")
+  subject        String?
+  body           String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  @@unique([organizationId, name])
+  @@map("notification_templates")
+}
+
+// channel: WHATSAPP | EMAIL | PUSH | SMS
+// status: PENDING | SENT | FAILED | SCHEDULED
+model Notification {
+  id             String    @id @default(cuid())
+  organizationId String
+  memberId       String?
+  templateId     String?
+  channel        String    @default("WHATSAPP")
+  event          String    @default("CUSTOM")
+  toAddress      String?
+  subject        String?
+  body           String?
+  status         String    @default("PENDING")
+  provider       String?
+  providerId     String?
+  error          String?
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member?               @relation(fields: [memberId], references: [id])
+  template     NotificationTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Trazabilidad e importacion
+// ---------------------------------------------------------------------------
+
+model ActivityLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  userId         String?
+  action         String // CREATE | UPDATE | DELETE | LOGIN | VOID | ...
+  entity         String
+  entityId       String?
+  before         String? // JSON
+  after          String? // JSON
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, entity])
+  @@map("activity_logs")
+}
+
+// status: PROCESSING | DONE | FAILED
+model ImportBatch {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  userId         String?
+  entity         String   @default("MEMBER")
+  fileName       String?
+  totalRows      Int      @default(0)
+  successRows    Int      @default(0)
+  errorRows      Int      @default(0)
+  status         String   @default("PROCESSING")
+  errors         String? // JSON
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@map("import_batches")
+}
+
+// ---------------------------------------------------------------------------
+// Portal de socios (app movil)
+// ---------------------------------------------------------------------------
+
+// Credenciales de acceso del socio a la app movil.
+model PortalAccount {
+  id             String    @id @default(cuid())
+  organizationId String
+  memberId       String    @unique
+  email          String?
+  documentNumber String?
+  passwordHash   String?
+  activationCode String?
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  pushTokens   PushToken[]
+
+  @@index([organizationId])
+  @@map("portal_accounts")
+}
+
+// Tokens de notificaciones push de la app movil.
+model PushToken {
+  id              String   @id @default(cuid())
+  portalAccountId String
+  token           String   @unique
+  platform        String   @default("ANDROID") // ANDROID | IOS
+  createdAt       DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+
+  portalAccount PortalAccount @relation(fields: [portalAccountId], references: [id], onDelete: Cascade)
+
+  @@map("push_tokens")
+}
+
+// Rutinas de entrenamiento (plantilla o asignada a un socio).
+// goal: STRENGTH | CARDIO | LOSS | HYPERTROPHY | MOBILITY | OTHER
+model Routine {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String? // null = plantilla reutilizable
+  name           String
+  description    String?
+  goal           String   @default("OTHER")
+  level          String   @default("BEGINNER") // BEGINNER | INTERMEDIATE | ADVANCED
+  isTemplate     Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member?      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  days         RoutineDay[]
+
+  @@index([organizationId, memberId])
+  @@map("routines")
+}
+
+model RoutineDay {
+  id        String  @id @default(cuid())
+  routineId String
+  dayIndex  Int // 1..7
+  label     String?
+  notes     String?
+
+  routine   Routine           @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exercises RoutineExercise[]
+
+  @@unique([routineId, dayIndex])
+  @@map("routine_days")
+}
+
+model RoutineExercise {
+  id         String  @id @default(cuid())
+  dayId      String
+  name       String
+  sets       Int     @default(3)
+  reps       String  @default("10")
+  restSec    Int     @default(60)
+  weight     String?
+  notes      String?
+  orderIndex Int     @default(0)
+
+  day RoutineDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@map("routine_exercises")
+}
+
+// Novedades / comunicados del gimnasio para la app movil.
+model NewsPost {
+  id             String    @id @default(cuid())
+  organizationId String
+  branchId       String?
+  title          String
+  body           String
+  imageUrl       String?
+  isPublished    Boolean   @default(true)
+  publishedAt    DateTime  @default(now())
+  expiresAt      DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+
+  @@index([organizationId, isPublished])
+  @@map("news_posts")
+}
+
+// Intencion de pago de cuota desde la app movil.
+// method: MERCADOPAGO | TRANSFER
+// status: PENDING | PAID | REJECTED | EXPIRED | CANCELLED
+model PaymentIntent {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  membershipId   String?
+  amount         Float    @default(0)
+  currency       String   @default("ARS")
+  method         String   @default("MERCADOPAGO")
+  status         String   @default("PENDING")
+  concept        String   @default("MEMBERSHIP")
+  externalRef    String?  @unique
+  checkoutUrl    String?
+  providerId     String?
+  providerData   String?
+  proofUrl       String?
+  paidPaymentId  String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("payment_intents")
+}
+
+// ---------------------------------------------------------------------------
+// Licencias (instalacion del sistema + asientos de la app movil)
+// ---------------------------------------------------------------------------
+
+// plan: TRIAL | BASIC | PRO | ENTERPRISE
+// status: TRIAL | ACTIVE | EXPIRED | SUSPENDED
+model License {
+  id               String    @id @default(cuid())
+  installationId   String    @unique // huella del equipo/instalacion
+  organizationId   String?   @unique // licencia gestionada desde la web del gimnasio
+  licenseKey       String? // clave de activacion
+  plan             String    @default("TRIAL")
+  seats            Int       @default(10)
+  seatsUsed        Int       @default(0)
+  status           String    @default("TRIAL")
+  machineName      String?
+  activatedAt      DateTime?
+  expiresAt        DateTime?
+  lastCheckAt      DateTime?
+  licenseServerUrl String?
+  signature        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  events LicenseEvent[]
+
+  @@map("licenses")
+}
+
+// type: ACTIVATED | VALIDATED | CHECKIN | CHECKOUT | SUSPENDED | EXPIRED | SEAT_ADDED | SEAT_REMOVED
+model LicenseEvent {
+  id             String   @id @default(cuid())
+  licenseId      String
+  type           String   @default("VALIDATED")
+  seats          Int?
+  detail         String?
+  ip             String?
+  createdAt      DateTime @default(now())
+
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, createdAt])
+  @@map("license_events")
+}
