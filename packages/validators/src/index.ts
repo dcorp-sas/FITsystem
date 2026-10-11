@@ -118,6 +118,13 @@ export const memberImportRowSchema = z.object({
   branchName: z.string().optional(),
 });
 
+export const memberImportSchema = z.object({
+  csv: z.string().min(1, 'El CSV esta vacio'),
+  branchId: cuid.optional(),
+  defaultPlanId: cuid.optional(),
+  fileName: z.string().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Planes
 // ---------------------------------------------------------------------------

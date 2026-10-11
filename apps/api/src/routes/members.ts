@@ -1,9 +1,27 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
-import { memberSchema } from '@fitsystem/validators';
+import { memberSchema, memberImportSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
-import { churnRiskScore, daysBetween, fullName, memberCode } from '@fitsystem/utils';
+import { autoProvisionPortalAccount } from '../services/portal-account.js';
+import { addDays, churnRiskScore, daysBetween, fullName, memberCode } from '@fitsystem/utils';
+
+function normalizeHeader(header: string): string {
+  return header
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+function parseDate(value?: string): Date | null {
+  if (!value) return null;
+  const text = value.trim();
+  if (!text) return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -234,11 +252,133 @@ export function memberRoutes(app: FastifyInstance) {
       });
 
       await logActivity(req, 'CREATE', 'MEMBER', member.id, undefined, { code, name: fullName(member.firstName, member.lastName) });
-      return ok(reply, member, 201);
+      const portal = await autoProvisionPortalAccount({ organizationId: orgId, member });
+      return ok(reply, { ...member, portal }, 201);
     } catch (error) {
       return fail(reply, error);
     }
   });
+
+  // Importacion masiva de socios desde CSV (Nombre, Apellido, Documento, Email, Telefono)
+  app.post(
+    '/members/import-csv',
+    { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] },
+    async (request, reply) => {
+      try {
+        const req = request as AuthedRequest;
+        const input = validate(memberImportSchema, request.body);
+        const orgId = req.user.organizationId;
+
+        const branchId =
+          input.branchId ||
+          req.user.branchId ||
+          (await prisma.branch.findFirst({ where: { organizationId: orgId }, orderBy: { createdAt: 'asc' } }))?.id;
+        if (!branchId) throw new HttpError(400, 'No hay sede configurada');
+        const branch = await prisma.branch.findFirst({ where: { id: branchId, organizationId: orgId } });
+        if (!branch) throw new HttpError(400, 'Sede invalida');
+
+        const plan = input.defaultPlanId
+          ? await prisma.plan.findFirst({ where: { id: input.defaultPlanId, organizationId: orgId } })
+          : null;
+        if (input.defaultPlanId && !plan) throw new HttpError(400, 'Plan invalido');
+
+        const rows = parseCsv(input.csv);
+        if (rows.length < 2) throw new HttpError(400, 'El CSV debe tener encabezado y al menos una fila');
+
+        const header = rows[0]!.map(normalizeHeader);
+        const indexOf = (...names: string[]) => header.findIndex((h) => names.includes(h));
+        const iFirst = indexOf('nombre', 'firstname', 'nombres');
+        const iLast = indexOf('apellido', 'lastname', 'apellidos');
+        const iDoc = indexOf('documento', 'documentnumber', 'dni');
+        const iEmail = indexOf('email', 'correo', 'mail');
+        const iPhone = indexOf('telefono', 'phone', 'celular');
+        const iBirth = indexOf('fechanacimiento', 'nacimiento', 'birthdate');
+        if (iFirst < 0 && iLast < 0) throw new HttpError(400, 'El CSV debe tener columnas Nombre y Apellido');
+
+        let seq = await prisma.member.count({ where: { organizationId: orgId } });
+        const errors: { row: number; error?: string }[] = [];
+        const accounts: { member: string; username: string; password: string }[] = [];
+        let success = 0;
+
+        for (let r = 1; r < rows.length; r++) {
+          const cells = rows[r]!;
+          const fileRow = r + 1;
+          const cell = (i: number) => (i >= 0 ? (cells[i] ?? '').trim() : '');
+          const firstName = cell(iFirst) || cell(iLast);
+          const lastName = cell(iLast);
+          if (!firstName) {
+            errors.push({ row: fileRow, error: 'Falta el nombre' });
+            continue;
+          }
+          try {
+            seq += 1;
+            const member = await prisma.member.create({
+              data: {
+                organizationId: orgId,
+                branchId,
+                memberCode: memberCode(seq),
+                firstName,
+                lastName,
+                documentType: cell(iDoc) ? 'DNI' : null,
+                documentNumber: cell(iDoc) || null,
+                email: cell(iEmail) || null,
+                phone: cell(iPhone) || null,
+                birthDate: parseDate(cells[iBirth]),
+                status: 'ACTIVE',
+                createdBy: req.user.id,
+              },
+            });
+
+            if (plan) {
+              const startDate = new Date();
+              const endDate = addDays(startDate, Math.max(1, plan.durationDays) - 1);
+              await prisma.membership.create({
+                data: {
+                  organizationId: orgId,
+                  branchId,
+                  memberId: member.id,
+                  planId: plan.id,
+                  startDate,
+                  endDate,
+                  price: plan.price,
+                  status: 'ACTIVE',
+                  soldById: req.user.id,
+                },
+              });
+            }
+
+            const portal = await autoProvisionPortalAccount({ organizationId: orgId, member });
+            if (portal.created && portal.password) {
+              accounts.push({ member: member.memberCode, username: portal.username, password: portal.password });
+            }
+            success += 1;
+          } catch (error) {
+            errors.push({ row: fileRow, error: error instanceof Error ? error.message : 'Error al crear' });
+          }
+        }
+
+        const batch = await prisma.importBatch.create({
+          data: {
+            organizationId: orgId,
+            branchId,
+            userId: req.user.id,
+            entity: 'MEMBER',
+            fileName: input.fileName || null,
+            totalRows: rows.length - 1,
+            successRows: success,
+            errorRows: errors.length,
+            status: 'COMPLETED',
+            errors: errors.length ? JSON.stringify(errors) : null,
+          },
+        });
+
+        await logActivity(req, 'IMPORT', 'MEMBER', batch.id, undefined, { success, errors: errors.length });
+        return ok(reply, { total: rows.length - 1, success, errors, batchId: batch.id, accounts }, 201);
+      } catch (error) {
+        return fail(reply, error);
+      }
+    },
+  );
 
   app.put('/members/:id', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
     try {

@@ -69,6 +69,24 @@ services:
         sync: false
 
   # ---------------------------------------------------------------------------
+  # App del socio (PWA instalable) - export web de Expo.
+  # Reemplaza al APK de Android: el socio abre la URL y la "instala" desde el
+  # navegador (Agregar a pantalla de inicio). Apuntá EXPO_PUBLIC_API_URL a la API
+  # que consuma la app (la local del gimnasio o la API en la nube).
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: fitsystem-socios
+    runtime: static
+    rootDir: .
+    buildCommand: "corepack enable && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @fitsystem/mobile build:web"
+    staticPublishPath: apps/mobile/dist
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: EXPO_PUBLIC_API_URL
+        sync: false
+
+  # ---------------------------------------------------------------------------
   # (Opcional) API del gimnasio en la nube + PostgreSQL.
   # Requiere: apps/api/prisma/schema.prisma provider = "postgresql".
   # ---------------------------------------------------------------------------

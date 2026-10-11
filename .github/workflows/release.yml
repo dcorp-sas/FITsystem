@@ -1,0 +1,57 @@
+name: release
+
+# Publica los instaladores de Windows en GitHub Releases. La landing descarga
+# desde https://github.com/dcorp-sas/FITsystem/releases/latest/download/<archivo>,
+# por lo que los nombres de los assets deben coincidir exactamente.
+#
+# Uso: crear y subir un tag (ej. `git tag v0.1.0 && git push origin v0.1.0`),
+# o ejecutar este workflow manualmente desde la pestaña Actions.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Habilitar pnpm
+        run: corepack enable
+
+      - name: Instalar dependencias
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Compilar recursos y generar instaladores
+        run: pnpm --filter @fitsystem/desktop dist:win
+
+      - name: Normalizar nombres de los assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $setup = Get-ChildItem "apps/desktop/release/*Setup*.exe" | Select-Object -First 1
+          $portable = Get-ChildItem "apps/desktop/release/*Portable*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "No se encontró el instalador NSIS" }
+          Copy-Item $setup.FullName "out/FIT-System-Setup.exe"
+          if ($portable) { Copy-Item $portable.FullName "out/FIT-System-Portable.exe" }
+          Get-ChildItem out | Format-Table Name, Length
+
+      - name: Publicar en GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: FIT System ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            out/FIT-System-Setup.exe
+            out/FIT-System-Portable.exe

@@ -18,6 +18,8 @@ const LOG_FILE = path.join(os.tmpdir(), 'fitsystem-desktop.log');
 let apiProcess: ChildProcess | null = null;
 let webProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
+// Pantalla de activación opcional (respaldo). En uso normal la licencia se
+// administra desde Configuración > Licencia y no se muestra al ingresar.
 let activationWindow: BrowserWindow | null = null;
 let printServer: http.Server | null = null;
 let licenseInfo: LicenseInfo | null = null;
@@ -335,6 +337,7 @@ function startApi(): ChildProcess {
     DATABASE_URL: toFileUrl(dbPath),
     WEB_ORIGIN: `http://127.0.0.1:${WEB_PORT}`,
     JWT_SECRET: process.env.JWT_SECRET || 'fitsystem-desktop-secret-change-me',
+    LICENSE_INSTALLATION_ID: getInstallationId(),
   };
 
   log('Iniciando API en puerto', API_PORT);
@@ -551,32 +554,21 @@ app.whenReady().then(async () => {
   registerLicenseIpc();
 
   if (app.isPackaged && servicesReady) {
-    let usable = false;
     try {
       const info = await checkLicense();
-      // Se requiere una licencia activada (clave) ademas de ser utilizable.
-      usable = Boolean(info?.isUsable && info?.hasKey);
-      log('Estado de licencia:', info?.plan, info?.status, 'usable=', usable);
+      log('Estado de licencia al iniciar:', info?.plan, info?.status, 'usable=', info?.isUsable);
     } catch (err) {
       log('No se pudo validar la licencia:', (err as Error).message);
     }
-    if (usable) {
-      await createWindow();
-    } else {
-      log('Licencia no utilizable, mostrando pantalla de activacion');
-      await createActivationWindow();
-    }
-  } else {
-    await createWindow();
   }
+
+  // La licencia se administra desde Configuración > Licencia. No bloqueamos el
+  // ingreso: el sistema arranca en prueba hasta que el usuario pegue su clave.
+  await createWindow();
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      if (app.isPackaged && !(licenseInfo?.isUsable)) {
-        await createActivationWindow();
-      } else {
-        await createWindow();
-      }
+      await createWindow();
     }
   });
 });

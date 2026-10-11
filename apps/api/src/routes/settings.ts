@@ -4,7 +4,7 @@ import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.j
 import { logActivity } from '../lib/activity.js';
 import { getSettings, upsertSettings } from '../services/settings.js';
 
-const SECRET_KEYS = ['ACCESS_TOKEN', 'SECRET', 'PASSPHRASE', 'PRIVATE_KEY', 'API_KEY', 'TOKEN'];
+const SECRET_KEYS = ['ACCESS_TOKEN', 'SECRET', 'PASSPHRASE', 'PRIVATE_KEY', 'API_KEY', 'TOKEN', 'PASS', 'PASSWORD'];
 
 export function settingsRoutes(app: FastifyInstance) {
   const auth = app.authenticate;

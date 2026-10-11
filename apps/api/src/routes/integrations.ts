@@ -6,6 +6,8 @@ import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.j
 import { logActivity } from '../lib/activity.js';
 import { getRawSetting, getSettings } from '../services/settings.js';
 import { notifyEvent } from '../services/notifications.js';
+import { whatsappLink } from '../services/whatsapp.js';
+import { getSmtpConfig } from '../services/email.js';
 
 async function nextSequence(orgId: string, category: string, key: string): Promise<number> {
   const current = await getRawSetting(orgId, category, key);
@@ -30,6 +32,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const arca = settings.ARCA ?? {};
       const wa = settings.WHATSAPP ?? {};
       const print = settings.PRINT ?? {};
+      const smtp = await getSmtpConfig(req.user.organizationId);
       return ok(reply, {
         mercadopago: {
           configured: Boolean(mp.ACCESS_TOKEN || mp.PUBLIC_KEY || mp.STATIC_QR_PAYLOAD),
@@ -60,7 +63,32 @@ export function integrationRoutes(app: FastifyInstance) {
           ticketTemplate: print.TICKET_TEMPLATE ?? 'default',
           printOnPayment: print.PRINT_ON_PAYMENT === 'true',
         },
+        email: {
+          configured: Boolean(smtp),
+          host: smtp?.host ?? '',
+          port: smtp?.port ?? 587,
+          from: smtp?.from ?? '',
+        },
       });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Enlace click-to-chat de WhatsApp (wa.me) para un socio o un telefono suelto.
+  app.get('/integrations/whatsapp/link', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const q = request.query as { memberId?: string; message?: string; phone?: string };
+      let phone = q.phone ?? '';
+      if (!phone && q.memberId) {
+        const member = await prisma.member.findFirst({
+          where: { id: q.memberId, organizationId: req.user.organizationId },
+        });
+        phone = member?.phone ?? '';
+      }
+      const link = await whatsappLink(req.user.organizationId, phone, q.message ?? '');
+      return ok(reply, { link, phone });
     } catch (error) {
       return fail(reply, error);
     }
@@ -104,7 +132,33 @@ export function integrationRoutes(app: FastifyInstance) {
       if (!branchId) throw new HttpError(400, 'Se necesita una sede');
 
       const orderId = `QR-${Date.now().toString(36).toUpperCase()}`;
-      const payload = `fitsystem://pay?order=${orderId}&org=${orgId}&amount=${input.amount.toFixed(2)}&desc=${encodeURIComponent(input.description)}`;
+      let payload = `fitsystem://pay?order=${orderId}&org=${orgId}&amount=${input.amount.toFixed(2)}&desc=${encodeURIComponent(input.description)}`;
+      let providerId = orderId;
+      let checkoutUrl: string | null = null;
+
+      // Si hay Access Token, creamos una preferencia real en MercadoPago.
+      const accessToken = await getRawSetting(orgId, 'MERCADOPAGO', 'ACCESS_TOKEN');
+      if (accessToken) {
+        try {
+          const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: [{ title: input.description, quantity: 1, unit_price: input.amount, currency_id: 'ARS' }],
+              external_reference: input.externalReference ?? orderId,
+            }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { id?: string; init_point?: string; sandbox_init_point?: string };
+            checkoutUrl = data.init_point ?? data.sandbox_init_point ?? null;
+            providerId = data.id ?? orderId;
+            if (checkoutUrl) payload = checkoutUrl;
+          }
+        } catch {
+          // Sin conexion o token invalido: se usa el QR local simulado.
+        }
+      }
+
       const image = await QRCode.toDataURL(payload, { width: 512, margin: 1 });
 
       const payment = await prisma.payment.create({
@@ -117,15 +171,15 @@ export function integrationRoutes(app: FastifyInstance) {
           status: 'PENDING',
           amount: input.amount,
           reference: orderId,
-          providerId: orderId,
+          providerId,
           providerStatus: 'pending',
-          providerData: JSON.stringify({ description: input.description, externalReference: input.externalReference }),
+          providerData: JSON.stringify({ description: input.description, externalReference: input.externalReference, checkoutUrl, real: Boolean(checkoutUrl) }),
           receivedById: req.user.id,
           notes: `QR de cobro: ${input.description}`,
         },
       });
-      await logActivity(req, 'CREATE', 'MP_QR_ORDER', payment.id, undefined, { orderId, amount: input.amount });
-      return ok(reply, { orderId, payload, image, paymentId: payment.id, status: 'PENDING' }, 201);
+      await logActivity(req, 'CREATE', 'MP_QR_ORDER', payment.id, undefined, { orderId, amount: input.amount, real: Boolean(checkoutUrl) });
+      return ok(reply, { orderId, payload, image, paymentId: payment.id, checkoutUrl, status: 'PENDING' }, 201);
     } catch (error) {
       return fail(reply, error);
     }

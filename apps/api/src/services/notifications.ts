@@ -1,6 +1,8 @@
 import { prisma } from '../db.js';
 import { renderTemplate, fullName } from '@fitsystem/utils';
 import type { NotificationEvent } from '@fitsystem/types';
+import { whatsappLink } from './whatsapp.js';
+import { sendEmail } from './email.js';
 
 const DEFAULT_SE_VARIANTS: Record<NotificationEvent, string> = {
   WELCOME:
@@ -54,6 +56,31 @@ export async function notifyEvent(
     const channel = template?.channel ?? 'WHATSAPP';
     const body = template ? renderTemplate(template.body, vars) : renderDefault(event, vars);
     const subject = template?.subject ? renderTemplate(template.subject, vars) : null;
+    const toAddress = channel === 'EMAIL' ? member?.email ?? null : member?.phone ?? null;
+
+    let status = 'SENT';
+    let provider = 'SYSTEM';
+    let providerId: string | null = null;
+    let error: string | null = null;
+
+    if (channel === 'WHATSAPP') {
+      // Enlace click-to-chat (wa.me). El envio lo confirma la persona que lo abre.
+      if (member?.phone) {
+        provider = 'WHATSAPP_LINK';
+        providerId = await whatsappLink(organizationId, member.phone, body);
+        status = 'PENDING';
+      }
+    } else if (channel === 'EMAIL') {
+      const result = await sendEmail(organizationId, member?.email ?? null, subject, body);
+      if (result.ok) {
+        provider = 'SMTP';
+        status = 'SENT';
+      } else {
+        provider = 'SYSTEM';
+        status = 'PENDING';
+        error = result.error ?? null;
+      }
+    }
 
     await prisma.notification.create({
       data: {
@@ -62,12 +89,14 @@ export async function notifyEvent(
         templateId: template?.id ?? null,
         channel,
         event,
-        toAddress: channel === 'EMAIL' ? member?.email ?? null : member?.phone ?? null,
+        toAddress,
         subject,
         body,
-        status: 'SENT',
-        provider: 'SYSTEM',
-        sentAt: new Date(),
+        status,
+        provider,
+        providerId,
+        error,
+        sentAt: status === 'SENT' ? new Date() : null,
       },
     });
   } catch (err) {

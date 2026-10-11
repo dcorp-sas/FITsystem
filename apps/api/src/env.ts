@@ -23,4 +23,7 @@ export const env = {
   // Contacto para solicitar el código de licencia (se muestra en la app).
   LICENSE_CONTACT: process.env.LICENSE_CONTACT || 'contacto@fitsystem.app',
   LICENSE_SITE: process.env.LICENSE_SITE || 'https://fitsystem.onrender.com',
+  // ID de instalación (solo en el producto de escritorio). Cuando está presente,
+  // la licencia de la instalación se administra desde Configuración > Licencia.
+  LICENSE_INSTALLATION_ID: process.env.LICENSE_INSTALLATION_ID || '',
 };

@@ -22,15 +22,17 @@ interface IntegrationStatus {
   mercadopago: { configured: boolean; pointDeviceId: string; hasStaticQr: boolean };
   arca: { configured: boolean; cuit: string; puntoVenta: string; environment: string };
   whatsapp: { configured: boolean; businessPhone: string };
+  email: { configured: boolean; host: string; port: number; from: string };
 }
 
-type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp';
+type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
   { key: 'cobros', label: 'Cobros (MercadoPago)' },
   { key: 'arca', label: 'ARCA (Facturación)' },
   { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'email', label: 'Email (SMTP)' },
 ];
 
 export default function SettingsPage() {
@@ -94,8 +96,11 @@ export default function SettingsPage() {
               category="MERCADOPAGO"
               values={settings.MERCADOPAGO ?? {}}
               fields={[
+                { key: 'ACCESS_TOKEN', label: 'Access Token (secreto)', placeholder: 'APP_USR-...' },
+                { key: 'PUBLIC_KEY', label: 'Public Key', placeholder: 'APP_USR-...' },
                 { key: 'POINT_DEVICE_ID', label: 'ID del dispositivo Point' },
                 { key: 'STATIC_QR_PAYLOAD', label: 'Payload del QR estático', placeholder: 'fitsystem://pay?...' },
+                { key: 'TRANSFER_ALIAS', label: 'Alias/CBU para transferencias' },
               ]}
               onSaved={load}
               extra={<StaticQrCard status={status} />}
@@ -111,6 +116,8 @@ export default function SettingsPage() {
                 { key: 'CUIT', label: 'CUIT del emisor' },
                 { key: 'PUNTO_VENTA', label: 'Punto de venta' },
                 { key: 'ENVIRONMENT', label: 'Entorno (HOMOLOGACION / PRODUCCION)' },
+                { key: 'CERT', label: 'Certificado (PEM, secreto)' },
+                { key: 'PRIVATE_KEY', label: 'Clave privada (PEM, secreto)' },
               ]}
               onSaved={load}
             />
@@ -122,11 +129,30 @@ export default function SettingsPage() {
               category="WHATSAPP"
               values={settings.WHATSAPP ?? {}}
               fields={[
-                { key: 'BUSINESS_PHONE', label: 'Teléfono del negocio' },
-                { key: 'PHONE_NUMBER_ID', label: 'ID de número (Cloud API)' },
-                { key: 'ACCESS_TOKEN', label: 'Token de acceso (secreto)' },
+                { key: 'BUSINESS_PHONE', label: 'Teléfono del negocio (con código de país)', placeholder: '5491155551234' },
+                { key: 'WA_URL_BASE', label: 'Base del enlace', placeholder: 'https://wa.me' },
+                { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto' },
               ]}
               onSaved={load}
+              extra={<WhatsappCard status={status} />}
+            />
+          )}
+
+          {tab === 'email' && (
+            <CategoryForm
+              title="Email (SMTP)"
+              category="EMAIL"
+              values={settings.EMAIL ?? {}}
+              fields={[
+                { key: 'SMTP_HOST', label: 'Servidor SMTP', placeholder: 'smtp.tuproveedor.com' },
+                { key: 'SMTP_PORT', label: 'Puerto', placeholder: '587' },
+                { key: 'SMTP_SECURE', label: 'Conexión segura (true/false)', placeholder: 'false' },
+                { key: 'SMTP_USER', label: 'Usuario', placeholder: 'tu@correo.com' },
+                { key: 'SMTP_PASS', label: 'Contraseña (secreto)' },
+                { key: 'SMTP_FROM', label: 'Remitente', placeholder: 'FIT System <no-reply@tu.com>' },
+              ]}
+              onSaved={load}
+              extra={<EmailCard status={status} />}
             />
           )}
         </>
@@ -287,6 +313,56 @@ function CategoryForm({
   );
 }
 
+function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
+  const phone = status?.whatsapp.businessPhone ?? '';
+  const link = phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : '';
+  return (
+    <Card title="Enlace directo">
+      <div className="flex items-center gap-2 text-sm">
+        <Badge color={status?.whatsapp.configured ? 'green' : 'gray'}>
+          {status?.whatsapp.configured ? 'Configurado' : 'Sin configurar'}
+        </Badge>
+      </div>
+      <p className="mt-3 text-sm text-text-muted">
+        Los avisos generan un enlace <code>wa.me</code> que se abre desde el celular. Solo necesitás cargar el
+        teléfono del negocio con código de país (ej. <code>5491155551234</code>).
+      </p>
+      {link && (
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-dark"
+        >
+          Probar enlace de WhatsApp
+        </a>
+      )}
+    </Card>
+  );
+}
+
+function EmailCard({ status }: { status: IntegrationStatus | null }) {
+  return (
+    <Card title="Estado del correo">
+      <div className="flex items-center gap-2 text-sm">
+        <Badge color={status?.email.configured ? 'green' : 'gray'}>
+          {status?.email.configured ? 'Configurado' : 'Sin configurar'}
+        </Badge>
+      </div>
+      {status?.email.configured ? (
+        <p className="mt-3 text-sm text-text-muted">
+          Enviando desde <span className="text-text">{status.email.from}</span> vía {status.email.host}:
+          {status.email.port}.
+        </p>
+      ) : (
+        <p className="mt-3 text-sm text-text-muted">
+          Cargá los datos SMTP para enviar emails reales (bienvenida, avisos de vencimiento, etc.). Si no está
+          configurado, los avisos quedan registrados como pendientes.
+        </p>
+      )}
+    </Card>
+  );
+}
 function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
   const toast = useToast();
   const { branches, activeBranchId } = useAuth();

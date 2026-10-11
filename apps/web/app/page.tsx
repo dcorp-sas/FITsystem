@@ -14,7 +14,7 @@ const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/do
 const TRIAL_DAYS = 7;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
 const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
-const APK_URL = `${DOWNLOAD_BASE}/FIT-System-Android.apk`;
+const PWA_URL = 'https://fitsystem-socios.onrender.com';
 
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
@@ -403,10 +403,10 @@ export default function LandingPage() {
               {
                 icon: 'mobile' as IconName,
                 title: 'App del socio',
-                text: 'Android. Cada socio ve su cuota, rutinas, novedades y paga desde el celular.',
-                cta: 'Descargar APK',
-                href: APK_URL,
-                note: 'Se habilita según los socios de tu licencia',
+                text: 'Se instala desde el navegador (PWA). Cada socio ve su cuota, rutinas, novedades y paga desde el celular.',
+                cta: 'Instalar app del socio',
+                href: PWA_URL,
+                note: 'Sin descargas: abrila y "Agregar a pantalla de inicio"',
               },
               {
                 icon: 'reports' as IconName,

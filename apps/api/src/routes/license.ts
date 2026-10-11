@@ -22,6 +22,23 @@ function requireAdminKey(headers: Record<string, unknown>) {
   }
 }
 
+// ID de instalación efectivo: el provisto (query/body) o el de la instalación
+// embebida por el producto de escritorio.
+function resolveInstallationId(value?: string | null): string {
+  const id = (value ?? '').trim() || env.LICENSE_INSTALLATION_ID;
+  if (!id) throw new HttpError(400, 'Falta installationId');
+  return id;
+}
+
+function licenseConfigPayload() {
+  return {
+    trialDays: env.LICENSE_TRIAL_DAYS,
+    contact: env.LICENSE_CONTACT,
+    site: env.LICENSE_SITE,
+    online: Boolean(env.LICENSE_SERVER),
+  };
+}
+
 export function licenseRoutes(app: FastifyInstance) {
   // Planes disponibles
   app.get('/license/plans', async (_request, reply) => {
@@ -38,8 +55,8 @@ export function licenseRoutes(app: FastifyInstance) {
   app.get('/license/status', async (request, reply) => {
     try {
       const { installationId } = request.query as { installationId?: string };
-      if (!installationId) throw new HttpError(400, 'Falta installationId');
-      const license = await prisma.license.findUnique({ where: { installationId } });
+      const id = resolveInstallationId(installationId);
+      const license = await prisma.license.findUnique({ where: { installationId: id } });
       if (!license) {
         return ok(reply, {
           activated: false,
@@ -56,7 +73,7 @@ export function licenseRoutes(app: FastifyInstance) {
   app.post('/license/activate', async (request, reply) => {
     try {
       const input = validate(licenseActivateSchema, request.body);
-      const license = await activateLicense(input.installationId, input.licenseKey, input.machineName ?? null);
+      const license = await activateLicense(resolveInstallationId(input.installationId), input.licenseKey, input.machineName ?? null);
       return ok(reply, { activated: true, info: licenseInfo(license) });
     } catch (error) {
       return fail(reply, error);
@@ -67,15 +84,10 @@ export function licenseRoutes(app: FastifyInstance) {
   app.post('/license/validate', async (request, reply) => {
     try {
       const input = validate(licenseValidateSchema, request.body);
-      const license = await validateLicense(input.installationId, input.licenseKey ?? null);
+      const license = await validateLicense(resolveInstallationId(input.installationId), input.licenseKey ?? null);
       return ok(reply, {
         info: licenseInfo(license),
-        config: {
-          trialDays: env.LICENSE_TRIAL_DAYS,
-          contact: env.LICENSE_CONTACT,
-          site: env.LICENSE_SITE,
-          online: Boolean(env.LICENSE_SERVER),
-        },
+        config: licenseConfigPayload(),
       });
     } catch (error) {
       return fail(reply, error);
@@ -164,6 +176,92 @@ export function licenseRoutes(app: FastifyInstance) {
       });
       await prisma.licenseEvent.create({
         data: { licenseId: license.id, type: 'ACTIVATED', seats: license.seats, detail: `Plan ${parsed.plan} (web)` },
+      });
+      await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: parsed.plan });
+      return ok(reply, { activated: true, info: licenseInfo(license) });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Licencia "actual" para la pagina de Configuracion. En el producto de
+  // escritorio administra la licencia de la instalacion; en la nube, la de la
+  // organizacion. Asi el usuario activa/renueva desde Configuracion sin bloqueos.
+  app.get('/license/current', { onRequest: [app.authenticate] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const installationId = env.LICENSE_INSTALLATION_ID;
+      if (installationId) {
+        const license = await prisma.license.findUnique({ where: { installationId } });
+        const used = license ? await seatUsage(req.user.organizationId) : 0;
+        const info = license
+          ? licenseInfo(license)
+          : { plan: 'TRIAL', seats: LICENSE_PLANS.TRIAL.seats, status: 'UNACTIVATED', expiresAt: null, daysLeft: null, isUsable: false, hasKey: false };
+        return ok(reply, {
+          mode: 'installation',
+          installationId,
+          activated: Boolean(license),
+          info,
+          seats: { used, total: license?.seats ?? LICENSE_PLANS.TRIAL.seats },
+          config: licenseConfigPayload(),
+        });
+      }
+      const license = await prisma.license.findUnique({ where: { organizationId: req.user.organizationId } });
+      const used = await seatUsage(req.user.organizationId);
+      const info = license
+        ? licenseInfo(license)
+        : { plan: 'TRIAL', seats: 0, status: 'UNACTIVATED', expiresAt: null, daysLeft: null, isUsable: false, hasKey: false };
+      return ok(reply, {
+        mode: 'organization',
+        installationId: null,
+        activated: Boolean(license),
+        info,
+        seats: { used, total: license?.seats ?? 0 },
+        config: licenseConfigPayload(),
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post('/license/current', { onRequest: [app.authenticate, app.requireRoles(['OWNER', 'ADMIN'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = validate(orgLicenseActivateSchema, request.body);
+      const installationId = env.LICENSE_INSTALLATION_ID;
+      if (installationId) {
+        const license = await activateLicense(installationId, input.licenseKey, input.machineName ?? null);
+        await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: license.plan });
+        return ok(reply, { activated: true, info: licenseInfo(license) });
+      }
+      const parsed = parseLicenseKey(input.licenseKey);
+      const license = await prisma.license.upsert({
+        where: { organizationId: req.user.organizationId },
+        create: {
+          installationId: `org:${req.user.organizationId}`,
+          organizationId: req.user.organizationId,
+          licenseKey: input.licenseKey,
+          plan: parsed.plan,
+          seats: parsed.seats,
+          status: 'ACTIVE',
+          client: parsed.client,
+          machineName: input.machineName ?? null,
+          activatedAt: new Date(),
+          expiresAt: parsed.expiresAt,
+          lastCheckAt: new Date(),
+        },
+        update: {
+          licenseKey: input.licenseKey,
+          plan: parsed.plan,
+          seats: parsed.seats,
+          status: 'ACTIVE',
+          client: parsed.client,
+          expiresAt: parsed.expiresAt,
+          lastCheckAt: new Date(),
+        },
+      });
+      await prisma.licenseEvent.create({
+        data: { licenseId: license.id, type: 'ACTIVATED', seats: license.seats, detail: `Plan ${parsed.plan} (config)` },
       });
       await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: parsed.plan });
       return ok(reply, { activated: true, info: licenseInfo(license) });

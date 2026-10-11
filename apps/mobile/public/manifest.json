@@ -1,0 +1,32 @@
+{
+  "short_name": "FIT Socios",
+  "name": "FIT System — App del socio",
+  "description": "Tu cuota, rutinas, novedades y pagos del gimnasio, en el celular.",
+  "lang": "es-AR",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0b1120",
+  "background_color": "#0b1120",
+  "icons": [
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

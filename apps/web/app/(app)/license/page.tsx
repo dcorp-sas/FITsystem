@@ -18,9 +18,12 @@ interface LicenseInfo {
 }
 
 interface LicenseResponse {
+  mode: 'installation' | 'organization';
+  installationId: string | null;
   activated: boolean;
   info: LicenseInfo;
   seats: { used: number; total: number };
+  config: { trialDays: number; contact: string; site: string; online: boolean };
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,7 +44,7 @@ export default function LicensePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setData(await http.get<LicenseResponse>('/license/org'));
+      setData(await http.get<LicenseResponse>('/license/current'));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al cargar la licencia');
     } finally {
@@ -57,7 +60,7 @@ export default function LicensePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await http.post('/license/org', { licenseKey: key.trim() });
+      await http.post('/license/current', { licenseKey: key.trim() });
       toast.success('Licencia activada');
       setKey('');
       load();
@@ -137,10 +140,32 @@ export default function LicensePage() {
             </Button>
           </form>
 
+          {!info?.hasKey && (
+            <p className="mt-4 text-xs text-text-muted">
+              Estas en periodo de prueba{data?.config?.trialDays ? ` (${data.config.trialDays} días)` : ''}. Podes seguir usando el
+              sistema y activarlo cuando quieras.
+            </p>
+          )}
+
           {info?.hasKey && (
             <div className="mt-4 flex items-center gap-2 border-t border-line pt-4 text-xs text-text-muted">
               <Badge color="blue">Clave activa</Badge>
               <span>La licencia actual esta registrada. Podes reemplazarla con una nueva clave.</span>
+            </div>
+          )}
+
+          {(data?.installationId || data?.config?.contact) && (
+            <div className="mt-4 space-y-1 border-t border-line pt-4 text-[11px] leading-relaxed text-text-muted">
+              {data?.installationId && (
+                <div className="break-all">
+                  <span className="text-text-muted/70">ID de instalación:</span> {data.installationId}
+                </div>
+              )}
+              {(data?.config?.contact || data?.config?.site) && (
+                <div>
+                  <span className="text-text-muted/70">Contacto:</span> {data.config.contact || data.config.site}
+                </div>
+              )}
             </div>
           )}
         </Card>
