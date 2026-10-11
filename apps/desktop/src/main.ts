@@ -378,7 +378,9 @@ async function createWindow() {
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
 
-  const url = app.isPackaged ? `http://127.0.0.1:${WEB_PORT}/` : 'http://localhost:3000';
+  const url = app.isPackaged
+    ? `http://127.0.0.1:${WEB_PORT}/dashboard`
+    : 'http://localhost:3000/dashboard';
   try {
     await mainWindow.loadURL(url);
   } catch (err) {
