@@ -32,8 +32,11 @@ jobs:
       - name: Instalar dependencias
         run: pnpm install --no-frozen-lockfile
 
-      - name: Compilar recursos y generar instaladores
+      - name: Compilar recursos y generar instaladores del panel
         run: pnpm --filter @fitsystem/desktop dist:win
+
+      - name: Generar instaladores del kiosco de acceso
+        run: pnpm --filter @fitsystem/access-gate-desktop dist:win
 
       - name: Normalizar nombres de los assets
         shell: pwsh
@@ -44,6 +47,10 @@ jobs:
           if (-not $setup) { throw "No se encontró el instalador NSIS" }
           Copy-Item $setup.FullName "out/FIT-System-Setup.exe"
           if ($portable) { Copy-Item $portable.FullName "out/FIT-System-Portable.exe" }
+          $gateSetup = Get-ChildItem "apps/access-gate-desktop/release/*Setup*.exe" | Select-Object -First 1
+          $gatePortable = Get-ChildItem "apps/access-gate-desktop/release/*Portable*.exe" | Select-Object -First 1
+          if ($gateSetup) { Copy-Item $gateSetup.FullName "out/FIT-System-Acceso-Setup.exe" }
+          if ($gatePortable) { Copy-Item $gatePortable.FullName "out/FIT-System-Acceso-Portable.exe" }
           Get-ChildItem out | Format-Table Name, Length
 
       - name: Publicar en GitHub Releases
@@ -55,3 +62,5 @@ jobs:
           files: |
             out/FIT-System-Setup.exe
             out/FIT-System-Portable.exe
+            out/FIT-System-Acceso-Setup.exe
+            out/FIT-System-Acceso-Portable.exe
