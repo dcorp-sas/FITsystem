@@ -99,6 +99,8 @@ const pruneTargets = [
   path.join(stagingApi, 'node_modules', '@prisma', 'fetch-engine'),
   path.join(stagingApi, 'node_modules', '@prisma', 'get-platform'),
   path.join(stagingApi, '.env'),
+  path.join(stagingApi, 'prisma', 'dev.db'),
+  path.join(stagingApi, 'prisma', 'dev.db-journal'),
 ];
 for (const target of pruneTargets) {
   if (fs.existsSync(target)) {
