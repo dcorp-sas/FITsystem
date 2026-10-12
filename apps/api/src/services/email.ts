@@ -12,15 +12,15 @@ export interface SmtpConfig {
 
 /** Lee la configuracion SMTP de la organizacion (categoria EMAIL). null si no hay host. */
 export async function getSmtpConfig(orgId: string): Promise<SmtpConfig | null> {
-  const host = await getRawSetting(orgId, 'EMAIL', 'SMTP_HOST');
+  const host = await getRawSetting(orgId, 'SMTP', 'SMTP_HOST');
   if (!host) return null;
-  const rawPort = await getRawSetting(orgId, 'EMAIL', 'SMTP_PORT');
+  const rawPort = await getRawSetting(orgId, 'SMTP', 'SMTP_PORT');
   const port = Number(rawPort || '587') || 587;
-  const rawSecure = await getRawSetting(orgId, 'EMAIL', 'SMTP_SECURE');
-  const user = (await getRawSetting(orgId, 'EMAIL', 'SMTP_USER')) || '';
-  const pass = (await getRawSetting(orgId, 'EMAIL', 'SMTP_PASS')) || '';
+  const rawSecure = await getRawSetting(orgId, 'SMTP', 'SMTP_SECURE');
+  const user = (await getRawSetting(orgId, 'SMTP', 'SMTP_USER')) || '';
+  const pass = (await getRawSetting(orgId, 'SMTP', 'SMTP_PASS')) || '';
   const from =
-    (await getRawSetting(orgId, 'EMAIL', 'SMTP_FROM')) || user || 'FIT System <no-reply@fitsystem.app>';
+    (await getRawSetting(orgId, 'SMTP', 'SMTP_FROM')) || user || 'FIT System <no-reply@fitsystem.app>';
   const secure = rawSecure ? rawSecure === 'true' : port === 465;
   return { host, port, secure, user, pass, from };
 }

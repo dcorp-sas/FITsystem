@@ -30,6 +30,7 @@ import portalRoutes from './routes/portal.js';
 import routineRoutes from './routes/routines.js';
 import newsRoutes from './routes/news.js';
 import portalAdminRoutes from './routes/portal-admin.js';
+import { runRemindersForAllOrgs } from './services/notifications.js';
 
 export async function buildServer() {
   const app = Fastify({
@@ -104,10 +105,25 @@ async function start() {
     await ensureSchema();
     await app.listen({ port: env.API_PORT, host: env.API_HOST });
     console.log(`FIT System API escuchando en http://localhost:${env.API_PORT}`);
+    startReminderScheduler();
   } catch (error) {
     app.log.error(error);
     process.exit(1);
   }
+}
+
+/** Recordatorios de cuotas: una corrida al iniciar y luego cada 24 horas. */
+function startReminderScheduler() {
+  const run = async () => {
+    try {
+      const created = await runRemindersForAllOrgs(3);
+      if (created > 0) console.log(`[api] recordatorios de cuota generados: ${created}`);
+    } catch (error) {
+      console.error('[api] error en recordatorios', error);
+    }
+  };
+  setTimeout(run, 20000);
+  setInterval(run, 24 * 60 * 60 * 1000);
 }
 
 const here = fileURLToPath(import.meta.url).replace(/\\/g, '/');

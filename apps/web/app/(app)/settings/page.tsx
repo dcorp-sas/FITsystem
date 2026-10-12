@@ -20,7 +20,7 @@ type SettingsMap = Record<string, Record<string, string>>;
 
 interface IntegrationStatus {
   mercadopago: { configured: boolean; pointDeviceId: string; hasStaticQr: boolean };
-  arca: { configured: boolean; cuit: string; puntoVenta: string; environment: string };
+  arca: { configured: boolean; mode: string; cuit: string; puntoVenta: string; environment: string; hasCertificate: boolean };
   whatsapp: { configured: boolean; businessPhone: string };
   email: { configured: boolean; host: string; port: number; from: string };
 }
@@ -120,6 +120,7 @@ export default function SettingsPage() {
                 { key: 'PRIVATE_KEY', label: 'Clave privada (PEM, secreto)' },
               ]}
               onSaved={load}
+              extra={<ArcaCard status={status} />}
             />
           )}
 
@@ -141,8 +142,8 @@ export default function SettingsPage() {
           {tab === 'email' && (
             <CategoryForm
               title="Email (SMTP)"
-              category="EMAIL"
-              values={settings.EMAIL ?? {}}
+              category="SMTP"
+              values={settings.SMTP ?? {}}
               fields={[
                 { key: 'SMTP_HOST', label: 'Servidor SMTP', placeholder: 'smtp.tuproveedor.com' },
                 { key: 'SMTP_PORT', label: 'Puerto', placeholder: '587' },
@@ -310,6 +311,45 @@ function CategoryForm({
       </Card>
       {extra}
     </div>
+  );
+}
+
+function ArcaCard({ status }: { status: IntegrationStatus | null }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const mode = status?.arca.mode ?? 'mock';
+
+  async function test() {
+    setBusy(true);
+    try {
+      const res = await http.post<{ ok: boolean; mode: string; detail: string }>('/integrations/arca/test', {});
+      setResult(res.detail);
+      toast.success(res.ok ? 'Conexión con ARCA verificada' : 'Revisá la configuración de ARCA');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al probar ARCA');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Estado de facturación">
+      <div className="flex items-center gap-2 text-sm">
+        <Badge color={mode === 'real' ? 'green' : 'gray'}>
+          {mode === 'real' ? 'CAE real (certificado cargado)' : 'Numeración interna'}
+        </Badge>
+      </div>
+      <p className="mt-3 text-sm text-text-muted">
+        {mode === 'real'
+          ? 'Se emiten comprobantes reales contra ARCA (WSAA/WSFE).'
+          : 'Sin certificado: los comprobantes usan numeración interna. Cargá certificado y clave privada para emitir CAE reales.'}
+      </p>
+      <Button onClick={test} disabled={busy} className="mt-4">
+        {busy ? 'Probando...' : 'Probar conexión ARCA'}
+      </Button>
+      {result && <p className="mt-3 text-sm text-text-muted">{result}</p>}
+    </Card>
   );
 }
 

@@ -30,8 +30,12 @@ export function attendanceRoutes(app: FastifyInstance) {
 
       let memberId = input.memberId ?? null;
       if (!memberId && input.qr) {
+        const code = String(input.qr).trim();
         const member = await prisma.member.findFirst({
-          where: { memberCode: String(input.qr).trim(), organizationId: orgId },
+          where: {
+            organizationId: orgId,
+            OR: [{ memberCode: code }, { documentNumber: code }],
+          },
         });
         memberId = member?.id ?? null;
       }

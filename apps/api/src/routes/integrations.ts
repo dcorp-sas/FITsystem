@@ -8,6 +8,7 @@ import { getRawSetting, getSettings } from '../services/settings.js';
 import { notifyEvent } from '../services/notifications.js';
 import { whatsappLink } from '../services/whatsapp.js';
 import { getSmtpConfig } from '../services/email.js';
+import { getArcaConfig, arcaMode, arcaEmitir, arcaTest, arcaDummy, type CbteTipo } from '../services/arca.js';
 
 async function nextSequence(orgId: string, category: string, key: string): Promise<number> {
   const current = await getRawSetting(orgId, category, key);
@@ -33,6 +34,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const wa = settings.WHATSAPP ?? {};
       const print = settings.PRINT ?? {};
       const smtp = await getSmtpConfig(req.user.organizationId);
+      const arcaCfg = await getArcaConfig(req.user.organizationId);
       return ok(reply, {
         mercadopago: {
           configured: Boolean(mp.ACCESS_TOKEN || mp.PUBLIC_KEY || mp.STATIC_QR_PAYLOAD),
@@ -44,10 +46,11 @@ export function integrationRoutes(app: FastifyInstance) {
         },
         arca: {
           configured: Boolean(arca.CUIT && arca.PUNTO_VENTA),
+          mode: arcaCfg.hasCert && arcaCfg.hasKey ? 'real' : 'mock',
           cuit: arca.CUIT ?? '',
           puntoVenta: arca.PUNTO_VENTA ?? '',
           environment: arca.ENVIRONMENT ?? 'HOMOLOGACION',
-          cassaRiferimento: arca.CASSA_RIFERIMENTO ?? '',
+          hasCertificate: arcaCfg.hasCert,
         },
         whatsapp: {
           configured: Boolean(wa.BUSINESS_PHONE || wa.WA_URL_BASE),
@@ -284,7 +287,7 @@ export function integrationRoutes(app: FastifyInstance) {
     }
   });
 
-  // ---------- ARCA (ex AFIP): comprobantes internos ----------
+  // ---------- ARCA (ex AFIP): comprobantes (CAE real si hay certificado) ----------
   app.post('/integrations/arca/invoices', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'ACCOUNTANT'])] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
@@ -302,19 +305,43 @@ export function integrationRoutes(app: FastifyInstance) {
       if (!payment) throw new HttpError(404, 'Pago no encontrado');
       if (payment.invoiceNumber) throw new HttpError(409, `El pago ya tiene comprobante ${payment.invoiceNumber}`);
 
-      const seq = await nextSequence(orgId, 'ARCA', `SEQ_${input.invoiceType}`);
-      const invoiceNumber = String(seq).padStart(8, '0');
-      const fullNumber = `${String(puntoVenta).padStart(5, '0')}-${invoiceNumber}`;
-
       const iva = payment.amount * 0.21;
       const net = payment.amount - iva;
 
+      const mode = await arcaMode(orgId);
+      let fullNumber: string;
+      let cae: string | null = null;
+      let caeVenc: string | null = null;
+
+      if (mode === 'real') {
+        const result = await arcaEmitir(orgId, {
+          tipo: input.invoiceType as CbteTipo,
+          total: payment.amount,
+          neto: net,
+          iva,
+        });
+        fullNumber = `${String(result.ptoVta).padStart(5, '0')}-${String(result.numero).padStart(8, '0')}`;
+        cae = result.cae;
+        caeVenc = result.venc;
+      } else {
+        const seq = await nextSequence(orgId, 'ARCA', `SEQ_${input.invoiceType}`);
+        fullNumber = `${String(puntoVenta).padStart(5, '0')}-${String(seq).padStart(8, '0')}`;
+      }
+
+      let providerData: Record<string, unknown> = {};
+      try {
+        providerData = payment.providerData ? (JSON.parse(payment.providerData) as Record<string, unknown>) : {};
+      } catch {
+        providerData = {};
+      }
+      providerData.arca = { mode, cae, caeVenc, cuit, puntoVenta: Number(puntoVenta) };
+
       const updated = await prisma.payment.update({
         where: { id: payment.id },
-        data: { invoiceNumber: fullNumber, invoiceStatus: 'ISSUED' },
+        data: { invoiceNumber: fullNumber, invoiceStatus: 'ISSUED', providerData: JSON.stringify(providerData) },
       });
 
-      await logActivity(req, 'ISSUE', 'ARCA_INVOICE', payment.id, undefined, { invoiceNumber: fullNumber, amount: payment.amount });
+      await logActivity(req, 'ISSUE', 'ARCA_INVOICE', payment.id, undefined, { invoiceNumber: fullNumber, amount: payment.amount, mode, cae });
 
       return ok(
         reply,
@@ -323,6 +350,9 @@ export function integrationRoutes(app: FastifyInstance) {
           type: input.invoiceType,
           puntoVenta,
           cuit,
+          cae,
+          caeVenc,
+          mode,
           date: new Date(),
           amount: payment.amount,
           net,
@@ -337,6 +367,28 @@ export function integrationRoutes(app: FastifyInstance) {
         },
         201,
       );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Prueba de conexion con ARCA (WSAA). No emite comprobante.
+  app.post('/integrations/arca/test', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'ACCOUNTANT'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const result = await arcaTest(req.user.organizationId);
+      return ok(reply, result);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Estado de servidores de ARCA (FEDummy).
+  app.get('/integrations/arca/dummy', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'ACCOUNTANT'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const result = await arcaDummy(req.user.organizationId);
+      return ok(reply, result);
     } catch (error) {
       return fail(reply, error);
     }

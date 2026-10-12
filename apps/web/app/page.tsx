@@ -34,8 +34,8 @@ const MODULES: { icon: IconName; title: string; text: string }[] = [
   { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, en tiempo real.' },
   { icon: 'branches', title: 'Multi-sucursal', text: 'Administrá todas tus sedes desde un mismo sistema, con datos separados.' },
   { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas directo a la app del socio.' },
-  { icon: 'news', title: 'Novedades', text: 'Publicá novedades, promos y avisos que llegan al instante al celular de tus socios.' },
-  { icon: 'mobile', title: 'App del socio', text: 'Cada socio ve su cuota, paga, reserva y consulta su rutina desde el celular.' },
+  { icon: 'news', title: 'Novedades', text: 'Publicá novedades, promos y avisos que tus socios ven en la app del socio.' },
+  { icon: 'mobile', title: 'App del socio', text: 'Cada socio ve su cuota, paga su membresía y consulta su rutina y las novedades desde el celular.' },
 ];
 
 const STEPS = [
@@ -95,7 +95,7 @@ const FAQS = [
   },
   {
     q: '¿Qué es la app del socio?',
-    a: 'Es una aplicación móvil donde cada socio ve el estado de su cuota, realiza pagos, consulta su rutina, recibe novedades y hace check-in. Se habilita según los asientos que incluye tu licencia.',
+    a: 'Es una aplicación móvil donde cada socio ve el estado de su cuota, realiza pagos, consulta su rutina y recibe las novedades. Se habilita según los asientos que incluye tu licencia.',
   },
   {
     q: '¿Cómo funciona la licencia?',

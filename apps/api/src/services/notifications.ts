@@ -1,5 +1,5 @@
 import { prisma } from '../db.js';
-import { renderTemplate, fullName } from '@fitsystem/utils';
+import { renderTemplate, fullName, startOfDay } from '@fitsystem/utils';
 import type { NotificationEvent } from '@fitsystem/types';
 import { whatsappLink } from './whatsapp.js';
 import { sendEmail } from './email.js';
@@ -117,6 +117,11 @@ export async function generateReminders(organizationId: string, days = 3) {
   let created = 0;
   for (const m of memberships) {
     const expiring = m.endDate >= now;
+    const event: NotificationEvent = expiring ? 'MEMBERSHIP_EXPIRING' : 'MEMBERSHIP_EXPIRED';
+    const already = await prisma.notification.findFirst({
+      where: { organizationId, memberId: m.memberId, event, createdAt: { gte: startOfDay() } },
+    });
+    if (already) continue;
     const vars: Vars = {
       memberId: m.memberId,
       plan: m.plan.name,
@@ -124,7 +129,21 @@ export async function generateReminders(organizationId: string, days = 3) {
       amount: m.price - m.discount,
     };
     created++;
-    await notifyEvent(organizationId, m.memberId, expiring ? 'MEMBERSHIP_EXPIRING' : 'MEMBERSHIP_EXPIRED', vars);
+    await notifyEvent(organizationId, m.memberId, event, vars);
   }
   return created;
+}
+
+/** Ejecuta los recordatorios para todas las organizaciones (usado por el planificador). */
+export async function runRemindersForAllOrgs(days = 3): Promise<number> {
+  const orgs = await prisma.organization.findMany({ select: { id: true } });
+  let total = 0;
+  for (const org of orgs) {
+    try {
+      total += await generateReminders(org.id, days);
+    } catch (err) {
+      console.error('error al generar recordatorios', org.id, err);
+    }
+  }
+  return total;
 }

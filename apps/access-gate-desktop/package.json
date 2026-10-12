@@ -1,0 +1,55 @@
+{
+  "name": "@fitsystem/access-gate-desktop",
+  "productName": "FIT System Acceso",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron .",
+    "build:main": "tsup src/main.ts --format esm --out-dir dist --external electron && tsup src/preload.ts --format esm --out-dir dist --external electron",
+    "build": "pnpm run build:main",
+    "typecheck": "tsc --noEmit",
+    "start": "electron .",
+    "dist:win": "pnpm run build:main && electron-builder --win --x64 --publish never"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  },
+  "build": {
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main.js",
+      "dist/preload.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "productName": "FIT System Acceso",
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "signAndEditExecutable": false
+    },
+    "appId": "com.dcorp.fitsystem.gate",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "FIT-System-Acceso-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "FIT-System-Acceso-Portable.exe"
+    }
+  }
+}

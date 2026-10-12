@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIT System Acceso</title>
+    <style>
+      :root {
+        --bg: #0b1120;
+        --panel: #131c31;
+        --border: #23324f;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --primary: #3b82f6;
+        --green: #16a34a;
+        --red: #dc2626;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 22px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      header .brand { font-weight: 700; letter-spacing: .3px; }
+      header .meta { color: var(--muted); font-size: 14px; display: flex; gap: 16px; align-items: center; }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: #1c2942;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px 16px;
+      }
+      button.primary { background: var(--primary); border-color: var(--primary); color: white; }
+      button:disabled { opacity: .6; cursor: default; }
+      input {
+        font: inherit;
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0f172a;
+        color: var(--text);
+      }
+      .center { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+      .card {
+        width: 100%;
+        max-width: 460px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 26px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .card h1 { margin: 0 0 6px; font-size: 20px; }
+      .card label { font-size: 13px; color: var(--muted); margin-bottom: -8px; }
+      .error { color: #fca5a5; font-size: 14px; min-height: 18px; }
+      .branch-list { display: flex; flex-direction: column; gap: 10px; }
+
+      #gate { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 24px; text-align: center; }
+      #reader {
+        width: 100%;
+        max-width: 520px;
+        font-size: 18px;
+        text-align: center;
+        letter-spacing: 2px;
+      }
+      .hint { color: var(--muted); font-size: 15px; }
+      .result { display: none; width: 100%; max-width: 720px; border-radius: 20px; padding: 36px; border: 2px solid var(--border); }
+      .result.show { display: block; }
+      .result.allowed { border-color: var(--green); background: rgba(22,163,74,.12); }
+      .result.rejected { border-color: var(--red); background: rgba(220,38,38,.12); }
+      .result .tag { font-size: 44px; font-weight: 800; letter-spacing: 2px; }
+      .result.allowed .tag { color: #4ade80; }
+      .result.rejected .tag { color: #f87171; }
+      .result .name { font-size: 30px; font-weight: 700; margin-top: 10px; }
+      .result .plan { color: var(--muted); font-size: 18px; margin-top: 8px; }
+      .result .msg { margin-top: 14px; font-size: 17px; }
+      .clock { font-variant-numeric: tabular-nums; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">FIT System · Control de acceso</div>
+      <div class="meta">
+        <span id="branchLabel"></span>
+        <span class="clock" id="clock"></span>
+        <button id="changeBtn" style="display:none">Cambiar sede</button>
+        <button id="logoutBtn" style="display:none">Salir</button>
+      </div>
+    </header>
+
+    <div id="setup" class="center" style="display:none">
+      <div class="card">
+        <h1>Conectar el lector</h1>
+        <label>Dirección de la API</label>
+        <input id="apiUrl" placeholder="http://127.0.0.1:3001" />
+        <label>Email del operador</label>
+        <input id="email" placeholder="recepcion@tugimnasio.com" />
+        <label>Contraseña</label>
+        <input id="password" type="password" />
+        <div class="error" id="loginError"></div>
+        <button class="primary" id="loginBtn">Ingresar</button>
+      </div>
+    </div>
+
+    <div id="branch" class="center" style="display:none">
+      <div class="card">
+        <h1>Elegí la sede</h1>
+        <div class="branch-list" id="branchList"></div>
+        <div class="error" id="branchError"></div>
+      </div>
+    </div>
+
+    <div id="gate" style="display:none">
+      <div class="hint">Escaneá el QR del socio o escribí su código y presioná Enter</div>
+      <input id="reader" autocomplete="off" placeholder="Escaneá o escribí el código..." />
+      <div class="result" id="result">
+        <div class="tag" id="resultTag"></div>
+        <div class="name" id="resultName"></div>
+        <div class="plan" id="resultPlan"></div>
+        <div class="msg" id="resultMsg"></div>
+      </div>
+      <div class="hint" id="gateError" style="color:#fca5a5"></div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const setupEl = $('setup');
+      const branchEl = $('branch');
+      const gateEl = $('gate');
+      let state = { branchId: '', branchName: '' };
+
+      function show(el) {
+        setupEl.style.display = 'none';
+        branchEl.style.display = 'none';
+        gateEl.style.display = 'none';
+        el.style.display = 'flex';
+        if (el === setupEl || el === branchEl) el.style.display = 'flex';
+      }
+
+      function parseCode(raw) {
+        const value = (raw || '').trim();
+        if (!value) return '';
+        if (value.toLowerCase().startsWith('fitsystem://')) {
+          try {
+            const u = new URL(value);
+            return (new URLSearchParams(u.search).get('code') || '').trim();
+          } catch {
+            const m = value.match(/[?&]code=([^&]+)/);
+            return m ? decodeURIComponent(m[1]) : value;
+          }
+        }
+        return value;
+      }
+
+      async function refresh() {
+        const cfg = await window.gate.config();
+        $('apiUrl').value = cfg.apiUrl;
+        $('email').value = cfg.email;
+        $('branchLabel').textContent = cfg.branchName ? `Sede: ${cfg.branchName}` : '';
+        $('logoutBtn').style.display = cfg.loggedIn ? 'inline-block' : 'none';
+        $('changeBtn').style.display = cfg.loggedIn ? 'inline-block' : 'none';
+        if (!cfg.loggedIn) {
+          show(setupEl);
+        } else if (!cfg.branchId) {
+          await loadBranches();
+          show(branchEl);
+        } else {
+          state = { branchId: cfg.branchId, branchName: cfg.branchName };
+          show(gateEl);
+          setTimeout(() => $('reader').focus(), 100);
+        }
+      }
+
+      async function loadBranches() {
+        $('branchError').textContent = '';
+        try {
+          const branches = await window.gate.branches();
+          const list = $('branchList');
+          list.innerHTML = '';
+          for (const b of branches) {
+            const btn = document.createElement('button');
+            btn.textContent = b.name;
+            btn.onclick = async () => {
+              await window.gate.saveBranch({ branchId: b.id, branchName: b.name });
+              await refresh();
+            };
+            list.appendChild(btn);
+          }
+          if (!branches.length) $('branchError').textContent = 'No hay sedes activas.';
+        } catch (e) {
+          $('branchError').textContent = e.message;
+        }
+      }
+
+      $('loginBtn').onclick = async () => {
+        $('loginError').textContent = '';
+        $('loginBtn').disabled = true;
+        try {
+          await window.gate.login({
+            apiUrl: $('apiUrl').value.trim(),
+            email: $('email').value.trim(),
+            password: $('password').value,
+          });
+          await refresh();
+        } catch (e) {
+          $('loginError').textContent = e.message;
+        } finally {
+          $('loginBtn').disabled = false;
+        }
+      };
+
+      $('logoutBtn').onclick = async () => {
+        await window.gate.logout();
+        await refresh();
+      };
+      $('changeBtn').onclick = async () => {
+        await window.gate.saveBranch({ branchId: '', branchName: '' });
+        await refresh();
+      };
+
+      let hideTimer = null;
+      function renderResult(data) {
+        const result = $('result');
+        const allowed = data && data.allowed;
+        result.className = 'result show ' + (allowed ? 'allowed' : 'rejected');
+        $('resultTag').textContent = allowed ? 'ACCESO PERMITIDO' : 'ACCESO DENEGADO';
+        $('resultName').textContent = data && data.member ? data.member.name : '';
+        $('resultPlan').textContent = allowed
+          ? [data.plan, data.membershipEndDate ? 'Vence ' + String(data.membershipEndDate).slice(0, 10) : '']
+              .filter(Boolean)
+              .join(' · ')
+          : '';
+        $('resultMsg').textContent = allowed ? 'Buen entrenamiento' : data?.message || 'Acceso no autorizado';
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+          result.className = 'result';
+        }, 5000);
+      }
+
+      $('reader').addEventListener('keydown', async (ev) => {
+        if (ev.key !== 'Enter') return;
+        const code = parseCode($('reader').value);
+        $('reader').value = '';
+        if (!code) return;
+        $('gateError').textContent = '';
+        try {
+          const data = await window.gate.checkin(code);
+          renderResult(data);
+        } catch (e) {
+          $('gateError').textContent = e.message;
+        }
+        $('reader').focus();
+      });
+
+      setInterval(() => {
+        $('clock').textContent = new Date().toLocaleTimeString('es-AR');
+      }, 1000);
+
+      refresh().catch((e) => {
+        show(setupEl);
+        $('loginError').textContent = e.message;
+      });
+    </script>
+  </body>
+</html>
