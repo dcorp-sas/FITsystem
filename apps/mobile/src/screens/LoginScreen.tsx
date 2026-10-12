@@ -6,7 +6,7 @@ import { portal, setToken, type LoginResponse } from '../lib/api';
 
 export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) => void }) {
   const [mode, setMode] = useState<'login' | 'activate'>('login');
-  const [orgSlug, setOrgSlug] = useState('fit-demo');
+  const [orgSlug, setOrgSlug] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [activationCode, setActivationCode] = useState('');
@@ -46,7 +46,7 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
             value={orgSlug}
             onChangeText={setOrgSlug}
             autoCapitalize="none"
-            placeholder="fit-demo"
+            placeholder="mi-gimnasio"
             placeholderTextColor={colors.textMuted}
           />
 
@@ -56,7 +56,7 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
             value={identifier}
             onChangeText={setIdentifier}
             autoCapitalize="none"
-            placeholder="juan@mail.com"
+            placeholder="tu@email.com"
             placeholderTextColor={colors.textMuted}
           />
 
@@ -104,7 +104,7 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
           </View>
         </View>
 
-        <Text style={styles.hint}>Demo: gimnasio "fit-demo" - usuario "0001" o "juan@mail.com" - clave "socio123"</Text>
+        <Text style={styles.hint}>El codigo y las claves de acceso te los entrega tu gimnasio al darte de alta.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

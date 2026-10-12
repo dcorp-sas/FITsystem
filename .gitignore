@@ -15,6 +15,7 @@ out/
 # Desktop packaging artifacts
 apps/desktop/build-resources/
 apps/desktop/release/
+apps/access-gate-desktop/release/
 
 # Mobile (Expo)
 .expo/

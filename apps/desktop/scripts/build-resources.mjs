@@ -76,7 +76,7 @@ run(
   `pnpm --filter @fitsystem/web deploy "${stagingWeb}" --prod --config.node-linker=hoisted`,
 );
 
-console.log('\n[6/7] Copiando cliente Prisma, esquema SQL y base de datos...');
+console.log('\n[6/7] Copiando cliente Prisma y esquema SQL...');
 run(
   `pnpm --filter @fitsystem/api exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > "${path.join(stagingApi, 'schema.sql')}"`,
 );
@@ -85,13 +85,6 @@ const generated = findGeneratedPrisma();
 const destPrisma = path.join(stagingApi, 'node_modules', '.prisma');
 fs.rmSync(destPrisma, { recursive: true, force: true });
 fs.cpSync(generated, destPrisma, { recursive: true });
-
-const seedDb = path.join(root, 'apps', 'api', 'prisma', 'dev.db');
-if (fs.existsSync(seedDb)) {
-  fs.copyFileSync(seedDb, path.join(stagingApi, 'dev.db'));
-} else {
-  console.warn('AVISO: no se encontro apps/api/prisma/dev.db (base semilla).');
-}
 
 const engineOk = fs
   .readdirSync(path.join(destPrisma, 'client'))

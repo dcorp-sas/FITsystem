@@ -32,7 +32,10 @@
       "themeColor": "#0b1120",
       "backgroundColor": "#0b1120"
     },
-    "plugins": ["expo-notifications"],
+    "plugins": [
+      "expo-notifications",
+      "expo-secure-store"
+    ],
     "extra": {
       "apiUrl": "http://10.0.2.2:3001"
     }

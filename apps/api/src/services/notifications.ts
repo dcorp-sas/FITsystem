@@ -41,10 +41,13 @@ export async function notifyEvent(
     });
 
     const member = memberId ? await prisma.member.findUnique({ where: { id: memberId } }) : null;
+    const org = organizationId
+      ? await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } })
+      : null;
 
     const vars: Vars = {
       ...context,
-      gym: 'el gimnasio',
+      gym: org?.name ?? 'el gimnasio',
       firstName: member?.firstName ?? String(context.firstName ?? ''),
       fullName: member ? fullName(member.firstName, member.lastName) : '',
       amount: typeof context.amount === 'number' ? `$${context.amount.toFixed(2)}` : String(context.amount ?? ''),

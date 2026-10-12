@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/lib/toast';
@@ -45,7 +46,7 @@ function LoginForm() {
             type="email"
             required
             autoFocus
-            placeholder="admin@fitsystem.app"
+            placeholder="tu@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -64,8 +65,11 @@ function LoginForm() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-xs text-text-muted">
-        Demo: <span className="font-mono text-text">admin@fitsystem.app</span> / <span className="font-mono text-text">admin123</span>
+      <p className="mt-4 text-center text-sm text-text-muted">
+        ¿Arrancás tu gimnasio?{' '}
+        <Link href="/register" className="font-medium text-primary hover:underline">
+          Registralo ahora
+        </Link>
       </p>
     </div>
   );

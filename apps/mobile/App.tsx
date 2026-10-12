@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors, spacing } from './src/theme';
-import { setToken, portal, type LoginResponse } from './src/lib/api';
+import { setToken, portal, bootstrapToken, type LoginResponse } from './src/lib/api';
 import { configureNotifications, registerPushAsync } from './src/lib/push';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -22,6 +22,7 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export default function App() {
+  const [status, setStatus] = useState<'loading' | 'ready'>('loading');
   const [session, setSession] = useState<LoginResponse | null>(null);
   const [tab, setTab] = useState<Tab>('home');
 
@@ -29,9 +30,42 @@ export default function App() {
     configureNotifications();
   }, []);
 
+  // Restaura la sesión guardada al abrir la app (PWA recarga o nativo reabierto).
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const stored = await bootstrapToken();
+        if (stored) {
+          const me = await portal.me();
+          if (mounted) setSession({ token: stored, ...me });
+        }
+      } catch {
+        setToken(null);
+      } finally {
+        if (mounted) setStatus('ready');
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (session) void registerPushAsync(portal.registerPush);
   }, [session]);
+
+  if (status === 'loading') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar style="light" />
+        <View style={styles.loading}>
+          <ActivityIndicator color={colors.primaryLight} />
+          <Text style={styles.loadingText}>Cargando...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!session) {
     return (
@@ -93,6 +127,8 @@ const styles = StyleSheet.create({
   },
   brand: { color: colors.primaryLight, fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   brandSub: { color: colors.textMuted, fontSize: 12 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  loadingText: { color: colors.textMuted, fontSize: 13 },
   logout: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
   logoutText: { color: colors.textMuted, fontSize: 13 },
   content: { flex: 1 },

@@ -111,6 +111,27 @@ function getInstallationId(): string {
   return installationId;
 }
 
+// Secreto de firma JWT de la API embebida: se genera una sola vez por instalación
+// y se persiste, así cada equipo tiene una clave propia (no un valor hardcodeado).
+function getApiSecret(): string {
+  const file = path.join(app.getPath('userData'), 'api-secret.txt');
+  try {
+    if (fs.existsSync(file)) {
+      const existing = fs.readFileSync(file, 'utf8').trim();
+      if (existing.length >= 32) return existing;
+    }
+  } catch {
+    /* generate */
+  }
+  const secret = crypto.randomBytes(32).toString('hex');
+  try {
+    fs.writeFileSync(file, secret, 'utf8');
+  } catch {
+    /* ignore */
+  }
+  return secret;
+}
+
 function apiJson(method: string, pathname: string, body?: unknown): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -323,10 +344,6 @@ function startApi(): ChildProcess {
   const entry = path.join(apiDir, 'dist', 'index.js');
 
   const dbPath = path.join(app.getPath('userData'), 'fitsystem.db');
-  if (!fs.existsSync(dbPath)) {
-    const seed = path.join(apiDir, 'dev.db');
-    if (fs.existsSync(seed)) fs.copyFileSync(seed, dbPath);
-  }
 
   const env = {
     ...process.env,
@@ -336,7 +353,7 @@ function startApi(): ChildProcess {
     API_HOST: '127.0.0.1',
     DATABASE_URL: toFileUrl(dbPath),
     WEB_ORIGIN: `http://127.0.0.1:${WEB_PORT}`,
-    JWT_SECRET: process.env.JWT_SECRET || 'fitsystem-desktop-secret-change-me',
+    JWT_SECRET: getApiSecret(),
     LICENSE_INSTALLATION_ID: getInstallationId(),
   };
 

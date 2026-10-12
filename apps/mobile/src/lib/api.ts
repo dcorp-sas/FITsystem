@@ -5,6 +5,9 @@
 //   - iOS simulador / web: http://localhost:3001
 //   - Servidor en la nube: https://api.tugimnasio.com
 
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001').replace(/\/$/, '');
 
 export class ApiError extends Error {
@@ -17,25 +20,43 @@ export class ApiError extends Error {
 
 let token: string | null = null;
 
-// Persistimos el token en el navegador (PWA/escritorio web) para que la sesión
-// sobreviva a una recarga. En nativo queda en memoria por ahora.
+// El token persiste para que la sesión sobreviva a una recarga (PWA) y al
+// cierre/reapertura de la app en nativo (SecureStore).
 const STORAGE_KEY = 'fitsystem.socios.token';
-try {
-  if (typeof localStorage !== 'undefined') token = localStorage.getItem(STORAGE_KEY);
-} catch {
-  /* ignore */
-}
 
-export function setToken(value: string | null) {
-  token = value;
+async function persistToken(value: string | null) {
   try {
-    if (typeof localStorage !== 'undefined') {
-      if (value) localStorage.setItem(STORAGE_KEY, value);
-      else localStorage.removeItem(STORAGE_KEY);
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') {
+        if (value) localStorage.setItem(STORAGE_KEY, value);
+        else localStorage.removeItem(STORAGE_KEY);
+      }
+    } else {
+      if (value) await SecureStore.setItemAsync(STORAGE_KEY, value);
+      else await SecureStore.deleteItemAsync(STORAGE_KEY);
     }
   } catch {
     /* ignore */
   }
+}
+
+/** Carga el token guardado (si existe) para restaurar la sesión al abrir la app. */
+export async function bootstrapToken(): Promise<string | null> {
+  try {
+    const stored =
+      Platform.OS === 'web'
+        ? (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null)
+        : await SecureStore.getItemAsync(STORAGE_KEY);
+    if (stored) token = stored;
+    return stored;
+  } catch {
+    return token;
+  }
+}
+
+export function setToken(value: string | null) {
+  token = value;
+  void persistToken(value);
 }
 
 export function getToken() {

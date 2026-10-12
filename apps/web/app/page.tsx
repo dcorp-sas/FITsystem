@@ -128,7 +128,7 @@ export default function LandingPage() {
       <section id="inicio" className="relative scroll-mt-20 overflow-hidden pt-32 pb-20">
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-primary/20 blur-[120px]" />
         <div className="pointer-events-none absolute right-0 top-40 h-72 w-72 rounded-full bg-sky/10 blur-[100px]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+        <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary-light">
               <span className="h-1.5 w-1.5 rounded-full bg-primary-light" />
@@ -165,88 +165,6 @@ export default function LandingPage() {
                   {item}
                 </span>
               ))}
-            </div>
-          </div>
-
-          {/* Mockup */}
-          <div className="relative">
-            <div className="rounded-2xl border border-line bg-surface p-2 shadow-2xl shadow-primary/10">
-              <div className="overflow-hidden rounded-xl border border-line bg-base">
-                <div className="flex items-center gap-1.5 border-b border-line px-4 py-3">
-                  <span className="h-3 w-3 rounded-full bg-danger/70" />
-                  <span className="h-3 w-3 rounded-full bg-warning/70" />
-                  <span className="h-3 w-3 rounded-full bg-success/70" />
-                  <span className="ml-3 text-xs text-text-muted">FIT System — Panel de gestión</span>
-                </div>
-                <div className="flex">
-                  <div className="hidden w-36 shrink-0 flex-col gap-1 border-r border-line p-3 sm:flex">
-                    {(
-                      [
-                        ['dashboard', 'Panel'],
-                        ['members', 'Socios'],
-                        ['memberships', 'Cuotas'],
-                        ['cash', 'Caja'],
-                        ['classes', 'Clases'],
-                        ['reports', 'Reportes'],
-                      ] as [IconName, string][]
-                    ).map(([icon, label], i) => (
-                      <div
-                        key={label}
-                        className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs ${
-                          i === 0 ? 'bg-primary/15 text-primary-light' : 'text-text-muted'
-                        }`}
-                      >
-                        <Icon name={icon} size={14} />
-                        {label}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="min-w-0 flex-1 p-4">
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        ['Socios', '842', 'text-primary-light'],
-                        ['Ingresos hoy', '$186k', 'text-success'],
-                        ['Deudores', '37', 'text-warning'],
-                      ].map(([label, value, color]) => (
-                        <div key={label} className="rounded-lg border border-line bg-surface p-3">
-                          <div className="text-[10px] text-text-muted">{label}</div>
-                          <div className={`mt-1 text-lg font-bold ${color}`}>{value}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 overflow-hidden rounded-lg border border-line bg-surface">
-                      <div className="grid grid-cols-3 border-b border-line px-3 py-2 text-[10px] uppercase tracking-wide text-text-muted">
-                        <span>Socio</span>
-                        <span>Cuota</span>
-                        <span>Estado</span>
-                      </div>
-                      {[
-                        ['Juan Pérez', 'Mensual', 'Al día', 'text-success'],
-                        ['Ana Gómez', 'Trimestral', 'Por vencer', 'text-warning'],
-                        ['Lucas Díaz', 'Mensual', 'Vencida', 'text-danger'],
-                        ['Sofía Ruiz', 'Anual', 'Al día', 'text-success'],
-                      ].map(([name, plan, status, color]) => (
-                        <div key={name} className="grid grid-cols-3 items-center px-3 py-2 text-xs text-text-muted">
-                          <span className="truncate text-text">{name}</span>
-                          <span>{plan}</span>
-                          <span className={`font-medium ${color}`}>{status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="pointer-events-none absolute -bottom-5 -right-4 hidden rounded-xl border border-line bg-surface px-4 py-3 shadow-xl sm:block">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary-light">
-                  <Icon name="mobile" size={18} />
-                </span>
-                <div>
-                  <div className="text-xs font-semibold text-text">App del socio</div>
-                  <div className="text-[10px] text-text-muted">Cuota, rutinas y pagos</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

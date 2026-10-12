@@ -1,9 +1,23 @@
 import { config } from 'dotenv';
 config();
 
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Secreto para firmar los tokens JWT. En producción es OBLIGATORIO definirlo con
+// un valor propio de al menos 32 caracteres; los valores por defecto del repo (de
+// desarrollo y del escritorio) se rechazan para evitar sesiones con firma conocida.
+const WEAK_JWT_SECRETS = ['fitsystem-dev-secret-change-me', 'fitsystem-desktop-secret-change-me', 'dev-secret', 'secret', 'change-me'];
+const JWT_SECRET_INPUT = process.env.JWT_SECRET || '';
+if (NODE_ENV === 'production' && (JWT_SECRET_INPUT.length < 32 || WEAK_JWT_SECRETS.includes(JWT_SECRET_INPUT))) {
+  throw new Error(
+    'JWT_SECRET invalido en produccion: defini una clave propia de al menos 32 caracteres (ver apps/api/.env.example). ' +
+      'En Render se genera con generateValue:true; en el escritorio se genera automaticamente por instalacion.',
+  );
+}
+
 export const env = {
   DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db',
-  JWT_SECRET: process.env.JWT_SECRET || 'fitsystem-dev-secret-change-me',
+  JWT_SECRET: JWT_SECRET_INPUT || 'fitsystem-dev-secret-change-me',
   API_PORT: Number(process.env.API_PORT || 3001),
   API_HOST: process.env.API_HOST || '0.0.0.0',
   WEB_ORIGIN: process.env.WEB_ORIGIN || 'http://localhost:3000',

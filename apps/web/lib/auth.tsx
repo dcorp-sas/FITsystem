@@ -12,6 +12,15 @@ import {
 import { api, getToken, setToken } from './api';
 import type { AuthUser, Branch, Organization } from './types';
 
+interface RegisterInput {
+  organizationName: string;
+  slug: string;
+  currency: string;
+  userName: string;
+  email: string;
+  password: string;
+}
+
 interface AuthState {
   user: AuthUser | null;
   organization: Organization | null;
@@ -19,6 +28,7 @@ interface AuthState {
   activeBranchId: string | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
+  registerOrg: (input: RegisterInput) => Promise<void>;
   logout: () => void;
   setActiveBranchId: (id: string | null) => void;
 }
@@ -69,6 +79,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveBranchIdState(data.user.branchId || data.branches?.[0]?.id || null);
   }, []);
 
+  const registerOrg = useCallback(async (input: RegisterInput) => {
+    const data = await api<{
+      token: string;
+      user: AuthUser;
+      organization: Organization;
+      branch: Branch;
+    }>('/auth/register', { method: 'POST', body: input });
+    setToken(data.token);
+    setUser(data.user);
+    setOrganization(data.organization);
+    setBranches([data.branch]);
+    setActiveBranchIdState(data.branch?.id || null);
+  }, []);
+
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
@@ -93,10 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeBranchId,
       ready,
       login,
+      registerOrg,
       logout,
       setActiveBranchId,
     }),
-    [user, organization, branches, activeBranchId, ready, login, logout, setActiveBranchId],
+    [user, organization, branches, activeBranchId, ready, login, registerOrg, logout, setActiveBranchId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
