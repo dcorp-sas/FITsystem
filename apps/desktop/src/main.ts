@@ -339,6 +339,9 @@ function registerLicenseIpc() {
   });
 }
 
+const LICENSE_PUBLIC_KEY =
+  'eyJjcnYiOiJFZDI1NTE5IiwieCI6IlpIVl9fakt2SUUwUUQ3ZTZiUG5hNjBEVFdhTS1VSnRGVVEwV1hveFFYV2ciLCJrdHkiOiJPS1AifQ==';
+
 function startApi(): ChildProcess {
   const apiDir = path.join(process.resourcesPath, 'api');
   const entry = path.join(apiDir, 'dist', 'index.js');
@@ -355,6 +358,7 @@ function startApi(): ChildProcess {
     WEB_ORIGIN: `http://127.0.0.1:${WEB_PORT}`,
     JWT_SECRET: getApiSecret(),
     LICENSE_INSTALLATION_ID: getInstallationId(),
+    LICENSE_PUBLIC_KEY: LICENSE_PUBLIC_KEY,
   };
 
   log('Iniciando API en puerto', API_PORT);
