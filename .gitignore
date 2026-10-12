@@ -34,6 +34,8 @@ apps/mobile/ios/
 *.db-journal
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
+# Esquema PostgreSQL generado (ver apps/api/scripts/pg-schema.mjs)
+apps/api/prisma/schema.postgres.prisma
 
 # Logs
 *.log

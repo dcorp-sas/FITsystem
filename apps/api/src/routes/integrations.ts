@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import QRCode from 'qrcode';
 import { prisma } from '../db.js';
-import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema } from '@fitsystem/validators';
+import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, mpPointPollSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { getRawSetting, getSettings } from '../services/settings.js';
@@ -9,6 +9,8 @@ import { notifyEvent } from '../services/notifications.js';
 import { whatsappLink } from '../services/whatsapp.js';
 import { getSmtpConfig } from '../services/email.js';
 import { getArcaConfig, arcaMode, arcaEmitir, arcaTest, arcaDummy, type CbteTipo } from '../services/arca.js';
+import { printTicket, listPrinters, buildReceiptTicket } from '../services/print.js';
+import { env } from '../env.js';
 
 async function nextSequence(orgId: string, category: string, key: string): Promise<number> {
   const current = await getRawSetting(orgId, category, key);
@@ -19,6 +21,68 @@ async function nextSequence(orgId: string, category: string, key: string): Promi
     update: { value: String(next) },
   });
   return next;
+}
+
+/**
+ * Marca una orden de MercadoPago como cobrada: completa el pago, registra el
+ * movimiento de caja, activa la membresia y notifica al socio. Idempotente.
+ */
+async function completeMpOrder(orgId: string, paymentId: string, userId?: string | null) {
+  const order = await prisma.payment.findFirst({ where: { id: paymentId, organizationId: orgId } });
+  if (!order) return null;
+  if (order.status === 'COMPLETED') return order;
+
+  const session = await prisma.cashSession.findFirst({
+    where: { organizationId: orgId, branchId: order.branchId, status: 'OPEN' },
+  });
+  const [payment] = await prisma.$transaction([
+    prisma.payment.update({
+      where: { id: order.id },
+      data: { status: 'COMPLETED', providerStatus: 'approved', paidAt: new Date() },
+    }),
+    prisma.cashMovement.create({
+      data: {
+        organizationId: orgId,
+        branchId: order.branchId,
+        cashSessionId: session?.id ?? null,
+        type: 'INCOME',
+        category: order.concept || 'MEMBERSHIP',
+        method: order.method,
+        amount: order.amount,
+        description: `Cobro ${order.method} ${order.reference ?? ''}`.trim(),
+        memberId: order.memberId,
+        userId: userId ?? null,
+        referenceId: order.id,
+      },
+    }),
+  ]);
+
+  if (order.membershipId) {
+    await prisma.membership.update({ where: { id: order.membershipId }, data: { status: 'ACTIVE' } });
+  }
+  if (order.memberId) {
+    const member = await prisma.member.findUnique({ where: { id: order.memberId } });
+    if (member) await notifyEvent(orgId, member.id, 'PAYMENT_CONFIRMATION', { member, amount: order.amount });
+  }
+
+  if ((await getRawSetting(orgId, 'PRINT', 'PRINT_ON_PAYMENT')) === 'true') {
+    const org = await prisma.organization.findUnique({ where: { id: orgId } });
+    let memberName: string | null = null;
+    if (order.memberId) {
+      const m = await prisma.member.findUnique({ where: { id: order.memberId } });
+      memberName = m ? `${m.firstName} ${m.lastName}` : null;
+    }
+    await printTicket(orgId, buildReceiptTicket({
+      organization: org?.name ?? 'FIT System',
+      member: memberName,
+      concept: order.concept,
+      method: order.method,
+      amount: order.amount,
+      reference: order.invoiceNumber ?? order.reference,
+      date: new Date(),
+    }));
+  }
+  return payment;
 }
 
 export function integrationRoutes(app: FastifyInstance) {
@@ -57,6 +121,7 @@ export function integrationRoutes(app: FastifyInstance) {
           businessPhone: wa.BUSINESS_PHONE ?? '',
           waUrlBase: wa.WA_URL_BASE ?? 'https://wa.me',
           defaultMessage: wa.DEFAULT_MESSAGE ?? '',
+          cloudConfigured: Boolean(wa.CLOUD_TOKEN && wa.PHONE_NUMBER_ID),
           useAutomation: wa.USE_AUTOMATION === 'true',
         },
         print: {
@@ -149,6 +214,13 @@ export function integrationRoutes(app: FastifyInstance) {
             body: JSON.stringify({
               items: [{ title: input.description, quantity: 1, unit_price: input.amount, currency_id: 'ARS' }],
               external_reference: input.externalReference ?? orderId,
+              ...(env.PUBLIC_URL
+                ? {
+                    notification_url: `${env.PUBLIC_URL}/api/integrations/mercadopago/webhook`,
+                    back_urls: { success: `${env.WEB_ORIGIN}/payments`, failure: `${env.WEB_ORIGIN}/payments`, pending: `${env.WEB_ORIGIN}/payments` },
+                    auto_return: 'approved',
+                  }
+                : {}),
             }),
           });
           if (res.ok) {
@@ -197,8 +269,36 @@ export function integrationRoutes(app: FastifyInstance) {
       const branchId = req.user.branchId;
       if (!branchId) throw new HttpError(400, 'Se necesita una sede');
 
-      const deviceId = input.deviceId || (await getRawSetting(orgId, 'MERCADOPAGO', 'POINT_DEVICE_ID')) || 'POINT-01';
+      const deviceId = input.deviceId || (await getRawSetting(orgId, 'MERCADOPAGO', 'POINT_DEVICE_ID')) || '';
+      const accessToken = await getRawSetting(orgId, 'MERCADOPAGO', 'ACCESS_TOKEN');
       const orderId = `PT-${Date.now().toString(36).toUpperCase()}`;
+
+      let intentId: string | null = null;
+      let providerData: Record<string, unknown> = { deviceId, description: input.description, externalReference: input.externalReference };
+
+      if (accessToken && deviceId) {
+        try {
+          const res = await fetch(`https://api.mercadopago.com/point/integration-api/devices/${deviceId}/payment-intents`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json', 'X-Idempotency-Key': orderId },
+            body: JSON.stringify({
+              amount: input.amount,
+              description: input.description,
+              external_reference: input.externalReference ?? orderId,
+            }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { id?: string; state?: string };
+            intentId = data.id ?? null;
+            providerData = { ...providerData, intentId, state: data.state };
+          } else {
+            const err = (await res.json().catch(() => ({}))) as { message?: string };
+            providerData = { ...providerData, error: err.message || `HTTP ${res.status}` };
+          }
+        } catch (err) {
+          providerData = { ...providerData, error: (err as Error).message };
+        }
+      }
 
       const payment = await prisma.payment.create({
         data: {
@@ -210,15 +310,55 @@ export function integrationRoutes(app: FastifyInstance) {
           status: 'PENDING',
           amount: input.amount,
           reference: orderId,
-          providerId: orderId,
+          providerId: intentId ?? orderId,
           providerStatus: 'pending',
-          providerData: JSON.stringify({ deviceId, description: input.description, externalReference: input.externalReference }),
+          providerData: JSON.stringify(providerData),
           receivedById: req.user.id,
-          notes: `Cobro en POINT ${deviceId}: ${input.description}`,
+          notes: `Cobro en POINT ${deviceId || '(sin terminal)'}: ${input.description}`,
         },
       });
-      await logActivity(req, 'CREATE', 'MP_POINT_ORDER', payment.id, undefined, { orderId, deviceId, amount: input.amount });
-      return ok(reply, { orderId, deviceId, paymentId: payment.id, status: 'PENDING', instructions: `Cobrar $${input.amount.toFixed(2)} en la terminal ${deviceId}` }, 201);
+      await logActivity(req, 'CREATE', 'MP_POINT_ORDER', payment.id, undefined, { orderId, deviceId, amount: input.amount, real: Boolean(intentId) });
+      return ok(
+        reply,
+        {
+          orderId,
+          deviceId: deviceId || null,
+          paymentId: payment.id,
+          status: 'PENDING',
+          real: Boolean(intentId),
+          intentId,
+          instructions: deviceId
+            ? `Cobrar $${input.amount.toFixed(2)} en la terminal ${deviceId}`
+            : 'Configura el ID de la terminal Point en Ajustes > MercadoPago',
+        },
+        201,
+      );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Consulta el estado de un pago enviado a una terminal Point y lo completa si fue aprobado.
+  app.get('/integrations/mercadopago/point/poll', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { intentId } = validate(mpPointPollSchema, request.query);
+      const orgId = req.user.organizationId;
+      const accessToken = await getRawSetting(orgId, 'MERCADOPAGO', 'ACCESS_TOKEN');
+      if (!accessToken) throw new HttpError(400, 'MercadoPago no configurado');
+
+      const res = await fetch(`https://api.mercadopago.com/point/integration-api/payment-intents/${intentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new HttpError(400, `MercadoPago respondio HTTP ${res.status}`);
+      const data = (await res.json()) as { state?: string; payment?: { id?: number; status?: string } };
+      const approved = data.payment?.status === 'approved';
+
+      let payment = await prisma.payment.findFirst({ where: { organizationId: orgId, providerId: intentId } });
+      if (approved && payment) {
+        payment = (await completeMpOrder(orgId, payment.id, req.user.id)) ?? payment;
+      }
+      return ok(reply, { state: data.state ?? null, mpStatus: data.payment?.status ?? null, approved, payment });
     } catch (error) {
       return fail(reply, error);
     }
@@ -252,36 +392,51 @@ export function integrationRoutes(app: FastifyInstance) {
       if (!order) throw new HttpError(404, 'Orden no encontrada');
       if (order.status === 'COMPLETED') throw new HttpError(409, 'La orden ya fue cobrada');
 
-      const [payment] = await prisma.$transaction([
-        prisma.payment.update({ where: { id }, data: { status: 'COMPLETED', providerStatus: 'approved', paidAt: new Date() } }),
-        prisma.cashMovement.create({
-          data: {
-            organizationId: req.user.organizationId,
-            branchId: order.branchId,
-            cashSessionId: (
-              await prisma.cashSession.findFirst({ where: { organizationId: req.user.organizationId, branchId: order.branchId, status: 'OPEN' } })
-            )?.id ?? null,
-            type: 'INCOME',
-            category: 'MEMBERSHIP',
-            method: order.method,
-            amount: order.amount,
-            description: `Cobro ${order.method} ${order.reference}`,
-            memberId: order.memberId,
-            userId: req.user.id,
-            referenceId: order.id,
-          },
-        }),
-      ]);
-
-      if (order.membershipId) {
-        await prisma.membership.update({ where: { id: order.membershipId }, data: { status: 'ACTIVE' } });
-      }
-      if (order.memberId) {
-        const member = await prisma.member.findUnique({ where: { id: order.memberId } });
-        if (member) await notifyEvent(req.user.organizationId, member.id, 'PAYMENT_CONFIRMATION', { member, amount: order.amount });
-      }
+      const payment = await completeMpOrder(req.user.organizationId, id, req.user.id);
       await logActivity(req, 'CONFIRM', 'MP_ORDER', id, { status: 'PENDING' }, { status: 'COMPLETED' });
       return ok(reply, payment);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Webhook publico de MercadoPago: completa la orden cuando el pago fue aprobado.
+  // No usa auth; se protege con ?token=<MERCADOPAGO.WEBHOOK_SECRET> opcional.
+  app.post('/integrations/mercadopago/webhook', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as { type?: string; action?: string; data?: { id?: string | number }; external_reference?: string };
+      const paymentId = body.data?.id != null ? String(body.data.id) : null;
+
+      // Buscar la orden local: por external_reference, o por providerId (id de MP).
+      let order = null as Awaited<ReturnType<typeof prisma.payment.findFirst>>;
+      if (body.external_reference) {
+        order = await prisma.payment.findFirst({ where: { reference: body.external_reference } });
+      }
+      if (!order && paymentId) {
+        order = await prisma.payment.findFirst({ where: { providerId: paymentId } });
+      }
+      if (!order) return ok(reply, { received: true, matched: false });
+
+      const secret = await getRawSetting(order.organizationId, 'MERCADOPAGO', 'WEBHOOK_SECRET');
+      if (secret) {
+        const token = (request.query as { token?: string } | undefined)?.token;
+        if (token !== secret) throw new HttpError(401, 'Token de webhook invalido');
+      }
+
+      // Si MP envía el estado, verificar que esté aprobado antes de completar.
+      let approved = true;
+      const accessToken = await getRawSetting(order.organizationId, 'MERCADOPAGO', 'ACCESS_TOKEN');
+      if (accessToken && paymentId) {
+        const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { status?: string };
+          approved = data.status === 'approved';
+        }
+      }
+      if (approved) await completeMpOrder(order.organizationId, order.id, null);
+      return ok(reply, { received: true, matched: true, approved });
     } catch (error) {
       return fail(reply, error);
     }
@@ -404,6 +559,67 @@ export function integrationRoutes(app: FastifyInstance) {
         include: { member: { select: { firstName: true, lastName: true, documentNumber: true } } },
       });
       return ok(reply, invoices);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // ---------- Impresion termica (servidor local de la app de escritorio) ----------
+  app.get('/integrations/print/printers', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const result = await listPrinters(req.user.organizationId);
+      return ok(reply, result);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Imprime un ticket de prueba para verificar la conexion con la impresora.
+  app.post('/integrations/print/test', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
+      const result = await printTicket(req.user.organizationId, {
+        organization: org?.name ?? 'FIT System',
+        title: 'PRUEBA DE IMPRESION',
+        date: new Date().toISOString(),
+        lines: [
+          { label: 'Estado:', value: 'Conexion OK' },
+          { label: 'Sede:', value: req.user.branchId ?? '-' },
+        ],
+        total: '$0.00',
+        footer: 'Si ves este ticket, la impresora funciona',
+      });
+      if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir');
+      await logActivity(req, 'CREATE', 'PRINT_TEST', null, undefined, {});
+      return ok(reply, { ok: true });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Imprime el comprobante de un pago.
+  app.post('/integrations/print/receipt/:paymentId', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { paymentId } = request.params as { paymentId: string };
+      const payment = await prisma.payment.findFirst({
+        where: { id: paymentId, organizationId: req.user.organizationId },
+        include: { member: { select: { firstName: true, lastName: true } }, organization: true },
+      });
+      if (!payment) throw new HttpError(404, 'Pago no encontrado');
+      const result = await printTicket(req.user.organizationId, buildReceiptTicket({
+        organization: payment.organization?.name ?? 'FIT System',
+        member: payment.member ? `${payment.member.firstName} ${payment.member.lastName}` : null,
+        concept: payment.concept,
+        method: payment.method,
+        amount: payment.amount,
+        reference: payment.invoiceNumber ?? payment.reference,
+        date: payment.paidAt ?? payment.createdAt,
+      }));
+      if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir');
+      return ok(reply, { ok: true });
     } catch (error) {
       return fail(reply, error);
     }

@@ -102,7 +102,11 @@ export async function buildServer() {
 async function start() {
   const app = await buildServer();
   try {
-    await ensureSchema();
+    // ensureSchema aplica el SQL de SQLite; en PostgreSQL el esquema lo aplica
+    // `prisma db push` (ver db:push:pg / render.yaml).
+    if (!env.DATABASE_URL.startsWith('postgres')) {
+      await ensureSchema();
+    }
     await app.listen({ port: env.API_PORT, host: env.API_HOST });
     console.log(`FIT System API escuchando en http://localhost:${env.API_PORT}`);
     startReminderScheduler();

@@ -475,6 +475,19 @@ export const portalProofSchema = z.object({
   notes: optionalString,
 });
 
+export const portalCheckinSchema = z.object({
+  branchId: optionalString,
+  method: z.enum(['QR', 'MANUAL', 'FACE', 'CARD']).default('MANUAL'),
+});
+
+export const portalReserveSchema = z.object({
+  sessionId: cuid,
+});
+
+export const mpPointPollSchema = z.object({
+  intentId: z.string().min(1),
+});
+
 export const routineSchema = z.object({
   name: z.string().min(1),
   memberId: optionalString,

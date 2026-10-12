@@ -7,6 +7,9 @@ export const env = {
   API_PORT: Number(process.env.API_PORT || 3001),
   API_HOST: process.env.API_HOST || '0.0.0.0',
   WEB_ORIGIN: process.env.WEB_ORIGIN || 'http://localhost:3000',
+  // URL publica de la API (para webhooks de MercadoPago, etc.). Si esta vacia,
+  // no se registra notification_url y la confirmacion queda manual.
+  PUBLIC_URL: (process.env.PUBLIC_URL || '').replace(/\/+$/, ''),
   LICENSE_SECRET: process.env.LICENSE_SECRET || '',
   LICENSE_TRIAL_DAYS: Number(process.env.LICENSE_TRIAL_DAYS || 7),
   // URL del Licensador (sistema de licencias del proveedor). Si está definida,

@@ -87,41 +87,46 @@ services:
         sync: false
 
   # ---------------------------------------------------------------------------
-  # (Opcional) API del gimnasio en la nube + PostgreSQL.
-  # Requiere: apps/api/prisma/schema.prisma provider = "postgresql".
+  # API del gimnasio en la nube + PostgreSQL.
+  # El build genera el esquema PostgreSQL (schema.postgres.prisma) y compila;
+  # el start aplica el esquema (db push) y levanta la API.
   # ---------------------------------------------------------------------------
-  # - type: web
-  #   name: fitsystem-api
-  #   runtime: node
-  #   plan: free
-  #   rootDir: .
-  #   buildCommand: "corepack enable && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @fitsystem/api build && pnpm --filter @fitsystem/api prisma:generate"
-  #   startCommand: "pnpm --filter @fitsystem/api exec node dist/index.js"
-  #   healthCheckPath: /api/health
-  #   envVars:
-  #     - key: NODE_VERSION
-  #       value: 22.16.0
-  #     - key: NODE_ENV
-  #       value: production
-  #     - key: DATABASE_URL
-  #       fromDatabase:
-  #         name: fitsystem-db
-  #         property: connectionString
-  #     - key: JWT_SECRET
-  #       generateValue: true
-  #     - key: LICENSE_SECRET
-  #       sync: false
-  #     - key: LICENSE_TRIAL_DAYS
-  #       value: 7
-  #     - key: LICENSE_SERVER
-  #       sync: false
-  #     - key: LICENSE_PUBLIC_KEY
-  #       sync: false
-  #     - key: WEB_ORIGIN
-  #       sync: false
+  - type: web
+    name: fitsystem-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: "corepack enable && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @fitsystem/api prisma:generate:pg && pnpm --filter @fitsystem/api build"
+    startCommand: "pnpm --filter @fitsystem/api db:push:pg && pnpm --filter @fitsystem/api start"
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fitsystem-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # URL publica de la API (para webhooks de MercadoPago). Ej: https://fitsystem-api.onrender.com
+      - key: PUBLIC_URL
+        sync: false
+      # Origen permitido del panel web (CORS). Ej: https://fitsystem-web.onrender.com
+      - key: WEB_ORIGIN
+        sync: false
+      - key: LICENSE_SECRET
+        sync: false
+      - key: LICENSE_TRIAL_DAYS
+        value: "7"
+      - key: LICENSE_SERVER
+        sync: false
+      - key: LICENSE_PUBLIC_KEY
+        sync: false
 
-# databases:
-#   - name: fitsystem-db
-#     plan: free
-#     databaseName: fitsystem
-#     postgresMajorVersion: 16
+databases:
+  - name: fitsystem-db
+    plan: free
+    databaseName: fitsystem
+    postgresMajorVersion: "16"

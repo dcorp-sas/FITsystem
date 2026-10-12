@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors, spacing } from './src/theme';
-import { setToken, type LoginResponse } from './src/lib/api';
+import { setToken, portal, type LoginResponse } from './src/lib/api';
+import { configureNotifications, registerPushAsync } from './src/lib/push';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { NewsScreen } from './src/screens/NewsScreen';
 import { RoutinesScreen } from './src/screens/RoutinesScreen';
 import { PaymentsScreen } from './src/screens/PaymentsScreen';
+import { ClassesScreen } from './src/screens/ClassesScreen';
 
-type Tab = 'home' | 'news' | 'routines' | 'payments';
+type Tab = 'home' | 'classes' | 'news' | 'routines' | 'payments';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'home', label: 'Inicio' },
+  { key: 'classes', label: 'Clases' },
   { key: 'news', label: 'Novedades' },
   { key: 'routines', label: 'Rutinas' },
   { key: 'payments', label: 'Pagos' },
@@ -21,6 +24,14 @@ const TABS: { key: Tab; label: string }[] = [
 export default function App() {
   const [session, setSession] = useState<LoginResponse | null>(null);
   const [tab, setTab] = useState<Tab>('home');
+
+  useEffect(() => {
+    configureNotifications();
+  }, []);
+
+  useEffect(() => {
+    if (session) void registerPushAsync(portal.registerPush);
+  }, [session]);
 
   if (!session) {
     return (
@@ -53,6 +64,7 @@ export default function App() {
 
       <View style={styles.content}>
         {tab === 'home' && <HomeScreen org={session.organization} member={session.member} initialQuota={session.quota} />}
+        {tab === 'classes' && <ClassesScreen />}
         {tab === 'news' && <NewsScreen />}
         {tab === 'routines' && <RoutinesScreen />}
         {tab === 'payments' && <PaymentsScreen quota={session.quota} />}

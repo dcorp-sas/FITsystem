@@ -8,10 +8,12 @@ import {
   portalPushTokenSchema,
   portalPaymentIntentSchema,
   portalProofSchema,
+  portalCheckinSchema,
+  portalReserveSchema,
 } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type PortalAuthedRequest } from '../lib/http.js';
 import { getRawSetting } from '../services/settings.js';
-import { daysBetween, fullName } from '@fitsystem/utils';
+import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
 
 interface PortalJwt {
   sub: string;
@@ -354,6 +356,148 @@ export function portalRoutes(app: FastifyInstance) {
         data: { proofUrl: input.proofUrl, notes: input.notes ?? intent.notes, status: 'PENDING' },
       });
       return ok(reply, { intent: updated });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Check-in del socio desde la app (valida membresia y registra asistencia)
+  app.post('/portal/checkin', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const input = validate(portalCheckinSchema, request.body ?? {});
+      const { organizationId, memberId } = req.portalAccount;
+
+      const member = await prisma.member.findFirst({ where: { id: memberId, organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+
+      if (member.status === 'SUSPENDED') return ok(reply, { allowed: false, reason: 'SOCIO_SUSPENDIDO', message: 'Socio suspendido' });
+      if (member.status === 'INACTIVE') return ok(reply, { allowed: false, reason: 'SOCIO_INACTIVO', message: 'Socio dado de baja' });
+      if (member.status === 'FROZEN') return ok(reply, { allowed: false, reason: 'SOCIO_CONGELADO', message: 'Membresia pausada' });
+
+      const membership = await prisma.membership.findFirst({
+        where: { memberId, organizationId, status: 'ACTIVE', endDate: { gte: new Date() } },
+        orderBy: { endDate: 'desc' },
+        include: { plan: true },
+      });
+      if (!membership) return ok(reply, { allowed: false, reason: 'SIN_MEMBRESIA', message: 'Sin membresia activa' });
+
+      const branchId = input.branchId || member.branchId;
+      const attendance = await prisma.attendance.create({
+        data: {
+          organizationId,
+          branchId,
+          memberId,
+          membershipId: membership.id,
+          method: input.method,
+          status: 'ALLOWED',
+          checkedInAt: new Date(),
+        },
+      });
+
+      const today = startOfDay();
+      const todays = await prisma.attendance.count({ where: { memberId, checkedInAt: { gte: today } } });
+      if (todays <= 1) {
+        await prisma.member.update({ where: { id: memberId }, data: { totalVisits: { increment: 1 }, lastVisitAt: new Date() } });
+      }
+
+      return ok(
+        reply,
+        {
+          allowed: true,
+          plan: membership.plan.name,
+          planColor: membership.plan.color,
+          membershipEndDate: membership.endDate,
+          attendanceId: attendance.id,
+          checkedInAt: attendance.checkedInAt,
+          branchId,
+        },
+        201,
+      );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Clases disponibles para reservar
+  app.get('/portal/classes', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const { organizationId, memberId } = req.portalAccount;
+      const sessions = await prisma.classSession.findMany({
+        where: { gymClass: { organizationId, isActive: true }, startAt: { gte: new Date() }, status: 'SCHEDULED' },
+        orderBy: { startAt: 'asc' },
+        take: 100,
+        include: {
+          gymClass: { select: { name: true, color: true } },
+          instructor: { select: { name: true } },
+          reservations: { select: { memberId: true, status: true } },
+        },
+      });
+      const items = sessions.map((s) => {
+        const reserved = s.reservations.filter((r) => r.status === 'RESERVED').length;
+        const mine = s.reservations.find((r) => r.memberId === memberId && r.status !== 'CANCELLED');
+        return {
+          id: s.id,
+          name: s.gymClass.name,
+          color: s.gymClass.color,
+          startAt: s.startAt,
+          endAt: s.endAt,
+          room: s.room,
+          instructor: s.instructor?.name ?? null,
+          capacity: s.capacity,
+          reserved,
+          full: reserved >= s.capacity,
+          myStatus: mine?.status ?? null,
+        };
+      });
+      return ok(reply, { items });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Reservar (o entrar en lista de espera) una clase
+  app.post('/portal/classes/:id/reserve', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const { id } = request.params as { id: string };
+      const { organizationId, memberId } = req.portalAccount;
+      const session = await prisma.classSession.findFirst({
+        where: { id, gymClass: { organizationId } },
+        include: { reservations: true },
+      });
+      if (!session) throw new HttpError(404, 'Clase no encontrada');
+      if (session.status !== 'SCHEDULED' || session.startAt.getTime() < Date.now()) {
+        throw new HttpError(400, 'La clase ya no esta disponible');
+      }
+      const mine = session.reservations.find((r) => r.memberId === memberId && r.status !== 'CANCELLED');
+      if (mine) return ok(reply, { reservation: mine, already: true });
+
+      const active = session.reservations.filter((r) => r.status === 'RESERVED').length;
+      const status = active < session.capacity ? 'RESERVED' : 'WAITLIST';
+      const reservation = await prisma.reservation.upsert({
+        where: { sessionId_memberId: { sessionId: id, memberId } },
+        create: { sessionId: id, memberId, status },
+        update: { status },
+      });
+      return ok(reply, { reservation, waitlisted: status === 'WAITLIST' }, 201);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Cancelar la reserva
+  app.delete('/portal/classes/:id/reserve', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const { id } = request.params as { id: string };
+      const { memberId } = req.portalAccount;
+      const reservation = await prisma.reservation.findUnique({ where: { sessionId_memberId: { sessionId: id, memberId } } });
+      if (reservation && reservation.status !== 'CANCELLED') {
+        await prisma.reservation.update({ where: { id: reservation.id }, data: { status: 'CANCELLED' } });
+      }
+      return ok(reply, { cancelled: true });
     } catch (error) {
       return fail(reply, error);
     }

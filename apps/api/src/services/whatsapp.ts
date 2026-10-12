@@ -40,3 +40,47 @@ export async function whatsappLink(orgId: string, phone: string, message = ''): 
   const fallback = (await getRawSetting(orgId, 'WHATSAPP', 'BUSINESS_PHONE')) || '';
   return buildWaLink(phone || fallback, message, base);
 }
+
+export interface WhatsAppCloudConfig {
+  token: string;
+  phoneNumberId: string;
+  apiVersion: string;
+}
+
+/** Config de WhatsApp Cloud API (Meta). null si no está configurada. */
+export async function getWhatsAppCloud(orgId: string): Promise<WhatsAppCloudConfig | null> {
+  const token = await getRawSetting(orgId, 'WHATSAPP', 'CLOUD_TOKEN');
+  const phoneNumberId = await getRawSetting(orgId, 'WHATSAPP', 'PHONE_NUMBER_ID');
+  if (!token || !phoneNumberId) return null;
+  const apiVersion = (await getRawSetting(orgId, 'WHATSAPP', 'API_VERSION')) || 'v20.0';
+  return { token, phoneNumberId, apiVersion };
+}
+
+export interface WhatsAppSendResult {
+  ok: boolean;
+  providerId?: string;
+  error?: string;
+}
+
+/**
+ * Envia un mensaje de texto con la WhatsApp Cloud API (Meta).
+ * Requiere CLOUD_TOKEN + PHONE_NUMBER_ID en Configuración > WhatsApp.
+ */
+export async function sendWhatsAppCloud(orgId: string, phone: string, message: string): Promise<WhatsAppSendResult> {
+  const cfg = await getWhatsAppCloud(orgId);
+  if (!cfg) return { ok: false, error: 'WhatsApp Cloud API no configurada' };
+  const to = normalizePhone(phone);
+  if (!to) return { ok: false, error: 'Telefono invalido' };
+  try {
+    const res = await fetch(`https://graph.facebook.com/${cfg.apiVersion}/${cfg.phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: message } }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { messages?: Array<{ id?: string }>; error?: { message?: string } };
+    if (!res.ok) return { ok: false, error: data?.error?.message || `HTTP ${res.status}` };
+    return { ok: true, providerId: data?.messages?.[0]?.id };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}

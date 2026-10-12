@@ -21,11 +21,12 @@ type SettingsMap = Record<string, Record<string, string>>;
 interface IntegrationStatus {
   mercadopago: { configured: boolean; pointDeviceId: string; hasStaticQr: boolean };
   arca: { configured: boolean; mode: string; cuit: string; puntoVenta: string; environment: string; hasCertificate: boolean };
-  whatsapp: { configured: boolean; businessPhone: string };
+  whatsapp: { configured: boolean; businessPhone: string; cloudConfigured: boolean };
   email: { configured: boolean; host: string; port: number; from: string };
+  print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean };
 }
 
-type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email';
+type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -33,6 +34,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'arca', label: 'ARCA (Facturación)' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'email', label: 'Email (SMTP)' },
+  { key: 'print', label: 'Impresión' },
 ];
 
 export default function SettingsPage() {
@@ -133,6 +135,9 @@ export default function SettingsPage() {
                 { key: 'BUSINESS_PHONE', label: 'Teléfono del negocio (con código de país)', placeholder: '5491155551234' },
                 { key: 'WA_URL_BASE', label: 'Base del enlace', placeholder: 'https://wa.me' },
                 { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto' },
+                { key: 'CLOUD_TOKEN', label: 'Cloud API: Token permanente (secreto)', type: 'password' },
+                { key: 'PHONE_NUMBER_ID', label: 'Cloud API: Phone Number ID' },
+                { key: 'API_VERSION', label: 'Cloud API: Versión de Graph', placeholder: 'v20.0' },
               ]}
               onSaved={load}
               extra={<WhatsappCard status={status} />}
@@ -154,6 +159,22 @@ export default function SettingsPage() {
               ]}
               onSaved={load}
               extra={<EmailCard status={status} />}
+            />
+          )}
+
+          {tab === 'print' && (
+            <CategoryForm
+              title="Impresión"
+              category="PRINT"
+              values={settings.PRINT ?? {}}
+              fields={[
+                { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999' },
+                { key: 'PRINTER_NAME', label: 'Impresora (opcional)', placeholder: 'EPSON TM-T20' },
+                { key: 'PRINT_ON_PAYMENT', label: 'Imprimir comprobante al cobrar (true/false)', placeholder: 'false' },
+                { key: 'TICKET_TEMPLATE', label: 'Plantilla de ticket', placeholder: 'default' },
+              ]}
+              onSaved={load}
+              extra={<PrintCard status={status} />}
             />
           )}
         </>
@@ -263,7 +284,7 @@ function CategoryForm({
   title: string;
   category: string;
   values: Record<string, string>;
-  fields: { key: string; label: string; placeholder?: string }[];
+  fields: { key: string; label: string; placeholder?: string; type?: 'text' | 'password' }[];
   onSaved: () => void;
   extra?: React.ReactNode;
 }) {
@@ -298,6 +319,7 @@ function CategoryForm({
           {fields.map((f) => (
             <Field key={f.key} label={f.label}>
               <Input
+                type={f.type ?? 'text'}
                 value={form[f.key] ?? ''}
                 placeholder={f.placeholder}
                 onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
@@ -357,15 +379,19 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
   const phone = status?.whatsapp.businessPhone ?? '';
   const link = phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : '';
   return (
-    <Card title="Enlace directo">
-      <div className="flex items-center gap-2 text-sm">
+    <Card title="Envío de mensajes">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge color={status?.whatsapp.cloudConfigured ? 'green' : 'gray'}>
+          {status?.whatsapp.cloudConfigured ? 'Cloud API (envío automático)' : 'Enlace wa.me (manual)'}
+        </Badge>
         <Badge color={status?.whatsapp.configured ? 'green' : 'gray'}>
-          {status?.whatsapp.configured ? 'Configurado' : 'Sin configurar'}
+          {status?.whatsapp.configured ? 'Teléfono cargado' : 'Sin teléfono'}
         </Badge>
       </div>
       <p className="mt-3 text-sm text-text-muted">
-        Los avisos generan un enlace <code>wa.me</code> que se abre desde el celular. Solo necesitás cargar el
-        teléfono del negocio con código de país (ej. <code>5491155551234</code>).
+        {status?.whatsapp.cloudConfigured
+          ? 'Los avisos se envían automáticamente por la WhatsApp Cloud API de Meta.'
+          : 'Sin Cloud API configurada, los avisos generan un enlace wa.me que se abre desde el celular. Cargá el Token y el Phone Number ID para envío automático.'}
       </p>
       {link && (
         <a
@@ -442,6 +468,69 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
           Generar QR
         </Button>
       </div>
+    </Card>
+  );
+}
+
+function PrintCard({ status }: { status: IntegrationStatus | null }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [printers, setPrinters] = useState<string[]>([]);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function loadPrinters() {
+    try {
+      const res = await http.get<{ ok: boolean; printers: Array<{ name: string }>; error?: string }>('/integrations/print/printers');
+      setPrinters((res.printers ?? []).map((p) => p.name).filter(Boolean));
+      if (!res.ok) setResult(res.error ?? 'No se pudo conectar con el servidor de impresión');
+      else setResult(`${(res.printers ?? []).length} impresora(s) disponibles`);
+    } catch (error) {
+      setResult(error instanceof ApiError ? error.message : 'Error al listar impresoras');
+    }
+  }
+
+  async function test() {
+    setBusy(true);
+    try {
+      await http.post('/integrations/print/test', {});
+      toast.success('Ticket de prueba enviado');
+      setResult('Ticket de prueba enviado a la impresora.');
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Error al imprimir';
+      toast.error(message);
+      setResult(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Impresora térmica">
+      <div className="flex items-center gap-2 text-sm">
+        <Badge color={status?.print.configured ? 'green' : 'gray'}>
+          {status?.print.configured ? 'Configurada' : 'Valores por defecto'}
+        </Badge>
+      </div>
+      <p className="mt-3 text-sm text-text-muted">
+        La app de escritorio expone el servidor de impresión en <code>http://127.0.0.1:3999</code>. Si el panel
+        corre en otra PC, apuntá <code>DEST_URL</code> a la IP de esa máquina.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={loadPrinters}>
+          Ver impresoras
+        </Button>
+        <Button onClick={test} loading={busy}>
+          Imprimir prueba
+        </Button>
+      </div>
+      {printers.length > 0 && (
+        <ul className="mt-3 list-disc pl-5 text-sm text-text-muted">
+          {printers.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      )}
+      {result && <p className="mt-3 text-sm text-text-muted">{result}</p>}
     </Card>
   );
 }

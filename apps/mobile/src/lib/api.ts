@@ -150,6 +150,32 @@ export interface Checkin {
   status: string;
 }
 
+export interface CheckinResult {
+  allowed: boolean;
+  reason?: string;
+  message?: string;
+  plan?: string;
+  planColor?: string | null;
+  membershipEndDate?: string;
+  attendanceId?: string;
+  checkedInAt?: string;
+  branchId?: string;
+}
+
+export interface PortalClass {
+  id: string;
+  name: string;
+  color?: string | null;
+  startAt: string;
+  endAt: string;
+  room?: string | null;
+  instructor?: string | null;
+  capacity: number;
+  reserved: number;
+  full: boolean;
+  myStatus: string | null;
+}
+
 export interface Payment {
   id: string;
   concept: string;
@@ -194,6 +220,16 @@ export const portal = {
   news: () => request<{ items: NewsItem[] }>('/api/portal/news'),
   routines: () => request<{ items: Routine[] }>('/api/portal/routines'),
   checkins: () => request<{ items: Checkin[] }>('/api/portal/checkins'),
+  classes: () => request<{ items: PortalClass[] }>('/api/portal/classes'),
+
+  checkin: (branchId?: string) =>
+    request<CheckinResult>('/api/portal/checkin', { method: 'POST', body: { method: 'MANUAL', branchId } }),
+
+  reserve: (sessionId: string) =>
+    request<{ waitlisted: boolean; already?: boolean }>(`/api/portal/classes/${sessionId}/reserve`, { method: 'POST' }),
+
+  cancelReserve: (sessionId: string) =>
+    request<{ cancelled: boolean }>(`/api/portal/classes/${sessionId}/reserve`, { method: 'DELETE' }),
   payments: () => request<{ payments: Payment[]; intents: PaymentIntent[] }>('/api/portal/payments'),
 
   createIntent: (method: 'MERCADOPAGO' | 'TRANSFER', concept = 'MEMBERSHIP') =>

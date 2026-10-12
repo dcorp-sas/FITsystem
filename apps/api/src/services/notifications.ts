@@ -1,8 +1,9 @@
 import { prisma } from '../db.js';
 import { renderTemplate, fullName, startOfDay } from '@fitsystem/utils';
 import type { NotificationEvent } from '@fitsystem/types';
-import { whatsappLink } from './whatsapp.js';
+import { whatsappLink, sendWhatsAppCloud } from './whatsapp.js';
 import { sendEmail } from './email.js';
+import { sendPushToMember } from './push.js';
 
 const DEFAULT_SE_VARIANTS: Record<NotificationEvent, string> = {
   WELCOME:
@@ -64,16 +65,35 @@ export async function notifyEvent(
     let error: string | null = null;
 
     if (channel === 'WHATSAPP') {
-      // Enlace click-to-chat (wa.me). El envio lo confirma la persona que lo abre.
       if (member?.phone) {
-        provider = 'WHATSAPP_LINK';
-        providerId = await whatsappLink(organizationId, member.phone, body);
-        status = 'PENDING';
+        const cloud = await sendWhatsAppCloud(organizationId, member.phone, body);
+        if (cloud.ok) {
+          provider = 'META_WHATSAPP';
+          providerId = cloud.providerId ?? null;
+          status = 'SENT';
+        } else {
+          // Sin Cloud API configurada: se deja el enlace click-to-chat (wa.me).
+          provider = 'WHATSAPP_LINK';
+          providerId = await whatsappLink(organizationId, member.phone, body);
+          status = 'PENDING';
+          error = cloud.error ?? null;
+        }
       }
     } else if (channel === 'EMAIL') {
       const result = await sendEmail(organizationId, member?.email ?? null, subject, body);
       if (result.ok) {
         provider = 'SMTP';
+        status = 'SENT';
+      } else {
+        provider = 'SYSTEM';
+        status = 'PENDING';
+        error = result.error ?? null;
+      }
+    } else if (channel === 'PUSH') {
+      const result = await sendPushToMember(organizationId, memberId, subject ?? 'Novedad de tu gimnasio', body);
+      if (result.ok) {
+        provider = 'EXPO_PUSH';
+        providerId = `${result.sent}`;
         status = 'SENT';
       } else {
         provider = 'SYSTEM';

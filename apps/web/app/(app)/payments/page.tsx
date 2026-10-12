@@ -92,6 +92,15 @@ export default function PaymentsPage() {
     }
   }
 
+  async function onPrint(id: string) {
+    try {
+      await http.post(`/integrations/print/receipt/${id}`);
+      toast.success('Comprobante enviado a la impresora');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo imprimir');
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -179,11 +188,18 @@ export default function PaymentsPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-text-muted">{formatDateTime(p.paidAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    {isAdmin && p.status === 'COMPLETED' && (
-                      <Button size="sm" variant="ghost" onClick={() => onVoid(p.id)}>
-                        Anular
-                      </Button>
-                    )}
+                    <div className="flex justify-end gap-1">
+                      {p.status === 'COMPLETED' && (
+                        <Button size="sm" variant="ghost" onClick={() => onPrint(p.id)}>
+                          Imprimir
+                        </Button>
+                      )}
+                      {isAdmin && p.status === 'COMPLETED' && (
+                        <Button size="sm" variant="ghost" onClick={() => onVoid(p.id)}>
+                          Anular
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

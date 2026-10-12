@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
-import { Badge, Card, Muted, Subtitle } from '../components/ui';
-import { portal, type Checkin, type MemberInfo, type OrgInfo, type Quota } from '../lib/api';
+import { Badge, Card, Muted, PrimaryButton, Subtitle } from '../components/ui';
+import { portal, ApiError, type Checkin, type MemberInfo, type OrgInfo, type Quota } from '../lib/api';
 
 function formatDate(value?: string | null) {
   if (!value) return '-';
@@ -20,11 +20,29 @@ export function HomeScreen({ org, member, initialQuota }: { org: OrgInfo; member
   const [quota, setQuota] = useState<Quota | null>(initialQuota);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   async function load() {
     const [me, chk] = await Promise.all([portal.me(), portal.checkins()]);
     setQuota(me.quota);
     setCheckins(chk.items);
+  }
+
+  async function onCheckin() {
+    setChecking(true);
+    try {
+      const res = await portal.checkin();
+      if (res.allowed) {
+        Alert.alert('Check-in registrado', `Bienvenido/a a ${org.name}.${res.plan ? ` Plan: ${res.plan}` : ''}`);
+        await load();
+      } else {
+        Alert.alert('No se pudo registrar', res.message ?? 'Tu membresia no permite el ingreso.');
+      }
+    } catch (error) {
+      Alert.alert('Error', error instanceof ApiError ? error.message : 'Intentá de nuevo.');
+    } finally {
+      setChecking(false);
+    }
   }
 
   useEffect(() => {
@@ -87,6 +105,8 @@ export function HomeScreen({ org, member, initialQuota }: { org: OrgInfo; member
           <Muted>Ultima visita</Muted>
         </Card>
       </View>
+
+      <PrimaryButton label="Hacer check-in" onPress={onCheckin} loading={checking} disabled={!quota || quota.isExpired} />
 
       <Subtitle>Ultimos ingresos</Subtitle>
       <Card>

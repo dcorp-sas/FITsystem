@@ -32,6 +32,7 @@
       "themeColor": "#0b1120",
       "backgroundColor": "#0b1120"
     },
+    "plugins": ["expo-notifications"],
     "extra": {
       "apiUrl": "http://10.0.2.2:3001"
     }

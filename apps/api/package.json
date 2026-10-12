@@ -12,7 +12,9 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:generate:pg": "node scripts/pg-schema.mjs && prisma generate --schema prisma/schema.postgres.prisma",
+    "db:push:pg": "node scripts/pg-schema.mjs && prisma db push --schema prisma/schema.postgres.prisma --skip-generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
