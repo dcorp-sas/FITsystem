@@ -20,19 +20,51 @@ interface PortalJwt {
   typ: 'portal';
 }
 
-function findMemberForLogin(orgId: string, identifier: string) {
+async function findMemberForLogin(orgId: string, identifier: string) {
   const id = identifier.trim();
-  return prisma.member.findFirst({
+
+  const byMemberField = await prisma.member.findFirst({
     where: {
       organizationId: orgId,
       OR: [
-        { email: { equals: id } },
+        { email: id },
         { documentNumber: id },
         { memberCode: id },
         { phone: id },
       ],
     },
   });
+  if (byMemberField) return byMemberField;
+
+  // La app tambien acepta el email/DNI cargado al habilitar el acceso a la app
+  // (viven en la cuenta del portal, no necesariamente en la ficha del socio).
+  const byAccount = await prisma.portalAccount.findFirst({
+    where: { organizationId: orgId, OR: [{ email: id }, { documentNumber: id }] },
+    include: { member: true },
+  });
+  if (byAccount) return byAccount.member;
+
+  // Ultimo recurso: comparacion sin distinguir mayusculas (emails/documentos).
+  const lower = id.toLowerCase();
+  const members = await prisma.member.findMany({ where: { organizationId: orgId } });
+  const memberHit = members.find(
+    (m) =>
+      m.email?.toLowerCase() === lower ||
+      m.documentNumber?.toLowerCase() === lower ||
+      m.memberCode?.toLowerCase() === lower ||
+      m.phone?.toLowerCase() === lower,
+  );
+  if (memberHit) return memberHit;
+
+  const accounts = await prisma.portalAccount.findMany({
+    where: { organizationId: orgId },
+    include: { member: true },
+  });
+  return (
+    accounts.find(
+      (a) => a.email?.toLowerCase() === lower || a.documentNumber?.toLowerCase() === lower,
+    )?.member ?? null
+  );
 }
 
 async function loadContext(organizationId: string, memberId: string) {
