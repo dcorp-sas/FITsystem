@@ -21,6 +21,12 @@ export const env = {
   API_PORT: Number(process.env.API_PORT || 3001),
   API_HOST: process.env.API_HOST || '0.0.0.0',
   WEB_ORIGIN: process.env.WEB_ORIGIN || 'http://localhost:3000',
+  // Lista de orígenes permitidos por CORS. WEB_ORIGIN admite varios separados por
+  // coma (ej. panel web + PWA de socios). Se agregan los orígenes locales de dev.
+  WEB_ORIGINS: (process.env.WEB_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
   // URL publica de la API (para webhooks de MercadoPago, etc.). Si esta vacia,
   // no se registra notification_url y la confirmacion queda manual.
   PUBLIC_URL: (process.env.PUBLIC_URL || '').replace(/\/+$/, ''),
