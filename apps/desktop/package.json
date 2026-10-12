@@ -1,13 +1,13 @@
 {
   "name": "@fitsystem/desktop",
   "productName": "FIT System",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "main": "dist/main.js",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n \"api,web,electron\" -c \"blue,green,yellow\" \"pnpm --filter @fitsystem/api run dev\" \"pnpm --filter @fitsystem/web run dev\" \"electron .\"",
-    "build:main": "tsup src/main.ts --format esm --out-dir dist --external electron && tsup src/preload.ts --format esm --out-dir dist --external electron",
+    "build:main": "tsup src/main.ts --format esm --out-dir dist --external electron && tsup src/preload.ts --format cjs --out-dir dist --external electron",
     "build": "pnpm run build:main",
     "start": "electron .",
     "resources": "node scripts/build-resources.mjs",
@@ -28,7 +28,7 @@
     },
     "files": [
       "dist/main.js",
-      "dist/preload.js",
+      "dist/preload.cjs",
       "assets/**/*",
       "package.json"
     ],
@@ -60,7 +60,7 @@
         }
       ],
       "icon": "assets/icon.png",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
     "appId": "com.dcorp.fitsystem",
     "nsis": {
