@@ -9,7 +9,7 @@ const SECRET_KEYS = ['ACCESS_TOKEN', 'SECRET', 'PASSPHRASE', 'PRIVATE_KEY', 'API
 export function settingsRoutes(app: FastifyInstance) {
   const auth = app.authenticate;
 
-  app.get('/settings', { onRequest: [auth] }, async (request, reply) => {
+  app.get('/settings', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
       const settings = await getSettings(req.user.organizationId);

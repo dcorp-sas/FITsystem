@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { saleSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg, assertMemberInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { round2 } from '@fitsystem/utils';
 
@@ -46,6 +47,8 @@ export function saleRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const input = validate(saleSchema, request.body);
       const orgId = req.user.organizationId;
+      await assertBranchInOrg(orgId, input.branchId);
+      if (input.memberId) await assertMemberInOrg(orgId, input.memberId);
 
       const products = await prisma.product.findMany({
         where: { id: { in: input.items.map((i) => i.productId) }, organizationId: orgId },

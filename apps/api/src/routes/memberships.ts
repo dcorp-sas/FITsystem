@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { membershipSchema, membershipFreezeSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { addDays, daysBetween } from '@fitsystem/utils';
 import { notifyEvent } from '../services/notifications.js';
@@ -77,6 +78,7 @@ export function membershipRoutes(app: FastifyInstance) {
       if (!plan) throw new HttpError(404, 'Plan no encontrado');
       const member = await prisma.member.findFirst({ where: { id: input.memberId, organizationId: orgId } });
       if (!member) throw new HttpError(404, 'Socio no encontrado');
+      await assertBranchInOrg(orgId, input.branchId);
 
       // Si ya tiene membresia activa, cancelar las anteriores activas para el mismo plan
       await prisma.membership.updateMany({

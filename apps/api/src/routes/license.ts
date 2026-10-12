@@ -1,6 +1,8 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { timingSafeEqual } from 'node:crypto';
 import { licenseActivateSchema, licenseValidateSchema, licenseSeatSchema, orgLicenseActivateSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { rateLimit } from '../lib/ratelimit.js';
 import { logActivity } from '../lib/activity.js';
 import { env } from '../env.js';
 import { prisma } from '../db.js';
@@ -15,11 +17,25 @@ import {
   type LicensePlanName,
 } from '../services/license.js';
 
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
 function requireAdminKey(headers: Record<string, unknown>) {
   const provided = headers['x-license-admin'];
-  if (!provided || provided !== env.LICENSE_SECRET) {
+  if (typeof provided !== 'string' || !env.LICENSE_SECRET || !safeEqual(provided, env.LICENSE_SECRET)) {
     throw new HttpError(403, 'No autorizado para administrar licencias');
   }
+}
+
+// Los endpoints de licencia de instalacion son publicos SOLO en el producto de
+// escritorio (API local, con LICENSE_INSTALLATION_ID embebido). En la nube
+// requieren el header de administracion para evitar creacion/probe de licencias.
+function licenseEntry(request: FastifyRequest) {
+  if (env.LICENSE_INSTALLATION_ID) return;
+  requireAdminKey(request.headers as Record<string, unknown>);
 }
 
 // ID de instalación efectivo: el provisto (query/body) o el de la instalación
@@ -52,7 +68,7 @@ export function licenseRoutes(app: FastifyInstance) {
   });
 
   // Estado de la licencia de una instalacion
-  app.get('/license/status', async (request, reply) => {
+  app.get('/license/status', { onRequest: [licenseEntry, rateLimit({ max: 60, windowMs: 60 * 60 * 1000, keyPrefix: 'license-status' })] }, async (request, reply) => {
     try {
       const { installationId } = request.query as { installationId?: string };
       const id = resolveInstallationId(installationId);
@@ -70,7 +86,7 @@ export function licenseRoutes(app: FastifyInstance) {
   });
 
   // Activar la instalacion con una clave
-  app.post('/license/activate', async (request, reply) => {
+  app.post('/license/activate', { onRequest: [licenseEntry, rateLimit({ max: 20, windowMs: 60 * 60 * 1000, keyPrefix: 'license-activate' })] }, async (request, reply) => {
     try {
       const input = validate(licenseActivateSchema, request.body);
       const license = await activateLicense(resolveInstallationId(input.installationId), input.licenseKey, input.machineName ?? null);
@@ -81,7 +97,7 @@ export function licenseRoutes(app: FastifyInstance) {
   });
 
   // Validar/refrescar estado (llamado al iniciar el sistema o periodicamente)
-  app.post('/license/validate', async (request, reply) => {
+  app.post('/license/validate', { onRequest: [licenseEntry, rateLimit({ max: 60, windowMs: 60 * 60 * 1000, keyPrefix: 'license-validate' })] }, async (request, reply) => {
     try {
       const input = validate(licenseValidateSchema, request.body);
       const license = await validateLicense(resolveInstallationId(input.installationId), input.licenseKey ?? null);
@@ -111,7 +127,9 @@ export function licenseRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const input = validate(licenseSeatSchema, request.body);
       const license = await prisma.license.findUnique({ where: { installationId: input.installationId } });
-      if (!license) throw new HttpError(404, 'Licencia no encontrada');
+      if (!license || license.organizationId !== req.user.organizationId) {
+        throw new HttpError(404, 'Licencia no encontrada');
+      }
       const seats = Math.max(0, license.seats + input.delta);
       const updated = await prisma.license.update({ where: { id: license.id }, data: { seats } });
       await prisma.licenseEvent.create({
@@ -271,7 +289,7 @@ export function licenseRoutes(app: FastifyInstance) {
   });
 
   // Generador de claves (herramienta del proveedor). Requiere header x-license-admin.
-  app.post('/license/generate', async (request, reply) => {
+  app.post('/license/generate', { onRequest: [rateLimit({ max: 10, windowMs: 60 * 60 * 1000, keyPrefix: 'license-generate' })] }, async (request, reply) => {
     try {
       requireAdminKey(request.headers as Record<string, unknown>);
       const body = (request.body ?? {}) as { plan?: string; seats?: number; expiresAt?: string; client?: string };

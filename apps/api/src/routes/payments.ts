@@ -145,11 +145,17 @@ export function paymentRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const input = validate(paymentSchema, request.body);
       const orgId = req.user.organizationId;
-      const branchId = input.membershipId
-        ? (await prisma.membership.findFirst({ where: { id: input.membershipId, organizationId: orgId } }))
-            ?.branchId ?? req.user.branchId ?? undefined
-        : req.user.branchId ?? undefined;
 
+      const membership = input.membershipId
+        ? await prisma.membership.findFirst({ where: { id: input.membershipId, organizationId: orgId } })
+        : null;
+      if (input.membershipId && !membership) throw new HttpError(400, 'Membresia invalida');
+      if (input.memberId) {
+        const member = await prisma.member.findFirst({ where: { id: input.memberId, organizationId: orgId } });
+        if (!member) throw new HttpError(400, 'Socio invalido');
+      }
+
+      const branchId = membership?.branchId ?? req.user.branchId ?? undefined;
       if (!branchId) throw new HttpError(400, 'Se necesita una sede para registrar el pago');
       const branch = await prisma.branch.findFirst({ where: { id: branchId, organizationId: orgId } });
       if (!branch) throw new HttpError(400, 'Sede invalida');
@@ -177,9 +183,9 @@ export function paymentRoutes(app: FastifyInstance) {
       });
 
       // Marca membresia pagada/activa si corresponde
-      if (input.membershipId && status === 'COMPLETED') {
+      if (membership && status === 'COMPLETED') {
         await prisma.membership.update({
-          where: { id: input.membershipId },
+          where: { id: membership.id },
           data: { status: 'ACTIVE' },
         });
       }

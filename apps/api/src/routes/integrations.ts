@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 import { prisma } from '../db.js';
 import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, mpPointPollSchema } from '@fitsystem/validators';
@@ -11,6 +12,23 @@ import { getSmtpConfig } from '../services/email.js';
 import { getArcaConfig, arcaMode, arcaEmitir, arcaTest, arcaDummy, type CbteTipo } from '../services/arca.js';
 import { printTicket, listPrinters, buildReceiptTicket } from '../services/print.js';
 import { env } from '../env.js';
+
+/**
+ * Verifica la firma `x-signature` de MercadoPago (formato `ts=...,v1=...`).
+ * Manifiesto: `id:<dataId>;request-id:<x-request-id>;ts:<ts>;` con HMAC-SHA256.
+ */
+function verifyMpSignature(secret: string, header: string | undefined, requestId: string | string[] | undefined, dataId: string): boolean {
+  if (!header) return false;
+  const ts = /(?:^|,)ts=([^,]+)/.exec(header)?.[1];
+  const v1 = /(?:^|,)v1=([^,]+)/.exec(header)?.[1];
+  if (!ts || !v1) return false;
+  const rid = Array.isArray(requestId) ? requestId[0] : requestId ?? '';
+  const manifest = `id:${dataId};request-id:${rid};ts:${ts};`;
+  const expected = createHmac('sha256', secret).update(manifest).digest('hex');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(v1);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 async function nextSequence(orgId: string, category: string, key: string): Promise<number> {
   const current = await getRawSetting(orgId, category, key);
@@ -417,25 +435,38 @@ export function integrationRoutes(app: FastifyInstance) {
       }
       if (!order) return ok(reply, { received: true, matched: false });
 
-      const secret = await getRawSetting(order.organizationId, 'MERCADOPAGO', 'WEBHOOK_SECRET');
-      if (secret) {
-        const token = (request.query as { token?: string } | undefined)?.token;
-        if (token !== secret) throw new HttpError(401, 'Token de webhook invalido');
-      }
+      const orgId = order.organizationId;
 
-      // Si MP envía el estado, verificar que esté aprobado antes de completar.
-      let approved = true;
-      const accessToken = await getRawSetting(order.organizationId, 'MERCADOPAGO', 'ACCESS_TOKEN');
-      if (accessToken && paymentId) {
-        const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (res.ok) {
-          const data = (await res.json()) as { status?: string };
-          approved = data.status === 'approved';
+      // 1) Si hay secreto configurado, exigir firma valida de MercadoPago.
+      const secret = await getRawSetting(orgId, 'MERCADOPAGO', 'WEBHOOK_SECRET');
+      if (secret) {
+        const sig = request.headers['x-signature'] as string | undefined;
+        const reqId = request.headers['x-request-id'] as string | string[] | undefined;
+        if (!verifyMpSignature(secret, sig, reqId, paymentId ?? order.reference ?? '')) {
+          throw new HttpError(401, 'Firma de webhook invalida');
         }
       }
-      if (approved) await completeMpOrder(order.organizationId, order.id, null);
+
+      // 2) Nunca completar sin confirmar el pago contra la API de MercadoPago.
+      //    Si no hay ACCESS_TOKEN o id de pago, la orden queda pendiente y se
+      //    confirma desde el panel (o se reintenta). Antes se aprobaba por defecto.
+      const accessToken = await getRawSetting(orgId, 'MERCADOPAGO', 'ACCESS_TOKEN');
+      if (!accessToken || !paymentId) {
+        return ok(reply, { received: true, matched: true, approved: false, pending: true });
+      }
+      const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        return ok(reply, { received: true, matched: true, approved: false, pending: true });
+      }
+      const data = (await res.json()) as { status?: string; external_reference?: string | null };
+      // Si MP reporta una referencia distinta a la de la orden, no completar.
+      if (data.external_reference && order.reference && data.external_reference !== order.reference) {
+        return ok(reply, { received: true, matched: true, approved: false, pending: true });
+      }
+      const approved = data.status === 'approved';
+      if (approved) await completeMpOrder(orgId, order.id, null);
       return ok(reply, { received: true, matched: true, approved });
     } catch (error) {
       return fail(reply, error);

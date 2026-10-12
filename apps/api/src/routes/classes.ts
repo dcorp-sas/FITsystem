@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { instructorSchema, gymClassSchema, classSessionSchema, reservationSchema, instructorPaymentSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg, assertUserInOrg, assertInstructorInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 
@@ -27,6 +28,8 @@ export function classRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(instructorSchema, request.body);
+      if (input.branchId) await assertBranchInOrg(req.user.organizationId, input.branchId);
+      if (input.userId) await assertUserInOrg(req.user.organizationId, input.userId);
       const instructor = await prisma.instructor.create({
         data: {
           organizationId: req.user.organizationId,
@@ -57,6 +60,8 @@ export function classRoutes(app: FastifyInstance) {
       const input = validate(instructorSchema, request.body);
       const existing = await prisma.instructor.findFirst({ where: { id, organizationId: req.user.organizationId } });
       if (!existing) throw new HttpError(404, 'Profesor no encontrado');
+      if (input.branchId) await assertBranchInOrg(req.user.organizationId, input.branchId);
+      if (input.userId) await assertUserInOrg(req.user.organizationId, input.userId);
       const instructor = await prisma.instructor.update({
         where: { id },
         data: {
@@ -98,6 +103,8 @@ export function classRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(gymClassSchema, request.body);
+      await assertBranchInOrg(req.user.organizationId, input.branchId);
+      if (input.instructorId) await assertInstructorInOrg(req.user.organizationId, input.instructorId);
       const cls = await prisma.gymClass.create({
         data: {
           organizationId: req.user.organizationId,
@@ -126,6 +133,8 @@ export function classRoutes(app: FastifyInstance) {
       const input = validate(gymClassSchema, request.body);
       const existing = await prisma.gymClass.findFirst({ where: { id, organizationId: req.user.organizationId } });
       if (!existing) throw new HttpError(404, 'Clase no encontrada');
+      await assertBranchInOrg(req.user.organizationId, input.branchId);
+      if (input.instructorId) await assertInstructorInOrg(req.user.organizationId, input.instructorId);
       const cls = await prisma.gymClass.update({
         where: { id },
         data: {
@@ -216,6 +225,10 @@ export function classRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const { id } = request.params as { id: string };
+      const session = await prisma.classSession.findFirst({
+        where: { id, branch: { organizationId: req.user.organizationId } },
+      });
+      if (!session) throw new HttpError(404, 'Sesion no encontrada');
       const reservations = await prisma.reservation.findMany({
         where: { sessionId: id },
         include: { member: { select: { id: true, firstName: true, lastName: true, memberCode: true, phone: true } } },
@@ -235,6 +248,9 @@ export function classRoutes(app: FastifyInstance) {
         include: { reservations: true },
       });
       if (!session) throw new HttpError(404, 'Sesion no encontrada');
+
+      const member = await prisma.member.findFirst({ where: { id: input.memberId, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
 
       const reservedCount = session.reservations.filter((r) => r.status === 'RESERVED').length;
       const existing = await prisma.reservation.findUnique({

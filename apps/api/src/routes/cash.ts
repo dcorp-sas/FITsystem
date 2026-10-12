@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { cashMovementSchema, cashSessionOpenSchema, cashSessionCloseSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg, assertMemberInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay } from '@fitsystem/utils';
 
@@ -47,6 +48,7 @@ export function cashRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(cashSessionOpenSchema, request.body);
+      await assertBranchInOrg(req.user.organizationId, input.branchId);
       const open = await prisma.cashSession.findFirst({
         where: { organizationId: req.user.organizationId, branchId: input.branchId, status: 'OPEN' },
       });
@@ -131,6 +133,8 @@ export function cashRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const input = validate(cashMovementSchema, request.body);
       const orgId = req.user.organizationId;
+      await assertBranchInOrg(orgId, input.branchId);
+      if (input.memberId) await assertMemberInOrg(orgId, input.memberId);
       const openSession = await prisma.cashSession.findFirst({
         where: { organizationId: orgId, branchId: input.branchId, status: 'OPEN' },
       });

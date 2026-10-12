@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../db.js';
 import { loginSchema, registerOrgSchema, changePasswordSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { rateLimit } from '../lib/ratelimit.js';
 import { slugify } from '@fitsystem/utils';
 import { logActivity } from '../lib/activity.js';
 
@@ -17,7 +18,7 @@ const publicUser = (u: {
 
 export function authRoutes(app: FastifyInstance) {
   // Registro de una organizacion (gimnasio) completa
-  app.post('/auth/register', async (request, reply) => {
+  app.post('/auth/register', { onRequest: [rateLimit({ max: 5, windowMs: 60 * 60 * 1000, keyPrefix: 'register' })] }, async (request, reply) => {
     try {
       const input = validate(registerOrgSchema, request.body);
       const exists = await prisma.organization.findUnique({ where: { slug: input.slug } });
@@ -72,7 +73,7 @@ export function authRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/auth/login', async (request, reply) => {
+  app.post('/auth/login', { onRequest: [rateLimit({ max: 10, windowMs: 5 * 60 * 1000, keyPrefix: 'login' })] }, async (request, reply) => {
     try {
       const input = validate(loginSchema, request.body);
       const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });

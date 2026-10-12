@@ -12,6 +12,7 @@ import {
   portalReserveSchema,
 } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type PortalAuthedRequest } from '../lib/http.js';
+import { rateLimit } from '../lib/ratelimit.js';
 import { getRawSetting } from '../services/settings.js';
 import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
 
@@ -114,18 +115,18 @@ export function portalRoutes(app: FastifyInstance) {
   const portalAuth = app.authenticatePortal;
 
   // Login del socio (identificador = email | documento | legajo | telefono)
-  app.post('/portal/auth/login', async (request, reply) => {
+  app.post('/portal/auth/login', { onRequest: [rateLimit({ max: 10, windowMs: 5 * 60 * 1000, keyPrefix: 'portal-login' })] }, async (request, reply) => {
     try {
       const input = validate(portalLoginSchema, request.body);
       const org = await prisma.organization.findUnique({ where: { slug: input.organizationSlug } });
-      if (!org) throw new HttpError(404, 'Gimnasio no encontrado');
+      if (!org) throw new HttpError(401, 'Credenciales invalidas');
 
       const member = await findMemberForLogin(org.id, input.identifier);
       if (!member) throw new HttpError(401, 'Credenciales invalidas');
 
       const account = await prisma.portalAccount.findUnique({ where: { memberId: member.id } });
       if (!account || !account.isActive || !account.passwordHash) {
-        throw new HttpError(403, 'El acceso a la app no esta habilitado. Pedi el codigo de activacion en tu gimnasio.');
+        throw new HttpError(401, 'Credenciales invalidas');
       }
 
       const valid = await bcrypt.compare(input.password, account.passwordHash);
@@ -147,20 +148,20 @@ export function portalRoutes(app: FastifyInstance) {
   });
 
   // Activacion de la cuenta del socio con codigo (primer acceso)
-  app.post('/portal/auth/activate', async (request, reply) => {
+  app.post('/portal/auth/activate', { onRequest: [rateLimit({ max: 10, windowMs: 10 * 60 * 1000, keyPrefix: 'portal-activate' })] }, async (request, reply) => {
     try {
       const input = validate(portalActivateSchema, request.body);
       const org = await prisma.organization.findUnique({ where: { slug: input.organizationSlug } });
-      if (!org) throw new HttpError(404, 'Gimnasio no encontrado');
+      if (!org) throw new HttpError(400, 'Datos de activacion invalidos');
 
       const member = await findMemberForLogin(org.id, input.identifier);
-      if (!member) throw new HttpError(404, 'Socio no encontrado');
+      if (!member) throw new HttpError(400, 'Datos de activacion invalidos');
 
       const account = await prisma.portalAccount.findUnique({ where: { memberId: member.id } });
-      if (!account) throw new HttpError(404, 'La cuenta del portal no existe. Consulta en tu gimnasio.');
+      if (!account) throw new HttpError(400, 'Datos de activacion invalidos');
       if (!account.activationCode) throw new HttpError(400, 'La cuenta ya esta activada. Pedi un nuevo codigo en tu gimnasio si necesitas recuperar la clave.');
       if (account.activationCode !== input.activationCode.trim()) {
-        throw new HttpError(400, 'Codigo de activacion invalido');
+        throw new HttpError(400, 'Datos de activacion invalidos');
       }
 
       const passwordHash = await bcrypt.hash(input.password, 10);
@@ -306,7 +307,8 @@ export function portalRoutes(app: FastifyInstance) {
         orderBy: { endDate: 'desc' },
         include: { plan: true },
       });
-      const amount = input.amount ?? active?.price ?? 0;
+      // El monto lo define el servidor (precio de la membresia/plan), nunca el cliente.
+      const amount = active?.price ?? 0;
       if (amount <= 0) throw new HttpError(400, 'No se pudo determinar el monto a pagar');
 
       const externalRef = `PI-${randomBytes(6).toString('hex')}`;

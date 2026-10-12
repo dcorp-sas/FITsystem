@@ -6,7 +6,7 @@ import { HttpError } from './http.js';
 import type { AuthedRequest, PortalAuthedRequest } from './http.js';
 
 export async function registerAuth(app: FastifyInstance) {
-  await app.register(fastifyJwt, { secret: env.JWT_SECRET });
+  await app.register(fastifyJwt, { secret: env.JWT_SECRET, sign: { expiresIn: '12h' } });
 
   const authenticate: preHandlerHookHandler = async (request, _reply) => {
     const req = request as AuthedRequest;

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { newsPostSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 
 export function newsRoutes(app: FastifyInstance) {
@@ -36,6 +37,7 @@ export function newsRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(newsPostSchema, request.body);
+      if (input.branchId) await assertBranchInOrg(req.user.organizationId, input.branchId);
       const post = await prisma.newsPost.create({
         data: {
           organizationId: req.user.organizationId,

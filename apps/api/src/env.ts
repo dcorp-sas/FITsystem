@@ -16,10 +16,12 @@ if (NODE_ENV === 'production' && (JWT_SECRET_INPUT.length < 32 || WEAK_JWT_SECRE
 }
 
 export const env = {
+  NODE_ENV,
   DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db',
   JWT_SECRET: JWT_SECRET_INPUT || 'fitsystem-dev-secret-change-me',
   API_PORT: Number(process.env.API_PORT || 3001),
-  API_HOST: process.env.API_HOST || '0.0.0.0',
+  // Por defecto solo loopback (escritorio). En la nube se define API_HOST=0.0.0.0.
+  API_HOST: process.env.API_HOST || '127.0.0.1',
   WEB_ORIGIN: process.env.WEB_ORIGIN || 'http://localhost:3000',
   // Lista de orígenes permitidos por CORS. WEB_ORIGIN admite varios separados por
   // coma (ej. panel web + PWA de socios). Se agregan los orígenes locales de dev.

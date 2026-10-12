@@ -39,15 +39,26 @@ export async function buildServer() {
     },
   });
 
+  const devOrigins =
+    env.NODE_ENV === 'production'
+      ? []
+      : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'];
+
   await app.register(cors, {
-    origin: [
-      ...env.WEB_ORIGINS,
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3001',
-    ],
+    origin: [...env.WEB_ORIGINS, ...devOrigins],
     credentials: true,
+  });
+
+  // Cabeceras de endurecimiento (sin dependencias).
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('X-Permitted-Cross-Domain-Policies', 'none');
+    if (env.NODE_ENV === 'production') {
+      reply.header('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    }
+    return payload;
   });
 
   await registerAuth(app);

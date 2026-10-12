@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { equipmentSchema, maintenanceOrderSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 
 export function equipmentRoutes(app: FastifyInstance) {
@@ -40,6 +41,7 @@ export function equipmentRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(equipmentSchema, request.body);
+      await assertBranchInOrg(req.user.organizationId, input.branchId);
       const equipment = await prisma.equipment.create({
         data: {
           organizationId: req.user.organizationId,

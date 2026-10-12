@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { routineSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertMemberInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { fullName } from '@fitsystem/utils';
 
@@ -55,6 +56,7 @@ export function routineRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(routineSchema, request.body);
+      if (input.memberId) await assertMemberInOrg(req.user.organizationId, input.memberId);
       const routine = await prisma.routine.create({
         data: {
           organizationId: req.user.organizationId,
@@ -101,6 +103,7 @@ export function routineRoutes(app: FastifyInstance) {
       const input = validate(routineSchema, request.body);
       const existing = await prisma.routine.findFirst({ where: { id, organizationId: req.user.organizationId } });
       if (!existing) throw new HttpError(404, 'Rutina no encontrada');
+      if (input.memberId) await assertMemberInOrg(req.user.organizationId, input.memberId);
 
       const routine = await prisma.$transaction(async (tx) => {
         await tx.routineDay.deleteMany({ where: { routineId: id } });

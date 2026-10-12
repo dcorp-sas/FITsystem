@@ -8,7 +8,7 @@ import { logActivity } from '../lib/activity.js';
 import { fullName } from '@fitsystem/utils';
 
 function generateActivationCode(): string {
-  return String(randomInt(0, 1000000)).padStart(6, '0');
+  return String(randomInt(0, 100000000)).padStart(8, '0');
 }
 
 async function maxSeats(organizationId: string): Promise<number> {

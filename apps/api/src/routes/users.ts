@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../db.js';
 import { userSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
+import { assertBranchInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 
 export function userRoutes(app: FastifyInstance) {
@@ -37,6 +38,8 @@ export function userRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const input = validate(userSchema, request.body);
       if (!input.password) throw new HttpError(400, 'Contrasena requerida');
+      if (input.role === 'OWNER' && req.user.role !== 'OWNER') throw new HttpError(403, 'Solo un OWNER puede asignar el rol OWNER');
+      if (input.branchId) await assertBranchInOrg(req.user.organizationId, input.branchId);
       const passwordHash = await bcrypt.hash(input.password, 10);
       const user = await prisma.user.create({
         data: {
@@ -69,6 +72,8 @@ export function userRoutes(app: FastifyInstance) {
         where: { id, organizationId: req.user.organizationId },
       });
       if (!existing) throw new HttpError(404, 'Usuario no encontrado');
+      if (input.role === 'OWNER' && req.user.role !== 'OWNER') throw new HttpError(403, 'Solo un OWNER puede asignar el rol OWNER');
+      if (input.branchId) await assertBranchInOrg(req.user.organizationId, input.branchId);
 
       const data: Record<string, unknown> = {
         name: input.name,

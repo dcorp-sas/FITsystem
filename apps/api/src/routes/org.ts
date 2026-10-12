@@ -15,11 +15,14 @@ export function orgRoutes(app: FastifyInstance) {
         where: { organizationId: req.user.organizationId },
         orderBy: { name: 'asc' },
       });
-      const users = await prisma.user.findMany({
-        where: { organizationId: req.user.organizationId },
-        select: { id: true, name: true, email: true, role: true, branchId: true, isActive: true, lastLoginAt: true },
-        orderBy: { name: 'asc' },
-      });
+      const canSeeUsers = ['OWNER', 'ADMIN', 'MANAGER'].includes(req.user.role);
+      const users = canSeeUsers
+        ? await prisma.user.findMany({
+            where: { organizationId: req.user.organizationId },
+            select: { id: true, name: true, email: true, role: true, branchId: true, isActive: true, lastLoginAt: true },
+            orderBy: { name: 'asc' },
+          })
+        : [];
       return ok(reply, { organization: org, branches, users });
     } catch (error) {
       return fail(reply, error);
