@@ -126,7 +126,8 @@ export function portalRoutes(app: FastifyInstance) {
 
       const account = await prisma.portalAccount.findUnique({ where: { memberId: member.id } });
       if (!account) throw new HttpError(404, 'La cuenta del portal no existe. Consulta en tu gimnasio.');
-      if (account.activationCode && account.activationCode !== input.activationCode.trim()) {
+      if (!account.activationCode) throw new HttpError(400, 'La cuenta ya esta activada. Pedi un nuevo codigo en tu gimnasio si necesitas recuperar la clave.');
+      if (account.activationCode !== input.activationCode.trim()) {
         throw new HttpError(400, 'Codigo de activacion invalido');
       }
 
