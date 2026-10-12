@@ -81,6 +81,16 @@
         letter-spacing: 2px;
       }
       .hint { color: var(--muted); font-size: 15px; }
+      #faceVideo {
+        width: 100%;
+        max-width: 520px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        transform: scaleX(-1);
+        object-fit: cover;
+        aspect-ratio: 4 / 3;
+      }
+      #faceBtn { width: 100%; max-width: 520px; }
       .result { display: none; width: 100%; max-width: 720px; border-radius: 20px; padding: 36px; border: 2px solid var(--border); }
       .result.show { display: block; }
       .result.allowed { border-color: var(--green); background: rgba(22,163,74,.12); }
@@ -137,7 +147,15 @@
         <div class="msg" id="resultMsg"></div>
       </div>
       <div class="hint" id="gateError" style="color:#fca5a5"></div>
+      <button id="faceBtn" class="primary">Check-in por rostro</button>
+      <video id="faceVideo" autoplay playsinline muted style="display:none"></video>
+      <div class="hint" id="faceStatus"></div>
     </div>
+
+    <script type="module">
+      import * as faceapi from './vendor/face-api/face-api.esm.js';
+      window.__faceapi = faceapi;
+    </script>
 
     <script>
       const $ = (id) => document.getElementById(id);
@@ -170,6 +188,7 @@
       }
 
       async function refresh() {
+        stopFace();
         const cfg = await window.gate.config();
         $('apiUrl').value = cfg.apiUrl;
         $('email').value = cfg.email;
@@ -268,6 +287,105 @@
         }
         $('reader').focus();
       });
+
+      // ------------------------------------------------------------------
+      // Check-in por reconocimiento facial (cámara del kiosco)
+      // ------------------------------------------------------------------
+      let faceActive = false;
+      let faceStream = null;
+      let faceLoop = null;
+      let faceBusy = false;
+
+      function setFaceStatus(text) {
+        $('faceStatus').textContent = text || '';
+        $('faceStatus').style.color = text ? 'inherit' : '';
+      }
+
+      async function ensureFaceApi() {
+        for (let i = 0; i < 100 && !window.__faceapi; i++) {
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        if (!window.__faceapi) throw new Error('Modelo facial sin cargar');
+        const m = window.__faceapi;
+        await Promise.all([
+          m.nets.tinyFaceDetector.loadFromUri('./vendor/face-api/model'),
+          m.nets.faceLandmark68Net.loadFromUri('./vendor/face-api/model'),
+          m.nets.faceRecognitionNet.loadFromUri('./vendor/face-api/model'),
+        ]);
+        return m;
+      }
+
+      async function startFace() {
+        faceActive = true;
+        $('faceBtn').textContent = 'Detener rostro';
+        setFaceStatus('Preparando cámara…');
+        $('faceBtn').disabled = true;
+        try {
+          const m = await ensureFaceApi();
+          const video = $('faceVideo');
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          });
+          faceStream = stream;
+          video.srcObject = stream;
+          await video.play();
+          video.style.display = 'block';
+          $('faceBtn').disabled = false;
+          setFaceStatus('Mirá a la cámara. El acceso se registra automáticamente.');
+
+          faceLoop = setInterval(async () => {
+            if (!faceActive || faceBusy || video.readyState < 2) return;
+            faceBusy = true;
+            try {
+              const opts = new m.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+              const det = await m.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+              if (!det) {
+                setFaceStatus('Ajustá el encuadre para ver tu rostro completo…');
+                return;
+              }
+              setFaceStatus('Rostro detectado — verificando…');
+              const res = await window.gate.checkinFace(Array.from(det.descriptor));
+              renderResult(res);
+              if (res && res.allowed) {
+                stopFace();
+                setFaceStatus('Acceso registrado.');
+              } else {
+                setFaceStatus((res && res.message) || 'No se reconoció el rostro. Intentá nuevamente.');
+              }
+            } catch (e) {
+              setFaceStatus((e && e.message) || 'Error al verificar el rostro');
+            } finally {
+              faceBusy = false;
+            }
+          }, 350);
+        } catch (e) {
+          setFaceStatus((e && e.message) || 'No se pudo iniciar la cámara');
+        } finally {
+          $('faceBtn').disabled = false;
+        }
+      }
+
+      function stopFace() {
+        faceActive = false;
+        if (faceLoop) {
+          clearInterval(faceLoop);
+          faceLoop = null;
+        }
+        if (faceStream) {
+          faceStream.getTracks().forEach((t) => t.stop());
+          faceStream = null;
+        }
+        const video = $('faceVideo');
+        if (video) {
+          video.srcObject = null;
+          video.style.display = 'none';
+        }
+        $('faceBtn').textContent = 'Check-in por rostro';
+        setFaceStatus('');
+      }
+
+      $('faceBtn').onclick = () => (faceActive ? stopFace() : startFace());
 
       setInterval(() => {
         $('clock').textContent = new Date().toLocaleTimeString('es-AR');

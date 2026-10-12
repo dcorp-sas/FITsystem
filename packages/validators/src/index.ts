@@ -79,7 +79,7 @@ export const userSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const settingsUpsertSchema = z.object({
-  category: z.enum(['GENERAL', 'MERCADOPAGO', 'ARCA', 'WHATSAPP', 'SMTP', 'PUSH', 'PRINT']),
+  category: z.enum(['GENERAL', 'MERCADOPAGO', 'ARCA', 'WHATSAPP', 'SMTP', 'PUSH', 'PRINT', 'FACE']),
   values: z.record(z.string(), z.string()),
 });
 
@@ -289,6 +289,21 @@ export const attendanceCheckinSchema = z.object({
   memberId: z.string().optional(),
   qr: z.string().optional(),
   method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD']).default('MANUAL'),
+});
+
+// ---------------------------------------------------------------------------
+// Reconocimiento facial
+// ---------------------------------------------------------------------------
+
+const descriptor512 = z.array(z.number()).min(16).max(2048);
+
+export const faceEnrollSchema = z.object({
+  descriptors: z.array(descriptor512).min(1).max(12),
+});
+
+export const faceCheckinSchema = z.object({
+  branchId: cuid,
+  descriptor: descriptor512,
 });
 
 // ---------------------------------------------------------------------------

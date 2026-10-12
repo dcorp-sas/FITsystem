@@ -26,7 +26,7 @@ interface IntegrationStatus {
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean };
 }
 
-type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print';
+type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -35,6 +35,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'email', label: 'Email (SMTP)' },
   { key: 'print', label: 'Impresión' },
+  { key: 'face', label: 'Reconocimiento facial' },
 ];
 
 export default function SettingsPage() {
@@ -175,6 +176,19 @@ export default function SettingsPage() {
               ]}
               onSaved={load}
               extra={<PrintCard status={status} />}
+            />
+          )}
+
+          {tab === 'face' && (
+            <CategoryForm
+              title="Reconocimiento facial"
+              category="FACE"
+              values={settings.FACE ?? {}}
+              fields={[
+                { key: 'MATCH_THRESHOLD', label: 'Umbral de coincidencia', placeholder: '0.55' },
+              ]}
+              onSaved={load}
+              extra={<FaceInfoCard />}
             />
           )}
         </>
@@ -467,6 +481,34 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
         <Button variant="secondary" onClick={generate} loading={loading}>
           Generar QR
         </Button>
+      </div>
+    </Card>
+  );
+}
+
+function FaceInfoCard() {
+  return (
+    <Card title="Cómo funciona">
+      <div className="space-y-3 text-sm text-text-muted">
+        <p>
+          El sistema usa <span className="text-text">reconocimiento facial real</span> en el dispositivo (cámara este
+          navegador / kiosco): detecta el rostro, lo vuelve un vector de 128 dimensiones y lo envía al servidor para
+          compararlo con los rostros enrolados.
+        </p>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="rounded-lg bg-surface-alt/60 p-3">
+            <div className="mb-1 font-semibold text-text">Enrolamiento</div>
+            Desde la ficha del socio → "Registrar rostro". Se toman 5 muestras en vivo.
+          </div>
+          <div className="rounded-lg bg-surface-alt/60 p-3">
+            <div className="mb-1 font-semibold text-text">Check-in</div>
+            Desde "Acceso y asistencia" → "Check-in por rostro", o desde el kiosco de la sucursal.
+          </div>
+        </div>
+        <p>
+          Umbral de coincidencia: menor valor = más estricto (0.30–0.40), mayor valor = más permisivo (0.60–0.70).
+          0.55 es el valor recomendado. El código de acceso/sede habitual sigue funcionando igual.
+        </p>
       </div>
     </Card>
   );

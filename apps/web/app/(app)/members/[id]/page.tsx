@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { http, ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
+import { useAuth } from '@/lib/auth';
 import { formatMoney, formatDate, formatDateTime } from '@fitsystem/utils';
 import {
   MEMBER_STATUS_LABELS,
@@ -16,6 +17,7 @@ import type { Member, Membership, Payment, Attendance } from '@/lib/types';
 import { MemberFormModal } from '@/components/member-form';
 import { MembershipFormModal } from '@/components/membership-form';
 import { PaymentFormModal } from '@/components/payment-form';
+import { FaceCaptureModal, type FaceCaptureMode } from '@/components/face-capture';
 import {
   Badge,
   Button,
@@ -36,21 +38,28 @@ export default function MemberDetailPage() {
   const id = params.id;
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [risk, setRisk] = useState<{ score: number; level: string } | null>(null);
+  const [face, setFace] = useState<{ enrolled: boolean; samples: number; updatedAt?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('memberships');
   const [editOpen, setEditOpen] = useState(false);
   const [membershipOpen, setMembershipOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [freezeFor, setFreezeFor] = useState<Membership | null>(null);
+  const [faceOpen, setFaceOpen] = useState<FaceCaptureMode | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await http.get<{ member: Member; risk: { score: number; level: string } }>(`/members/${id}`);
+      const [res, faceRes] = await Promise.all([
+        http.get<{ member: Member; risk: { score: number; level: string } }>(`/members/${id}`),
+        http.get<{ enrolled: boolean; samples: number; updatedAt?: string | null }>(`/members/${id}/face`).catch(() => null),
+      ]);
       setMember(res.member);
       setRisk(res.risk);
+      setFace(faceRes);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al cargar el socio');
     } finally {
@@ -81,6 +90,17 @@ export default function MemberDetailPage() {
       router.push('/members');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error');
+    }
+  }
+
+  async function removeFace() {
+    if (!window.confirm('¿Eliminar el rostro registrado del socio?')) return;
+    try {
+      await http.del(`/members/${id}/face`);
+      toast.success('Rostro eliminado');
+      load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo eliminar');
     }
   }
 
@@ -198,6 +218,53 @@ export default function MemberDetailPage() {
               <EmptyState icon="📋" message="Sin membresía activa" action={<Button size="sm" onClick={() => setMembershipOpen(true)}>Crear membresía</Button>} />
             )}
           </Card>
+
+          <Card title="Reconocimiento facial">
+            {face ? (
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-text-muted">
+                    {face.enrolled ? (
+                      <span className="text-text">
+                        Rostro registrado · <span className="font-medium">{face.samples} muestra(s)</span>
+                      </span>
+                    ) : (
+                      'Este socio todavía no registró su rostro'
+                    )}
+                  </div>
+                  <Badge color={face.enrolled ? 'green' : 'gray'}>
+                    {face.enrolled ? 'Enrolado' : 'No enrolado'}
+                  </Badge>
+                </div>
+                {face.updatedAt && face.enrolled && (
+                  <div className="mt-1 text-xs text-text-muted">Actualizado: {formatDateTime(face.updatedAt)}</div>
+                )}
+                {['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user?.role ?? '') && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="sm" variant={face.enrolled ? 'secondary' : undefined} onClick={() => setFaceOpen('enroll')}>
+                      {face.enrolled ? 'Registrar nuevamente' : 'Registrar rostro'}
+                    </Button>
+                    {face.enrolled && (
+                      <>
+                        <Button size="sm" variant="secondary" onClick={() => setFaceOpen('verify')}>
+                          Probar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={removeFace}
+                        >
+                          Quitar
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-text-muted">Verificando…</div>
+            )}
+          </Card>
         </div>
 
         <div className="lg:col-span-2">
@@ -305,6 +372,14 @@ export default function MemberDetailPage() {
       <MembershipFormModal open={membershipOpen} onClose={() => setMembershipOpen(false)} onSaved={load} memberId={member.id} />
       <PaymentFormModal open={paymentOpen} onClose={() => setPaymentOpen(false)} onSaved={load} memberId={member.id} />
       <FreezeModal membership={freezeFor} onClose={() => setFreezeFor(null)} onSaved={load} />
+      <FaceCaptureModal
+        open={!!faceOpen}
+        onClose={() => setFaceOpen(null)}
+        mode={faceOpen ?? 'enroll'}
+        memberId={faceOpen === 'enroll' ? member.id : undefined}
+        branchId={member.branchId}
+        onDone={load}
+      />
     </div>
   );
 }

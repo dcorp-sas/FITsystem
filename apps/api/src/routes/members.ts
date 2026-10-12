@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
-import { memberSchema, memberImportSchema } from '@fitsystem/validators';
+import { memberSchema, memberImportSchema, faceEnrollSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { autoProvisionPortalAccount } from '../services/portal-account.js';
@@ -446,6 +446,75 @@ export function memberRoutes(app: FastifyInstance) {
       const { default: QRCode } = await import('qrcode');
       const image = await QRCode.toDataURL(payload, { width: 512, margin: 1, color: { dark: '#0b1120', light: '#ffffff' } });
       return ok(reply, { memberId: id, memberCode: member.memberCode, payload, image });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Estado del reconocimiento facial del socio
+  app.get('/members/:id/face', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+      const face = await prisma.memberFace.findUnique({ where: { memberId: id } });
+      return ok(reply, {
+        enrolled: !!face,
+        samples: face?.samples ?? 0,
+        updatedAt: face?.updatedAt ?? null,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Enrolar / reemplazar rostro del socio (descriptores calculados con face-api)
+  app.post('/members/:id/face', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const input = validate(faceEnrollSchema, request.body);
+      const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+
+      const length = input.descriptors[0]!.length;
+      if (length < 16) throw new HttpError(400, 'Descriptores invalidos');
+      for (const d of input.descriptors) {
+        if (d.length !== length) throw new HttpError(400, 'Todos los descriptores deben tener la misma dimension');
+      }
+
+      const face = await prisma.memberFace.upsert({
+        where: { memberId: id },
+        create: {
+          organizationId: req.user.organizationId,
+          memberId: id,
+          descriptors: JSON.stringify(input.descriptors),
+          samples: input.descriptors.length,
+        },
+        update: {
+          descriptors: JSON.stringify(input.descriptors),
+          samples: input.descriptors.length,
+        },
+      });
+
+      await logActivity(req, 'FACE_ENROLL', 'MEMBER', id, undefined, { samples: face.samples });
+      return ok(reply, { enrolled: true, samples: face.samples, updatedAt: face.updatedAt }, 201);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Eliminar rostro enrolado
+  app.delete('/members/:id/face', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+      await prisma.memberFace.deleteMany({ where: { memberId: id, organizationId: req.user.organizationId } });
+      await logActivity(req, 'FACE_REMOVE', 'MEMBER', id);
+      return ok(reply, { deleted: true });
     } catch (error) {
       return fail(reply, error);
     }

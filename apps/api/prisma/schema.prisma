@@ -56,6 +56,7 @@ model Organization {
   routines       Routine[]
   newsPosts      NewsPost[]
   paymentIntents PaymentIntent[]
+  memberFaces    MemberFace[]
 
   @@map("organizations")
 }
@@ -196,11 +197,34 @@ model Member {
   portalAccount  PortalAccount?
   routines       Routine[]
   paymentIntents PaymentIntent[]
+  face           MemberFace?
 
   @@unique([organizationId, memberCode])
   @@index([organizationId, status])
   @@index([lastName, firstName])
   @@map("members")
+}
+
+// ---------------------------------------------------------------------------
+// Reconocimiento facial
+// ---------------------------------------------------------------------------
+
+// Descriptores faciales (embeddings de 128 dimensiones generados con face-api
+// en el navegador/kiosco). Se guardan como JSON string (compatible SQLite/PostgreSQL).
+model MemberFace {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String   @unique
+  descriptors    String // JSON: number[][] (descriptores de 128-d)
+  samples        Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("member_faces")
 }
 
 // ---------------------------------------------------------------------------

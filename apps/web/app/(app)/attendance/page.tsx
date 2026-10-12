@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { formatDateTime, formatDate } from '@fitsystem/utils';
 import { ATTENDANCE_METHOD_LABELS } from '@/lib/labels';
 import type { Attendance } from '@/lib/types';
+import { FaceCaptureModal } from '@/components/face-capture';
 import {
   Button,
   Card,
@@ -48,6 +49,7 @@ export default function AttendancePage() {
   const [method, setMethod] = useState('MANUAL');
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<CheckinResult | null>(null);
+  const [faceOpen, setFaceOpen] = useState(false);
   const [from, setFrom] = useState('');
 
   const load = useCallback(async () => {
@@ -132,6 +134,16 @@ export default function AttendancePage() {
                 <Icon name="attendance" size={16} /> Registrar ingreso
               </Button>
             </form>
+
+            <div className="my-4 flex items-center gap-3 text-xs text-text-muted">
+              <div className="h-px flex-1 bg-line" />
+              o
+              <div className="h-px flex-1 bg-line" />
+            </div>
+
+            <Button variant="secondary" className="w-full" onClick={() => setFaceOpen(true)}>
+              <Icon name="activity" size={16} /> Check-in por rostro (cámara)
+            </Button>
 
             {result && (
               <div
@@ -223,6 +235,14 @@ export default function AttendancePage() {
           </Card>
         </div>
       </div>
+
+      <FaceCaptureModal
+        open={faceOpen}
+        onClose={() => setFaceOpen(false)}
+        mode="verify"
+        branchId={branchId}
+        onDone={load}
+      />
     </div>
   );
 }

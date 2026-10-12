@@ -1,9 +1,12 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import http from 'node:http';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const DEFAULT_PORT = 3260;
 
 interface GateConfig {
   apiUrl: string;
@@ -74,7 +77,49 @@ async function api<T = unknown>(cfg: GateConfig, pathname: string, options: ApiO
   return (json?.data ?? (json as T));
 }
 
+// Servidor HTTP local para servir el renderer (necesario para importar el
+// bundle ESM de face-api y para que getUserMedia funcione sobre http://127.0.0.1).
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.bin': 'application/octet-stream',
+  '.png': 'image/png',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+};
+
+function createStaticServer(): Promise<http.Server> {
+  const root = path.join(app.getAppPath(), 'renderer');
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+    let rel = decodeURIComponent(url.pathname);
+    if (rel === '/') rel = '/index.html';
+    const file = path.normalize(path.join(root, rel));
+    if (!file.startsWith(root)) {
+      res.writeHead(403).end();
+      return;
+    }
+    fs.readFile(file, (err, data) => {
+      if (err) {
+        res.writeHead(404).end('Not found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream' });
+      res.end(data);
+    });
+  });
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(DEFAULT_PORT, '127.0.0.1', () => resolve(server));
+  });
+}
+
+let staticServer: http.Server | null = null;
+
 function createWindow() {
+  const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -83,8 +128,9 @@ function createWindow() {
     show: false,
     backgroundColor: '#0b1120',
     title: 'FIT System Acceso',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
-      preload: path.join(dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -92,7 +138,8 @@ function createWindow() {
   });
   win.removeMenu();
   win.once('ready-to-show', () => win.show());
-  win.loadFile(path.join(app.getAppPath(), 'renderer', 'index.html'));
+  const port = staticServer ? (staticServer.address() as { port: number }).port : DEFAULT_PORT;
+  win.loadURL(`http://127.0.0.1:${port}/index.html`);
   return win;
 }
 
@@ -132,6 +179,12 @@ function registerIpc() {
     return api(cfg, '/attendance/checkin', { method: 'POST', body: { branchId: cfg.branchId, qr: payload.code, method: 'QR' } });
   });
 
+  ipcMain.handle('gate:checkin-face', async (_e, payload: { descriptor: number[] }) => {
+    const cfg = readConfig();
+    if (!cfg.branchId) throw new Error('Elegí una sede antes de registrar accesos');
+    return api(cfg, '/attendance/face', { method: 'POST', body: { branchId: cfg.branchId, descriptor: payload.descriptor } });
+  });
+
   ipcMain.handle('gate:logout', () => {
     const cfg = readConfig();
     cfg.token = '';
@@ -140,7 +193,18 @@ function registerIpc() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Permitir cámara en el renderer (getUserMedia).
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(['media', 'videoCapture', 'audioCapture'].includes(permission));
+  });
+
+  try {
+    staticServer = await createStaticServer();
+  } catch (err) {
+    console.error('Fallo al iniciar servidor local:', (err as Error).message);
+  }
+
   registerIpc();
   createWindow();
   app.on('activate', () => {

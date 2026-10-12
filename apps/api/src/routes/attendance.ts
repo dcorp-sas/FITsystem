@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
-import { attendanceCheckinSchema } from '@fitsystem/validators';
+import { attendanceCheckinSchema, faceCheckinSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
+import { getRawSetting } from '../services/settings.js';
+import { matchFace, parseThreshold } from '../services/face.js';
 
 async function findActiveMembership(orgId: string, memberId: string) {
   return prisma.membership.findFirst({
@@ -18,15 +20,127 @@ async function findActiveMembership(orgId: string, memberId: string) {
   });
 }
 
+type CheckinOutcome =
+  | {
+      kind: 'ok';
+      member: { id: string; memberCode: string; name: string; photoUrl: string | null };
+      plan: string;
+      planColor: string;
+      membershipEndDate: Date;
+      attendanceId: string;
+      checkedInAt: Date;
+    }
+  | { kind: 'reject'; reason: string; member: { id: string; memberCode: string; name: string; photoUrl: string | null } | null };
+
+const REJECT_MESSAGES: Record<string, string> = {
+  SOCIO_NO_ENCONTRADO: 'Socio no encontrado',
+  ROSTRO_NO_ENCONTRADO: 'No se pudo registrar ningun rostro. Acercate a la camara',
+  ROSTRO_NO_RECONOCIDO: 'Rostro no reconocido. Probá de nuevo o registrá tu rostro en recepción',
+  SIN_FACE_ENROLADO: 'Ningun socio tiene el rostro registrado',
+  SOCIO_SUSPENDIDO: 'Socio suspendido',
+  SOCIO_INACTIVO: 'Socio dado de baja',
+  SOCIO_CONGELADO: 'Membresia pausada',
+  SIN_MEMBRESIA: 'Sin membresia activa',
+};
+
+function buildCheckinReply(outcome: CheckinOutcome) {
+  if (outcome.kind === 'reject') {
+    return {
+      allowed: false,
+      reason: outcome.reason,
+      message: REJECT_MESSAGES[outcome.reason] ?? 'Acceso rechazado',
+      member: outcome.member,
+    };
+  }
+  return {
+    allowed: true,
+    member: outcome.member,
+    plan: outcome.plan,
+    planColor: outcome.planColor,
+    membershipEndDate: outcome.membershipEndDate,
+    attendanceId: outcome.attendanceId,
+    checkedInAt: outcome.checkedInAt,
+  };
+}
+
+async function performCheckin(req: AuthedRequest, memberId: string, branchId: string, method: string): Promise<CheckinOutcome> {
+  const orgId = req.user.organizationId;
+
+  const member = await prisma.member.findFirst({
+    where: { id: memberId, organizationId: orgId },
+    include: {
+      memberships: {
+        where: { status: 'ACTIVE', endDate: { gte: new Date() } },
+        orderBy: { endDate: 'desc' },
+        take: 1,
+        include: { plan: true },
+      },
+    },
+  });
+  if (!member) return { kind: 'reject', reason: 'SOCIO_NO_ENCONTRADO', member: null };
+
+  const baseMember = { id: member.id, memberCode: member.memberCode, name: fullName(member.firstName, member.lastName), photoUrl: member.photoUrl };
+
+  if (member.status === 'SUSPENDED') return { kind: 'reject', reason: 'SOCIO_SUSPENDIDO', member: baseMember };
+  if (member.status === 'INACTIVE') return { kind: 'reject', reason: 'SOCIO_INACTIVO', member: baseMember };
+  if (member.status === 'FROZEN') return { kind: 'reject', reason: 'SOCIO_CONGELADO', member: baseMember };
+
+  const membership = member.memberships[0];
+  if (!membership) return { kind: 'reject', reason: 'SIN_MEMBRESIA', member: baseMember };
+
+  // Registrar entrada
+  const today = startOfDay();
+  const alreadyToday = await prisma.attendance.findFirst({
+    where: { memberId: member.id, checkedInAt: { gte: today, lte: endOfDay() } },
+  });
+  const isFirstToday = !alreadyToday;
+
+  const attendance = await prisma.attendance.create({
+    data: {
+      organizationId: orgId,
+      branchId,
+      memberId: member.id,
+      membershipId: membership.id,
+      method,
+      status: 'ALLOWED',
+      checkedInAt: new Date(),
+      registeredById: req.user.id,
+    },
+  });
+
+  if (isFirstToday) {
+    await prisma.member.update({
+      where: { id: member.id },
+      data: { totalVisits: { increment: 1 }, lastVisitAt: new Date() },
+    });
+  }
+
+  await logActivity(req, 'CHECKIN', 'ATTENDANCE', attendance.id, undefined, { member: member.id, method, distance: 0 });
+
+  const plan = membership.plan;
+  return {
+    kind: 'ok',
+    member: baseMember,
+    plan: plan.name,
+    planColor: plan.color,
+    membershipEndDate: membership.endDate,
+    attendanceId: attendance.id,
+    checkedInAt: attendance.checkedInAt,
+  };
+}
+
 export function attendanceRoutes(app: FastifyInstance) {
   const auth = app.authenticate;
 
-  // Check-in (QR, manual, face, etc.) con validacion de membresia
+  // Check-in (QR, manual, cara, etc.) con validacion de membresia
   app.post('/attendance/checkin', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
       const input = validate(attendanceCheckinSchema, request.body);
       const orgId = req.user.organizationId;
+
+      const branchId = req.user.branchId ?? input.branchId;
+      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
 
       let memberId = input.memberId ?? null;
       if (!memberId && input.qr) {
@@ -39,91 +153,64 @@ export function attendanceRoutes(app: FastifyInstance) {
         });
         memberId = member?.id ?? null;
       }
-      if (!memberId) return reject('SOCIO_NO_ENCONTRADO');
-
-      const member = await prisma.member.findFirst({
-        where: { id: memberId, organizationId: orgId },
-        include: {
-          memberships: {
-            where: { status: 'ACTIVE', endDate: { gte: new Date() } },
-            orderBy: { endDate: 'desc' },
-            take: 1,
-            include: { plan: true },
-          },
-        },
-      });
-      if (!member) return reject('SOCIO_NO_ENCONTRADO');
-
-      if (member.status === 'SUSPENDED') return reject('SOCIO_SUSPENDIDO', member);
-      if (member.status === 'INACTIVE') return reject('SOCIO_INACTIVO', member);
-      if (member.status === 'FROZEN') return reject('SOCIO_CONGELADO', member);
-
-      const membership = member.memberships[0];
-      if (!membership) return reject('SIN_MEMBRESIA', member);
-
-      // Registrar entrada
-      const today = startOfDay();
-      const alreadyToday = await prisma.attendance.findFirst({
-        where: { memberId: member.id, checkedInAt: { gte: today, lte: endOfDay() } },
-      });
-      const isFirstToday = !alreadyToday;
-
-      const attendance = await prisma.attendance.create({
-        data: {
-          organizationId: orgId,
-          branchId: member.branchId,
-          memberId: member.id,
-          membershipId: membership.id,
-          method: input.method,
-          status: 'ALLOWED',
-          checkedInAt: new Date(),
-          registeredById: req.user.id,
-        },
-      });
-
-      if (isFirstToday) {
-        await prisma.member.update({
-          where: { id: member.id },
-          data: { totalVisits: { increment: 1 }, lastVisitAt: new Date() },
-        });
+      if (!memberId) {
+        return ok(
+          reply,
+          buildCheckinReply({ kind: 'reject', reason: 'SOCIO_NO_ENCONTRADO', member: null }),
+          200,
+        );
       }
 
-      await logActivity(req, 'CHECKIN', 'ATTENDANCE', attendance.id, undefined, { member: member.id, method: input.method });
+      const outcome = await performCheckin(req, memberId, branchId, input.method ?? 'MANUAL');
+      if (outcome.kind === 'reject') return ok(reply, buildCheckinReply(outcome), 200);
+      return ok(reply, buildCheckinReply(outcome), 201);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
 
-      return ok(reply, {
-        allowed: true,
-        member: {
-          id: member.id,
-          memberCode: member.memberCode,
-          name: fullName(member.firstName, member.lastName),
-          photoUrl: member.photoUrl,
-        },
-        plan: membership.plan.name,
-        planColor: membership.plan.color,
-        membershipEndDate: membership.endDate,
-        attendanceId: attendance.id,
-        checkedInAt: attendance.checkedInAt,
-      }, 201);
+  // Check-in por reconocimiento facial.
+  // El kiosco/navegador envia un descriptor calculado con face-api; el servidor
+  // lo compara contra los descriptores enrolados y registra la entrada real.
+  app.post('/attendance/face', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = validate(faceCheckinSchema, request.body);
+      const orgId = req.user.organizationId;
 
-      function reject(reason: string, m?: { id: string; memberCode: string; firstName: string; lastName: string; photoUrl: string | null }) {
-        const messages: Record<string, string> = {
-          SOCIO_NO_ENCONTRADO: 'Socio no encontrado',
-          SOCIO_SUSPENDIDO: 'Socio suspendido',
-          SOCIO_INACTIVO: 'Socio dado de baja',
-          SOCIO_CONGELADO: 'Membresia pausada',
-          SIN_MEMBRESIA: 'Sin membresia activa',
-        };
-        const reasonMsg = messages[reason] ?? 'Acceso rechazado';
+      const branchId = req.user.branchId ?? input.branchId;
+      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
 
-        return ok(reply, {
-          allowed: false,
-          reason,
-          message: reasonMsg,
-          member: m
-            ? { id: m.id, memberCode: m.memberCode, name: fullName(m.firstName, m.lastName), photoUrl: m.photoUrl }
-            : null,
-        }, 200);
+      const threshold = parseThreshold(await getRawSetting(orgId, 'FACE', 'MATCH_THRESHOLD'));
+
+      // Descriptores enrolados en la organizacion (filtrados por sede cuando corresponde)
+      const faces = await prisma.memberFace.findMany({
+        where: { organizationId: orgId },
+        include: { member: { select: { id: true, branchId: true } } },
+      });
+      const scoped = branchId
+        ? faces.filter((f) => !branchId || f.member.branchId === branchId)
+        : faces;
+      const candidates = scoped.length ? scoped : faces;
+
+      if (!candidates.length) {
+        return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'SIN_FACE_ENROLADO', member: null }), 200);
       }
+
+      const match = matchFace(candidates as Array<PrismaMemberFace>, input.descriptor, threshold);
+      if (!match) {
+        return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'ROSTRO_NO_RECONOCIDO', member: null }), 200);
+      }
+
+      const outcome = await performCheckin(req, match.memberId, branchId, 'FACE');
+      return ok(
+        reply,
+        {
+          ...buildCheckinReply(outcome),
+          match: { distance: Number(match.distance.toFixed(4)), samples: match.samples },
+        },
+        outcome.kind === 'ok' ? 201 : 200,
+      );
     } catch (error) {
       return fail(reply, error);
     }
@@ -217,5 +304,16 @@ function addDays(d: Date, n: number) {
   nd.setDate(nd.getDate() + n);
   return nd;
 }
+
+// Tipo auxiliar para el matcher (prisma devulve el modelo con descriptors: string)
+type PrismaMemberFace = {
+  id: string;
+  organizationId: string;
+  memberId: string;
+  descriptors: string;
+  samples: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export default attendanceRoutes;

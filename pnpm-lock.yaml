@@ -196,6 +196,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.3.0(@types/react@19.3.0)
+      '@vladmandic/face-api':
+        specifier: ^1.7.15
+        version: 1.7.15
       autoprefixer:
         specifier: ^10.4.20
         version: 10.6.1(postcss@8.5.29)
@@ -1767,6 +1770,10 @@ packages:
 
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
+
+  '@vladmandic/face-api@1.7.15':
+    resolution: {integrity: sha512-WDMmK3CfNLo8jylWqMoQgf4nIst3M0fzx1dnac96wv/dvMTN4DxC/Pq1DGtduDk1lktCamQ3MIDXFnvrdHTXDw==}
+    engines: {node: '>=14.0.0'}
 
   '@xmldom/xmldom@0.8.15':
     resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
@@ -6460,6 +6467,8 @@ snapshots:
     optional: true
 
   '@ungap/structured-clone@1.4.0': {}
+
+  '@vladmandic/face-api@1.7.15': {}
 
   '@xmldom/xmldom@0.8.15': {}
 
