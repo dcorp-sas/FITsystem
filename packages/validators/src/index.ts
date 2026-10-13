@@ -465,7 +465,7 @@ export const arcaCreditNoteSchema = z.object({
 
 export const arcaPointOfSaleSchema = z.object({
   branchId: cuid,
-  pointOfSale: z.coerce.number().int().min(1).max(9999),
+  pointOfSale: z.coerce.number().int().min(0).max(9999),
 });
 
 // ---------------------------------------------------------------------------

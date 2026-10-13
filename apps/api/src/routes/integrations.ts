@@ -852,8 +852,9 @@ export function integrationRoutes(app: FastifyInstance) {
       const pointsOfSale = await Promise.all(
         branches.map(async (branch) => {
           const own = await getRawSetting(orgId, 'ARCA', `PTO_VENTA_${branch.id}`);
-          const pointOfSale = Number(own || '') || globalCfg.ptoVta;
-          return { branchId: branch.id, branchName: branch.name, pointOfSale, inherited: !own };
+          const ownNum = Number(own || '') || 0;
+          const pointOfSale = ownNum > 0 ? ownNum : globalCfg.ptoVta;
+          return { branchId: branch.id, branchName: branch.name, pointOfSale, inherited: !(ownNum > 0) };
         }),
       );
       return ok(reply, { globalPointOfSale: globalCfg.ptoVta, pointsOfSale });
@@ -870,11 +871,15 @@ export function integrationRoutes(app: FastifyInstance) {
       const orgId = req.user.organizationId;
       const branch = await prisma.branch.findFirst({ where: { id: input.branchId, organizationId: orgId } });
       if (!branch) throw new HttpError(404, 'Sucursal no encontrada');
-      await prisma.setting.upsert({
-        where: { organizationId_category_key: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}` } },
-        create: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}`, value: String(input.pointOfSale) },
-        update: { value: String(input.pointOfSale) },
-      });
+      if (input.pointOfSale > 0) {
+        await prisma.setting.upsert({
+          where: { organizationId_category_key: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}` } },
+          create: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}`, value: String(input.pointOfSale) },
+          update: { value: String(input.pointOfSale) },
+        });
+      } else {
+        await prisma.setting.deleteMany({ where: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}` } });
+      }
       await logActivity(req, 'UPDATE', 'ARCA_POS', branch.id, undefined, { pointOfSale: input.pointOfSale });
       return ok(reply, { branchId: branch.id, pointOfSale: input.pointOfSale });
     } catch (error) {
