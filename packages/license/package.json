@@ -10,6 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/index.test.ts",
     "keygen": "tsx scripts/keygen.ts"
   },
   "devDependencies": {
