@@ -1,4 +1,6 @@
 import { getRawSetting } from './settings.js';
+import { getMpConfig, printOnPoint, pointToken } from './mercadopago.js';
+import crypto from 'node:crypto';
 
 export interface TicketLine {
   label: string;
@@ -14,24 +16,36 @@ export interface Ticket {
   footer?: string;
 }
 
+export type PrintDestination = 'server' | 'point' | 'both';
+
 export interface PrintConfig {
   destUrl: string;
   printer?: string;
+  destination: PrintDestination;
 }
 
 export interface PrintResult {
   ok: boolean;
   error?: string;
+  via?: 'server' | 'point';
+  dryRun?: boolean;
 }
 
 /**
  * Config del servidor de impresion local (lo expone la app de escritorio en
  * el puerto 3999). Se puede apuntar a otra PC de la red via PRINT.DEST_URL.
+ * PRINT.DESTINATION permite imprimir por la impresora de la terminal Point
+ * de MercadoPago ('point'), por la impresora de red ('server') o ambas.
  */
 export async function getPrintConfig(orgId: string): Promise<PrintConfig> {
   const destUrl = (await getRawSetting(orgId, 'PRINT', 'DEST_URL')) || 'http://127.0.0.1:3999';
   const printer = await getRawSetting(orgId, 'PRINT', 'PRINTER_NAME');
-  return { destUrl: destUrl.replace(/\/+$/, ''), printer: printer || undefined };
+  const destination = ((await getRawSetting(orgId, 'PRINT', 'DESTINATION')) || 'server') as PrintDestination;
+  return {
+    destUrl: destUrl.replace(/\/+$/, ''),
+    printer: printer || undefined,
+    destination: ['server', 'point', 'both'].includes(destination) ? destination : 'server',
+  };
 }
 
 /** Envia un ticket a la impresora termica. */
@@ -45,12 +59,79 @@ export async function printTicket(orgId: string, ticket: Ticket): Promise<PrintR
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      return { ok: false, error: data.error || `HTTP ${res.status}` };
+      return { ok: false, error: data.error || `HTTP ${res.status}`, via: 'server' };
     }
-    return { ok: true };
+    return { ok: true, via: 'server' };
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    return { ok: false, error: (err as Error).message, via: 'server' };
   }
+}
+
+/** Convierte un ticket a texto plano para la impresora de la terminal Point. */
+export function ticketToText(ticket: Ticket): string {
+  const lines: string[] = [];
+  const width = 32;
+  if (ticket.organization) lines.push(center(ticket.organization, width));
+  if (ticket.title) {
+    lines.push('-'.repeat(width));
+    lines.push(center(ticket.title, width));
+    lines.push('-'.repeat(width));
+  }
+  if (ticket.date) {
+    const d = new Date(ticket.date);
+    if (!Number.isNaN(d.getTime())) lines.push(d.toLocaleString('es-AR'));
+  }
+  for (const line of ticket.lines) {
+    lines.push(`${line.label} ${line.value}`);
+  }
+  if (ticket.total) {
+    lines.push('-'.repeat(width));
+    lines.push(center(`TOTAL ${ticket.total}`, width));
+  }
+  if (ticket.footer) {
+    lines.push('');
+    lines.push(center(ticket.footer, width));
+  }
+  lines.push('');
+  lines.push('');
+  return lines.join('\n');
+}
+
+function center(text: string, width: number): string {
+  if (text.length >= width) return text;
+  const pad = Math.floor((width - text.length) / 2);
+  return ' '.repeat(pad) + text;
+}
+
+/** Imprime un ticket en la impresora integrada de la terminal Point de MercadoPago. */
+export async function printViaPoint(orgId: string, ticket: Ticket, deviceIdOverride?: string): Promise<PrintResult> {
+  const mp = await getMpConfig(orgId);
+  if (!pointToken(mp)) return { ok: false, error: 'MercadoPago no configurado', via: 'point' };
+  const deviceId =
+    deviceIdOverride || (await getRawSetting(orgId, 'PRINT', 'POINT_DEVICE_ID')) || mp.point.deviceId;
+  if (!deviceId && !mp.dryRun) return { ok: false, error: 'Sin terminal Point configurada', via: 'point' };
+  const result = await printOnPoint(mp, {
+    deviceId: deviceId || 'SIMULADO',
+    content: ticketToText(ticket),
+    externalReference: `print-${Date.now()}`,
+    idempotencyKey: crypto.randomUUID(),
+  });
+  return { ok: result.ok, error: result.error, via: 'point', dryRun: result.dryRun };
+}
+
+/**
+ * Imprime segun la configuracion PRINT.DESTINATION: impresora de red ('server'),
+ * impresora de la terminal Point ('point') o ambas ('both').
+ */
+export async function printTicketAuto(orgId: string, ticket: Ticket): Promise<PrintResult> {
+  const cfg = await getPrintConfig(orgId);
+  if (cfg.destination === 'point') return printViaPoint(orgId, ticket);
+  if (cfg.destination === 'both') {
+    const [server, point] = await Promise.all([printTicket(orgId, ticket), printViaPoint(orgId, ticket)]);
+    if (server.ok || point.ok) return { ok: true, via: server.ok ? 'server' : 'point', dryRun: point.dryRun };
+    return { ok: false, error: server.error || point.error };
+  }
+  return printTicket(orgId, ticket);
 }
 
 /** Lista las impresoras disponibles en la maquina que corre el servidor. */

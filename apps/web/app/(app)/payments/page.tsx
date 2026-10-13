@@ -52,6 +52,7 @@ export default function PaymentsPage() {
   const [status, setStatus] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [creditTarget, setCreditTarget] = useState<Payment | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,6 +195,11 @@ export default function PaymentsPage() {
                           Imprimir
                         </Button>
                       )}
+                      {isAdmin && p.status === 'COMPLETED' && p.invoiceNumber && (
+                        <Button size="sm" variant="ghost" onClick={() => setCreditTarget(p)}>
+                          Nota de crédito
+                        </Button>
+                      )}
                       {isAdmin && p.status === 'COMPLETED' && (
                         <Button size="sm" variant="ghost" onClick={() => onVoid(p.id)}>
                           Anular
@@ -259,6 +265,88 @@ export default function PaymentsPage() {
       )}
 
       <PaymentFormModal open={formOpen} onClose={() => setFormOpen(false)} onSaved={load} />
+      <CreditNoteModal
+        payment={creditTarget}
+        onClose={() => setCreditTarget(null)}
+        onSaved={() => {
+          setCreditTarget(null);
+          load();
+        }}
+      />
+    </div>
+  );
+}
+
+function CreditNoteModal({
+  payment,
+  onClose,
+  onSaved,
+}: {
+  payment: Payment | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [invoiceType, setInvoiceType] = useState('C');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (payment) {
+      setInvoiceType('C');
+      setReason('');
+    }
+  }, [payment]);
+
+  if (!payment) return null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!payment) return;
+    setSaving(true);
+    try {
+      const res = await http.post<{ number: string; tipoLabel?: string; mode?: string }>('/integrations/arca/credit-notes', {
+        paymentId: payment.id,
+        invoiceType,
+        reason: reason || undefined,
+      });
+      toast.success(`Nota de crédito ${res.number} emitida`);
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al emitir la nota de crédito');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border border-line bg-surface p-5" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-text">Nota de crédito</h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Anula el comprobante {payment.invoiceNumber} del pago {payment.reference}.
+        </p>
+        <form onSubmit={submit} className="mt-4 space-y-4">
+          <Field label="Tipo de nota de crédito">
+            <Select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value)}>
+              <option value="C">Nota de crédito C</option>
+              <option value="B">Nota de crédito B</option>
+              <option value="A">Nota de crédito A</option>
+            </Select>
+          </Field>
+          <Field label="Motivo (opcional)">
+            <Input value={reason} placeholder="Anulación" onChange={(e) => setReason(e.target.value)} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={saving}>
+              Emitir nota de crédito
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

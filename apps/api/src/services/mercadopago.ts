@@ -26,8 +26,12 @@ export async function getMpConfig(orgId: string): Promise<MpConfig> {
   const publicKey = (await s('PUBLIC_KEY')) || '';
   const pointAccessToken = (await s('POINT_ACCESS_TOKEN')) || general;
   const qrAccessToken = (await s('QR_ACCESS_TOKEN')) || general;
+  const hasAnyToken = Boolean(general || pointAccessToken || qrAccessToken);
+  const requestedReal = (await s('DRY_RUN')) === 'false';
   return {
-    dryRun: (await s('DRY_RUN')) !== 'false',
+    // Nunca se opera contra MercadoPago sin credenciales: aunque DRY_RUN=false,
+    // sin token se fuerza la simulacion (regla pedida por el usuario).
+    dryRun: requestedReal ? !hasAnyToken : true,
     accessToken: general,
     publicKey,
     pointEnabled: (await s('POINT_ENABLED')) === 'true',
@@ -200,4 +204,41 @@ export async function cancelPointIntent(cfg: MpConfig, deviceId: string, intentI
   await mpFetch(token, `/point/integration-api/devices/${deviceId}/payment-intents/${intentId}`, {
     method: 'DELETE',
   }).catch(() => undefined);
+}
+
+export interface PointPrintResult {
+  ok: boolean;
+  dryRun?: boolean;
+  error?: string;
+}
+
+/**
+ * Imprime en la terminal Point de MercadoPago usando su impresora integrada.
+ * `content` es texto plano; `deviceId` es el id de terminal (ej. NEWLAND_N950__...).
+ * Endpoint: POST /terminals/v1/actions con config.point.subtype = 'custom'.
+ */
+export async function printOnPoint(
+  cfg: MpConfig,
+  params: { deviceId: string; content: string; externalReference: string; idempotencyKey: string },
+): Promise<PointPrintResult> {
+  const token = cfg.point.accessToken || cfg.qr.accessToken || cfg.accessToken;
+  if (cfg.dryRun) return { ok: true, dryRun: true };
+  if (!token) return { ok: false, error: 'Sin Access Token de MercadoPago' };
+  if (!params.deviceId) return { ok: false, error: 'Sin terminal Point configurada' };
+  try {
+    const data = (await mpFetch(token, '/terminals/v1/actions', {
+      method: 'POST',
+      headers: { 'X-Idempotency-Key': params.idempotencyKey },
+      body: JSON.stringify({
+        type: 'print',
+        external_reference: params.externalReference,
+        config: { point: { terminal_id: params.deviceId, subtype: 'custom' } },
+        content: params.content,
+      }),
+    })) as { error?: string };
+    if (data?.error) return { ok: false, error: data.error };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 }

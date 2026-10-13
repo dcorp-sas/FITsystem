@@ -19,6 +19,10 @@ export const env = {
   NODE_ENV,
   DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db',
   JWT_SECRET: JWT_SECRET_INPUT || 'fitsystem-dev-secret-change-me',
+  // Clave para cifrar secretos en reposo (Setting.isSecret). Si no se define, se
+  // deriva del JWT_SECRET. Definila propia en produccion para poder rotar el JWT
+  // sin perder los secretos guardados.
+  SETTINGS_ENC_KEY: process.env.SETTINGS_ENC_KEY || '',
   API_PORT: Number(process.env.API_PORT || 3001),
   // Por defecto solo loopback (escritorio). En la nube se define API_HOST=0.0.0.0.
   API_HOST: process.env.API_HOST || '127.0.0.1',

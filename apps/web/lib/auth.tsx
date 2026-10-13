@@ -27,10 +27,18 @@ interface AuthState {
   branches: Branch[];
   activeBranchId: string | null;
   ready: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<TwoFactorPrompt | void>;
+  completeTwoFactorLogin: (challenge: string, code: string, method?: 'totp' | 'email' | 'backup') => Promise<void>;
   registerOrg: (input: RegisterInput) => Promise<void>;
   logout: () => void;
   setActiveBranchId: (id: string | null) => void;
+}
+
+export interface TwoFactorPrompt {
+  twoFactorRequired: true;
+  challenge: string;
+  methods: string[];
+  email?: string;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -65,19 +73,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
+  const applySession = useCallback(
+    (data: { token: string; user: AuthUser; organization: Organization; branches: Branch[] }) => {
+      setToken(data.token);
+      setUser(data.user);
+      setOrganization(data.organization);
+      setBranches(data.branches || []);
+      setActiveBranchIdState(data.user.branchId || data.branches?.[0]?.id || null);
+    },
+    [],
+  );
+
   const login = useCallback(async (email: string, password: string) => {
     const data = await api<{
-      token: string;
-      user: AuthUser;
-      organization: Organization;
-      branches: Branch[];
+      token?: string;
+      user?: AuthUser;
+      organization?: Organization;
+      branches?: Branch[];
+      twoFactorRequired?: boolean;
+      challenge?: string;
+      methods?: string[];
+      email?: string;
     }>('/auth/login', { method: 'POST', body: { email, password } });
-    setToken(data.token);
-    setUser(data.user);
-    setOrganization(data.organization);
-    setBranches(data.branches || []);
-    setActiveBranchIdState(data.user.branchId || data.branches?.[0]?.id || null);
-  }, []);
+
+    if (data.twoFactorRequired && data.challenge) {
+      return {
+        twoFactorRequired: true as const,
+        challenge: data.challenge,
+        methods: data.methods ?? ['totp'],
+        email: data.email,
+      };
+    }
+    applySession(data as { token: string; user: AuthUser; organization: Organization; branches: Branch[] });
+  }, [applySession]);
+
+  const completeTwoFactorLogin = useCallback(
+    async (challenge: string, code: string, method?: 'totp' | 'email' | 'backup') => {
+      const data = await api<{ token: string; user: AuthUser; organization: Organization; branches: Branch[] }>(
+        '/auth/login/2fa',
+        { method: 'POST', body: { challenge, code, method } },
+      );
+      applySession(data);
+    },
+    [applySession],
+  );
 
   const registerOrg = useCallback(async (input: RegisterInput) => {
     const data = await api<{
@@ -117,11 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeBranchId,
       ready,
       login,
+      completeTwoFactorLogin,
       registerOrg,
       logout,
       setActiveBranchId,
     }),
-    [user, organization, branches, activeBranchId, ready, login, registerOrg, logout, setActiveBranchId],
+    [user, organization, branches, activeBranchId, ready, login, completeTwoFactorLogin, registerOrg, logout, setActiveBranchId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

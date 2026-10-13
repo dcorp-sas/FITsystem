@@ -48,10 +48,10 @@ interface IntegrationStatus {
   };
   whatsapp: { configured: boolean; businessPhone: string; cloudConfigured: boolean };
   email: { configured: boolean; host: string; port: number; from: string };
-  print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean };
+  print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
 
-type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face';
+type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face' | 'sistema';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -61,6 +61,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'email', label: 'Email (SMTP)' },
   { key: 'print', label: 'Impresión' },
   { key: 'face', label: 'Reconocimiento facial' },
+  { key: 'sistema', label: 'Sistema' },
 ];
 
 export default function SettingsPage() {
@@ -258,7 +259,12 @@ export default function SettingsPage() {
                 { key: 'CERT_PASSWORD', label: 'Contraseña del .p12 (secreto)', type: 'password', secret: true },
               ]}
               onSaved={load}
-              extra={<ArcaCard status={status} />}
+              extra={
+                <div className="space-y-5">
+                  <ArcaCard status={status} />
+                  <ArcaPointsOfSaleCard />
+                </div>
+              }
             />
           )}
 
@@ -304,8 +310,19 @@ export default function SettingsPage() {
               category="PRINT"
               values={settings.PRINT ?? {}}
               fields={[
+                {
+                  key: 'DESTINATION',
+                  label: 'Destino de impresión',
+                  type: 'select',
+                  options: [
+                    { value: 'server', label: 'Impresora de red / local' },
+                    { value: 'point', label: 'Impresora de la terminal Point' },
+                    { value: 'both', label: 'Ambas' },
+                  ],
+                },
                 { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999' },
                 { key: 'PRINTER_NAME', label: 'Impresora (opcional)', placeholder: 'EPSON TM-T20' },
+                { key: 'POINT_DEVICE_ID', label: 'Terminal Point para imprimir (opcional)', placeholder: 'NEWLAND_N950__...' },
                 { key: 'PRINT_ON_PAYMENT', label: 'Imprimir comprobante al cobrar (true/false)', placeholder: 'false' },
                 { key: 'TICKET_TEMPLATE', label: 'Plantilla de ticket', placeholder: 'default' },
               ]}
@@ -326,6 +343,8 @@ export default function SettingsPage() {
               extra={<FaceInfoCard />}
             />
           )}
+
+          {tab === 'sistema' && <SystemPanel />}
         </>
       )}
     </div>
@@ -593,6 +612,94 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
   );
 }
 
+interface ArcaPointOfSale {
+  branchId: string;
+  branchName: string;
+  pointOfSale: number;
+  inherited: boolean;
+}
+
+function ArcaPointsOfSaleCard() {
+  const toast = useToast();
+  const [data, setData] = useState<{ globalPointOfSale: number; pointsOfSale: ArcaPointOfSale[] } | null>(null);
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await http.get<{ globalPointOfSale: number; pointsOfSale: ArcaPointOfSale[] }>('/integrations/arca/points-of-sale');
+      setData(res);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al cargar puntos de venta');
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function save(branchId: string) {
+    const raw = edits[branchId];
+    const pointOfSale = raw === '' || raw == null ? 0 : Number(raw);
+    if (Number.isNaN(pointOfSale) || pointOfSale < 0) {
+      toast.error('Punto de venta inválido');
+      return;
+    }
+    setSavingId(branchId);
+    try {
+      await http.put('/integrations/arca/points-of-sale', { branchId, pointOfSale });
+      toast.success('Punto de venta actualizado');
+      setEdits((e) => {
+        const next = { ...e };
+        delete next[branchId];
+        return next;
+      });
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <Card title="Puntos de venta por sucursal">
+      <p className="text-sm text-text-muted">
+        Asigná el punto de venta AFIP de cada sucursal. Dejalo vacío o en 0 para usar el global
+        {data ? ` (${data.globalPointOfSale})` : ''}.
+      </p>
+      {!data ? (
+        <p className="mt-3 text-sm text-text-muted">Cargando...</p>
+      ) : data.pointsOfSale.length === 0 ? (
+        <p className="mt-3 text-sm text-text-muted">No hay sucursales cargadas.</p>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {data.pointsOfSale.map((p) => (
+            <div key={p.branchId} className="flex items-center gap-2">
+              <span className="flex-1 text-sm text-text">{p.branchName}</span>
+              <Input
+                type="number"
+                className="w-24"
+                value={edits[p.branchId] ?? String(p.pointOfSale)}
+                onChange={(e) => setEdits((prev) => ({ ...prev, [p.branchId]: e.target.value }))}
+              />
+              <Badge color={p.inherited ? 'gray' : 'blue'}>{p.inherited ? 'global' : 'propio'}</Badge>
+              <Button
+                variant="secondary"
+                disabled={edits[p.branchId] == null}
+                loading={savingId === p.branchId}
+                onClick={() => save(p.branchId)}
+              >
+                Guardar
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 interface MpTerminal {
   id?: string;
   pos_id?: number | string;
@@ -803,8 +910,11 @@ function FaceInfoCard() {
 function PrintCard({ status }: { status: IntegrationStatus | null }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [busyPoint, setBusyPoint] = useState(false);
   const [printers, setPrinters] = useState<string[]>([]);
   const [result, setResult] = useState<string | null>(null);
+  const destination = status?.print.destination ?? 'server';
+  const hasPoint = destination === 'point' || destination === 'both';
 
   async function loadPrinters() {
     try {
@@ -832,16 +942,35 @@ function PrintCard({ status }: { status: IntegrationStatus | null }) {
     }
   }
 
+  async function testPoint() {
+    setBusyPoint(true);
+    try {
+      await http.post('/integrations/print/test/point', {});
+      toast.success('Ticket de prueba enviado a la terminal Point');
+      setResult('Ticket de prueba enviado a la terminal Point.');
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Error al imprimir en Point';
+      toast.error(message);
+      setResult(message);
+    } finally {
+      setBusyPoint(false);
+    }
+  }
+
   return (
     <Card title="Impresora térmica">
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge color={status?.print.configured ? 'green' : 'gray'}>
           {status?.print.configured ? 'Configurada' : 'Valores por defecto'}
+        </Badge>
+        <Badge color={hasPoint ? 'blue' : 'gray'}>
+          {destination === 'both' ? 'Red + Point' : destination === 'point' ? 'Terminal Point' : 'Red / local'}
         </Badge>
       </div>
       <p className="mt-3 text-sm text-text-muted">
         La app de escritorio expone el servidor de impresión en <code>http://127.0.0.1:3999</code>. Si el panel
         corre en otra PC, apuntá <code>DEST_URL</code> a la IP de esa máquina.
+        {hasPoint && ' Con la terminal Point seleccionada, el comprobante se imprime en la impresora de la terminal.'}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="secondary" onClick={loadPrinters}>
@@ -850,6 +979,11 @@ function PrintCard({ status }: { status: IntegrationStatus | null }) {
         <Button onClick={test} loading={busy}>
           Imprimir prueba
         </Button>
+        {hasPoint && (
+          <Button variant="secondary" onClick={testPoint} loading={busyPoint}>
+            Probar terminal Point
+          </Button>
+        )}
       </div>
       {printers.length > 0 && (
         <ul className="mt-3 list-disc pl-5 text-sm text-text-muted">
@@ -860,5 +994,214 @@ function PrintCard({ status }: { status: IntegrationStatus | null }) {
       )}
       {result && <p className="mt-3 text-sm text-text-muted">{result}</p>}
     </Card>
+  );
+}
+
+interface ObservabilityConfig {
+  webhookUrl: string;
+  alertsEnabled: boolean;
+  minLevel: 'error' | 'warn' | 'info';
+  retentionDays: number;
+  errors7d: number;
+  lastErrorAt: string | null;
+}
+
+interface ErrorLogEntry {
+  id: string;
+  level: string;
+  message: string;
+  path: string | null;
+  method: string | null;
+  statusCode: number | null;
+  createdAt: string;
+}
+
+function SystemPanel() {
+  const toast = useToast();
+  const [cfg, setCfg] = useState<ObservabilityConfig | null>(null);
+  const [errors, setErrors] = useState<ErrorLogEntry[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [c, e] = await Promise.all([
+        http.get<ObservabilityConfig>('/system/observability'),
+        http.get<{ items: ErrorLogEntry[] }>('/system/errors?limit=20'),
+      ]);
+      setCfg(c);
+      setErrors(e.items);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al cargar el sistema');
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cfg) return;
+    setSaving(true);
+    try {
+      const res = await http.put<ObservabilityConfig>('/system/observability', {
+        OBS_WEBHOOK_URL: cfg.webhookUrl,
+        OBS_ALERTS_ENABLED: String(cfg.alertsEnabled),
+        OBS_MIN_LEVEL: cfg.minLevel,
+        OBS_RETENTION_DAYS: cfg.retentionDays,
+      });
+      setCfg((prev) => (prev ? { ...prev, ...res } : res));
+      toast.success('Configuración guardada');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function testAlert() {
+    setTesting(true);
+    try {
+      await http.post('/system/observability/test', {});
+      toast.success('Alerta de prueba enviada');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo enviar la alerta');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function purge() {
+    if (!confirm('¿Borrar logs y notificaciones más antiguos que la retención configurada?')) return;
+    setPurging(true);
+    try {
+      const res = await http.post<{ retentionDays: number; errorLogs: number; activityLogs: number; notifications: number }>(
+        '/system/retention/purge',
+        {},
+      );
+      toast.success(`Limpieza aplicada (${res.errorLogs + res.activityLogs + res.notifications} registros)`);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al limpiar');
+    } finally {
+      setPurging(false);
+    }
+  }
+
+  async function clearErrors() {
+    try {
+      await http.del('/system/errors');
+      toast.success('Historial de errores borrado');
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al borrar');
+    }
+  }
+
+  async function exportData() {
+    setExporting(true);
+    try {
+      const data = await http.get<Record<string, unknown>>('/org/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fitsystem-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al exportar');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <Card title="Observabilidad y alertas">
+        {!cfg ? (
+          <Spinner className="h-5 w-5" />
+        ) : (
+          <form onSubmit={save} className="space-y-4">
+            <Field label="Webhook de alertas (Slack/Discord/HTTP)">
+              <Input
+                value={cfg.webhookUrl}
+                placeholder="https://hooks.slack.com/..."
+                onChange={(e) => setCfg({ ...cfg, webhookUrl: e.target.value })}
+              />
+            </Field>
+            <Field label="Enviar alertas">
+              <Select
+                value={String(cfg.alertsEnabled)}
+                onChange={(e) => setCfg({ ...cfg, alertsEnabled: e.target.value === 'true' })}
+              >
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+              </Select>
+            </Field>
+            <Field label="Nivel mínimo de alerta">
+              <Select
+                value={cfg.minLevel}
+                onChange={(e) => setCfg({ ...cfg, minLevel: e.target.value as ObservabilityConfig['minLevel'] })}
+              >
+                <option value="error">Solo errores</option>
+                <option value="warn">Advertencias y errores</option>
+                <option value="info">Todo</option>
+              </Select>
+            </Field>
+            <Field label="Retención de logs (días)">
+              <Input
+                type="number"
+                value={String(cfg.retentionDays)}
+                onChange={(e) => setCfg({ ...cfg, retentionDays: Number(e.target.value) })}
+              />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" loading={saving}>
+                Guardar
+              </Button>
+              <Button type="button" variant="secondary" onClick={testing ? undefined : testAlert} loading={testing}>
+                Probar alerta
+              </Button>
+              <Button type="button" variant="secondary" onClick={exportData} loading={exporting}>
+                Exportar datos
+              </Button>
+              <Button type="button" variant="secondary" onClick={purge} loading={purging}>
+                Aplicar retención
+              </Button>
+            </div>
+          </form>
+        )}
+      </Card>
+
+      <Card title="Errores recientes">
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <Badge color={(cfg?.errors7d ?? 0) > 0 ? 'red' : 'green'}>{cfg?.errors7d ?? 0} en 7 días</Badge>
+          {cfg?.lastErrorAt && <span className="text-xs text-text-muted">último {new Date(cfg.lastErrorAt).toLocaleString()}</span>}
+          <Button variant="secondary" onClick={clearErrors}>
+            Borrar historial
+          </Button>
+        </div>
+        {errors.length === 0 ? (
+          <p className="text-sm text-text-muted">Sin errores registrados.</p>
+        ) : (
+          <div className="space-y-2">
+            {errors.map((e) => (
+              <div key={e.id} className="rounded-lg border border-line bg-surface-alt/50 p-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-text">{e.method} {e.path}</span>
+                  <Badge color={e.level === 'error' ? 'red' : e.level === 'warn' ? 'yellow' : 'gray'}>{e.level}</Badge>
+                </div>
+                <p className="mt-1 text-text-muted">{e.message}</p>
+                <p className="mt-0.5 text-[10px] text-text-muted">{new Date(e.createdAt).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

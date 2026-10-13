@@ -110,6 +110,13 @@ model User {
   phone          String?
   avatarUrl      String?
   isActive       Boolean  @default(true)
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorSecret        String? // secreto TOTP (cifrado en reposo)
+  twoFactorEmailEnabled  Boolean  @default(false)
+  twoFactorBackupCodes   String? // JSON: hashes de codigos de recuperacion
+  twoFactorPendingSecret String? // secreto durante el enrolamiento
+  loginCodeHash          String? // hash del OTP por email
+  loginCodeExpiresAt     DateTime?
   lastLoginAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1024,4 +1031,27 @@ model ProviderBackup {
   updatedAt DateTime @updatedAt
 
   @@map("provider_backups")
+}
+
+// ---------------------------------------------------------------------------
+// Observabilidad: registro de errores en la base (panel + alertas por webhook)
+// ---------------------------------------------------------------------------
+
+// level: error | warn | info
+model ErrorLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  level          String   @default("error")
+  message        String
+  stack          String?
+  path           String?
+  method         String?
+  statusCode     Int?
+  userId         String?
+  context        String? // JSON
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
+  @@map("error_logs")
 }

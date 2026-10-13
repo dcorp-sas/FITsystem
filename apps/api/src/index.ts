@@ -31,7 +31,11 @@ import routineRoutes from './routes/routines.js';
 import newsRoutes from './routes/news.js';
 import portalAdminRoutes from './routes/portal-admin.js';
 import providerRoutes from './routes/provider.js';
+import systemRoutes from './routes/system.js';
+import onboardingRoutes from './routes/onboarding.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
+import { migrateSecrets } from './services/settings.js';
+import { recordError } from './services/observability.js';
 
 export async function buildServer() {
   const app = Fastify({
@@ -92,11 +96,13 @@ export async function buildServer() {
       newsRoutes(api);
       portalAdminRoutes(api);
       providerRoutes(api);
+      systemRoutes(api);
+      onboardingRoutes(api);
     },
     { prefix: '/api' },
   );
 
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (error instanceof HttpError) {
       return reply.status(error.statusCode).send({
         error: 'Error',
@@ -108,6 +114,17 @@ export async function buildServer() {
       return reply.status(400).send({ error: 'Bad Request', message: 'Datos invalidos' });
     }
     app.log.error(error);
+    const authed = request as { user?: { id: string; organizationId: string } };
+    void recordError({
+      organizationId: authed.user?.organizationId ?? null,
+      level: 'error',
+      message: (error as Error).message || 'Error inesperado',
+      stack: (error as Error).stack ?? null,
+      path: request.url,
+      method: request.method,
+      statusCode: 500,
+      userId: authed.user?.id ?? null,
+    });
     return reply.status(500).send({ error: 'Internal Server Error', message: 'Ocurrio un error inesperado' });
   });
 
@@ -126,6 +143,8 @@ async function start() {
     if (!env.DATABASE_URL.startsWith('postgres')) {
       await ensureSchema();
     }
+    // Cifra en reposo los secretos que aun estuvieran en texto plano (idempotente).
+    await migrateSecrets();
     await app.listen({ port: env.API_PORT, host: env.API_HOST });
     console.log(`FIT System API escuchando en http://localhost:${env.API_PORT}`);
     startReminderScheduler();

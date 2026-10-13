@@ -1,4 +1,5 @@
 import { prisma } from '../db.js';
+import { decryptSecret, encryptSecret } from '../lib/secrets.js';
 
 export type SettingsMap = Record<string, string>;
 
@@ -14,12 +15,13 @@ export async function getSettings(orgId: string): Promise<Record<string, Setting
   return result;
 }
 
-/** Devuelve el valor crudo de una setting (para credenciales de integraciones internas). */
+/** Devuelve el valor crudo de una setting (descifra si esta cifrada). */
 export async function getRawSetting(orgId: string, category: string, key: string): Promise<string | null> {
   const row = await prisma.setting.findUnique({
     where: { organizationId_category_key: { organizationId: orgId, category, key } },
   });
-  return row?.value ?? null;
+  if (!row) return null;
+  return row.isSecret ? decryptSecret(row.value ?? '') : row.value ?? null;
 }
 
 export async function upsertSettings(
@@ -30,16 +32,35 @@ export async function upsertSettings(
 ) {
   const tx = [];
   for (const [key, value] of Object.entries(values)) {
+    const isSecret = secrets.includes(key);
+    const stored = isSecret ? encryptSecret(value) : value;
     tx.push(
       prisma.setting.upsert({
         where: { organizationId_category_key: { organizationId: orgId, category, key } },
-        create: { organizationId: orgId, category, key, value, isSecret: secrets.includes(key) },
-        update: { value, isSecret: secrets.includes(key) },
+        create: { organizationId: orgId, category, key, value: stored, isSecret },
+        update: { value: stored, isSecret },
       }),
     );
   }
   await prisma.$transaction(tx);
   return getSettings(orgId);
+}
+
+/**
+ * Migra de una sola pasada los secretos guardados en texto plano a cifrado.
+ * Idempotente: los valores ya cifrados se omiten. Se ejecuta al iniciar.
+ */
+export async function migrateSecrets(): Promise<number> {
+  const rows = await prisma.setting.findMany({ where: { isSecret: true } });
+  let migrated = 0;
+  for (const row of rows) {
+    const value = row.value ?? '';
+    if (!value || value.startsWith('enc:v1:')) continue;
+    await prisma.setting.update({ where: { id: row.id }, data: { value: encryptSecret(value) } });
+    migrated++;
+  }
+  if (migrated > 0) console.log(`[secrets] ${migrated} secreto(s) cifrados en reposo`);
+  return migrated;
 }
 
 export function mask(value: string): string {

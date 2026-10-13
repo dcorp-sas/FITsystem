@@ -18,6 +18,9 @@ const ENDPOINTS = {
 
 // Codigos de comprobante AFIP (los correctos): 1=Factura A, 6=Factura B, 11=Factura C.
 const CBTE_TIPO: Record<CbteTipo, number> = { A: 1, B: 6, C: 11 };
+// Notas de credito: 3=A, 8=B, 9=C. Notas de debito: 2=A, 7=B, 10=C.
+const NC_TIPO: Record<CbteTipo, number> = { A: 3, B: 8, C: 9 };
+const ND_TIPO: Record<CbteTipo, number> = { A: 2, B: 7, C: 10 };
 
 export const CBTE_LABEL: Record<number, string> = {
   1: 'Factura A',
@@ -220,7 +223,16 @@ function certMetadata(certPem: string): { subject: string; notAfter: string } {
   }
 }
 
-export async function getArcaConfig(orgId: string): Promise<ArcaConfig> {
+export async function getArcaConfig(orgId: string, branchId?: string | null): Promise<ArcaConfig> {
+  const cfg = await loadArcaConfig(orgId);
+  if (branchId) {
+    const branchPto = await getRawSetting(orgId, 'ARCA', `PTO_VENTA_${branchId}`);
+    if (branchPto && Number(branchPto) > 0) cfg.ptoVta = Number(branchPto);
+  }
+  return cfg;
+}
+
+async function loadArcaConfig(orgId: string): Promise<ArcaConfig> {
   const cuit = ((await getRawSetting(orgId, 'ARCA', 'CUIT')) || '').replace(/\D/g, '');
   const rawPto = await getRawSetting(orgId, 'ARCA', 'PUNTO_VENTA');
   const rawEnv = ((await getRawSetting(orgId, 'ARCA', 'ENVIRONMENT')) || '').toLowerCase();
@@ -433,6 +445,22 @@ export function resolveCbteTipo(cfg: ArcaConfig, invoiceType?: string): number {
   return cfg.cbteTipo || 11;
 }
 
+/** Resuelve el codigo de NOTA DE CREDITO AFIP segun la letra del comprobante original. */
+export function resolveCreditNoteTipo(cfg: ArcaConfig, invoiceType?: string): number {
+  if (invoiceType && (invoiceType as CbteTipo) in NC_TIPO) return NC_TIPO[invoiceType as CbteTipo];
+  const base = cfg.cbteTipo || 11;
+  if (base === 1) return NC_TIPO.A;
+  if (base === 6) return NC_TIPO.B;
+  return NC_TIPO.C;
+}
+
+export interface ArcaComprobanteAsoc {
+  tipo: number;
+  ptoVta: number;
+  nro: number;
+  fecha?: string; // yyyymmdd
+}
+
 /** URL del QR oficial de AFIP para imprimir en el comprobante (payload JSON en base64url). */
 export function afipQrUrl(p: {
   fecha: string;
@@ -470,6 +498,8 @@ export interface ArcaEmitOptions {
   iva: number;
   customerTaxId?: string;
   fecha?: Date;
+  branchId?: string | null;
+  assoc?: ArcaComprobanteAsoc;
 }
 
 /** Genera un comprobante SIMULADO (sin contactar a AFIP) para el modo prueba. */
@@ -504,6 +534,12 @@ async function feAutorizar(orgId: string, cfg: ArcaConfig, cbteTipo: number, opt
   const { total, neto, iva } = opts;
   const ivaBlock = iva > 0 ? `<Iva><AlicIva><Id>5</Id><BaseImp>${f2(neto)}</BaseImp><Importe>${f2(iva)}</Importe></AlicIva></Iva>` : '';
   const condicion = cfg.condicionReceptor ? `<CondicionIVAReceptorId>${cfg.condicionReceptor}</CondicionIVAReceptorId>` : '';
+  const assocBlock = opts.assoc
+    ? '<CbtesAsoc><CbteAsoc>' +
+      `<Tipo>${opts.assoc.tipo}</Tipo><PtoVta>${opts.assoc.ptoVta}</PtoVta><Nro>${opts.assoc.nro}</Nro>` +
+      (opts.assoc.fecha ? `<CbteFch>${opts.assoc.fecha.replace(/-/g, '')}</CbteFch>` : '') +
+      '</CbteAsoc></CbtesAsoc>'
+    : '';
   const inner =
     '<FeCAEReq>' +
     `<FeCabReq><CantReg>1</CantReg><PtoVta>${cfg.ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo></FeCabReq>` +
@@ -518,6 +554,7 @@ async function feAutorizar(orgId: string, cfg: ArcaConfig, cbteTipo: number, opt
     '<MonId>PES</MonId><MonCotiz>1</MonCotiz>' +
     ivaBlock +
     condicion +
+    assocBlock +
     '</FECAEDetRequest></FeDetReq>' +
     '</FeCAEReq>';
 
@@ -546,10 +583,41 @@ async function feAutorizar(orgId: string, cfg: ArcaConfig, cbteTipo: number, opt
 
 /** Emite un comprobante real contra ARCA. Solo debe llamarse cuando el modo es real (sin simulacion y con certificado). */
 export async function arcaEmitir(orgId: string, opts: ArcaEmitOptions): Promise<ArcaEmitResult> {
-  const cfg = await getArcaConfig(orgId);
+  const cfg = await getArcaConfig(orgId, opts.branchId);
   if (!cfg.hasCert || !cfg.hasKey) throw new Error('Sin certificado/clave cargados');
   if (!cfg.cuit) throw new Error('Sin CUIT cargado (Configuración → Facturación)');
   return feAutorizar(orgId, cfg, resolveCbteTipo(cfg, opts.invoiceType), opts);
+}
+
+/** Genera una NOTA DE CREDITO simulada (anulacion). */
+export function arcaSimularNotaCredito(cfg: ArcaConfig, numero: number, opts: ArcaEmitOptions): ArcaEmitResult {
+  const cbteTipo = resolveCreditNoteTipo(cfg, opts.invoiceType);
+  const fecha = opts.fecha ?? new Date();
+  const docTipo = opts.customerTaxId ? 80 : 99;
+  const docNro = opts.customerTaxId ? Number(opts.customerTaxId.replace(/\D/g, '')) : 0;
+  const cae = Array.from({ length: 14 }, () => Math.floor(Math.random() * 10)).join('');
+  const venc = new Date(fecha.getTime() + 10 * 86400000);
+  return {
+    numero,
+    ptoVta: cfg.ptoVta,
+    tipo: CBTE_LABEL[cbteTipo] ?? String(cbteTipo),
+    cbteTipo,
+    cae,
+    venc: ddmmyyyy(venc),
+    qrUrl: afipQrUrl({ fecha: ymd(fecha), cuit: cfg.cuit, ptoVta: cfg.ptoVta, cbteTipo, nro: numero, importe: opts.total, tipoDocRec: docTipo, nroDocRec: docNro, cae }),
+    estado: 'SIMULADO',
+    simulated: true,
+    mode: 'mock',
+  };
+}
+
+/** Emite una NOTA DE CREDITO real (asociada al comprobante original) contra ARCA. */
+export async function arcaEmitirNotaCredito(orgId: string, opts: ArcaEmitOptions): Promise<ArcaEmitResult> {
+  const cfg = await getArcaConfig(orgId, opts.branchId);
+  if (!cfg.hasCert || !cfg.hasKey) throw new Error('Sin certificado/clave cargados');
+  if (!cfg.cuit) throw new Error('Sin CUIT cargado (Configuración → Facturación)');
+  if (!opts.assoc) throw new Error('Falta el comprobante asociado (factura original)');
+  return feAutorizar(orgId, cfg, resolveCreditNoteTipo(cfg, opts.invoiceType), opts);
 }
 
 export interface ArcaTestResult {

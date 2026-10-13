@@ -456,6 +456,64 @@ export const arcaInvoiceSchema = z.object({
   customerTaxId: optionalString,
 });
 
+export const arcaCreditNoteSchema = z.object({
+  paymentId: cuid,
+  invoiceType: z.enum(['B', 'C', 'A']).default('C'),
+  customerTaxId: optionalString,
+  reason: optionalString,
+});
+
+export const arcaPointOfSaleSchema = z.object({
+  branchId: cuid,
+  pointOfSale: z.coerce.number().int().min(1).max(9999),
+});
+
+// ---------------------------------------------------------------------------
+// 2FA y observabilidad
+// ---------------------------------------------------------------------------
+
+export const twoFactorChallengeSchema = z.object({
+  challenge: z.string().min(1),
+});
+
+export const twoFactorLoginSchema = z.object({
+  challenge: z.string().min(1),
+  code: z.string().min(4).max(20),
+  method: z.enum(['totp', 'email', 'backup']).optional(),
+});
+
+export const twoFactorEnableSchema = z.object({
+  code: z.string().min(6).max(20),
+});
+
+export const twoFactorDisableSchema = z.object({
+  password: z.string().min(1),
+  code: z.string().max(20).optional(),
+});
+
+export const observabilityUpdateSchema = z.object({
+  OBS_WEBHOOK_URL: z.string().trim().url().or(z.literal('')).optional(),
+  OBS_ALERTS_ENABLED: z.enum(['true', 'false']).optional(),
+  OBS_MIN_LEVEL: z.enum(['error', 'warn', 'info']).optional(),
+  OBS_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).optional(),
+});
+
+export const retentionPurgeSchema = z.object({
+  retentionDays: z.coerce.number().int().min(1).max(3650).optional(),
+});
+
+export const onboardingToggleSchema = z.object({
+  key: z.string().min(1).max(80),
+  done: z.boolean(),
+});
+
+export const arcaPointPrintSchema = z.object({
+  paymentId: optionalString,
+  deviceId: optionalString,
+  reference: optionalString,
+});
+
+
 // ---------------------------------------------------------------------------
 // Portal de socios (app movil)
 // ---------------------------------------------------------------------------

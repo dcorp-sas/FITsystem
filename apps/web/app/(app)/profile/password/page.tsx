@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { http, ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
 import { Button, Card, Field, Input, PageHeader } from '@/components/ui';
+import { TwoFactorCard } from '@/components/two-factor-card';
 
 export default function ChangePasswordPage() {
   const toast = useToast();
@@ -33,9 +34,9 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div>
-      <PageHeader title="Cambiar contraseña" subtitle="Actualiza tu contraseña de acceso" />
-      <Card title="Datos de seguridad" className="max-w-md">
+    <div className="space-y-6">
+      <PageHeader title="Seguridad" subtitle="Contraseña y verificación en dos pasos" />
+      <Card title="Cambiar contraseña" className="max-w-md">
         <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Contraseña actual">
             <Input type="password" required value={form.currentPassword} onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))} />
@@ -49,6 +50,7 @@ export default function ChangePasswordPage() {
           <Button type="submit" loading={saving}>Guardar cambios</Button>
         </form>
       </Card>
+      <TwoFactorCard />
     </div>
   );
 }

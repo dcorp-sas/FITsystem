@@ -2,16 +2,27 @@ import type { FastifyInstance } from 'fastify';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 import { prisma } from '../db.js';
-import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, mpPointPollSchema } from '@fitsystem/validators';
+import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, arcaCreditNoteSchema, arcaPointOfSaleSchema, mpPointPollSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { getRawSetting, getSettings } from '../services/settings.js';
 import { notifyEvent } from '../services/notifications.js';
 import { whatsappLink } from '../services/whatsapp.js';
 import { getSmtpConfig } from '../services/email.js';
-import { getArcaConfig, arcaEmitir, arcaSimular, arcaTest, arcaDummy, resolveCbteTipo, CBTE_LABEL } from '../services/arca.js';
+import {
+  getArcaConfig,
+  arcaEmitir,
+  arcaSimular,
+  arcaEmitirNotaCredito,
+  arcaSimularNotaCredito,
+  arcaTest,
+  arcaDummy,
+  resolveCbteTipo,
+  resolveCreditNoteTipo,
+  CBTE_LABEL,
+} from '../services/arca.js';
 import { getMpConfig, mpPing, getPosTerminals, createPointIntent, getPointIntent } from '../services/mercadopago.js';
-import { printTicket, listPrinters, buildReceiptTicket } from '../services/print.js';
+import { printTicket, listPrinters, printTicketAuto, printViaPoint, buildReceiptTicket } from '../services/print.js';
 import { env } from '../env.js';
 
 /**
@@ -91,7 +102,7 @@ async function completeMpOrder(orgId: string, paymentId: string, userId?: string
       const m = await prisma.member.findUnique({ where: { id: order.memberId } });
       memberName = m ? `${m.firstName} ${m.lastName}` : null;
     }
-    await printTicket(orgId, buildReceiptTicket({
+    await printTicketAuto(orgId, buildReceiptTicket({
       organization: org?.name ?? 'FIT System',
       member: memberName,
       concept: order.concept,
@@ -208,6 +219,7 @@ export function integrationRoutes(app: FastifyInstance) {
           environment: arcaCfg.entorno === 'produccion' ? 'PRODUCCION' : 'HOMOLOGACION',
           cbteTipo: arcaCfg.cbteTipo,
           cbteLabel: CBTE_LABEL[arcaCfg.cbteTipo] ?? String(arcaCfg.cbteTipo),
+          creditNoteLabel: CBTE_LABEL[resolveCreditNoteTipo(arcaCfg)] ?? 'Nota de credito C',
           condicionReceptor: arcaCfg.condicionReceptor,
           hasCertificate: arcaCfg.hasCert,
           certSubject: arcaCfg.certSubject,
@@ -222,9 +234,11 @@ export function integrationRoutes(app: FastifyInstance) {
           useAutomation: wa.USE_AUTOMATION === 'true',
         },
         print: {
-          configured: Boolean(print.PRINTER_NAME || print.DEST_URL),
+          configured: Boolean(print.PRINTER_NAME || print.DEST_URL || print.POINT_DEVICE_ID),
+          destination: print.DESTINATION ?? 'server',
           defaultPrinter: print.PRINTER_NAME ?? '',
           destUrl: print.DEST_URL ?? '',
+          pointDeviceId: print.POINT_DEVICE_ID ?? '',
           ticketTemplate: print.TICKET_TEMPLATE ?? 'default',
           printOnPayment: print.PRINT_ON_PAYMENT === 'true',
         },
@@ -625,7 +639,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const input = validate(arcaInvoiceSchema, request.body);
       const orgId = req.user.organizationId;
 
-      const cfg = await getArcaConfig(orgId);
+      const cfg = await getArcaConfig(orgId, req.user.branchId);
       if (!cfg.cuit || !cfg.ptoVta) throw new HttpError(400, 'Configure CUIT y Punto de Venta en Configuracion > ARCA');
 
       const payment = await prisma.payment.findFirst({
@@ -649,6 +663,7 @@ export function integrationRoutes(app: FastifyInstance) {
           neto: net,
           iva,
           customerTaxId: input.customerTaxId || payment.member?.documentNumber || undefined,
+          branchId: payment.branchId,
         });
       } else {
         const seq = await nextSequence(orgId, 'ARCA', `SEQ_${input.invoiceType ?? 'C'}`);
@@ -658,6 +673,7 @@ export function integrationRoutes(app: FastifyInstance) {
           neto: net,
           iva,
           customerTaxId: input.customerTaxId || payment.member?.documentNumber || undefined,
+          branchId: payment.branchId,
         });
       }
 
@@ -718,6 +734,149 @@ export function integrationRoutes(app: FastifyInstance) {
         },
         201,
       );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // ---------- ARCA: notas de credito (anulacion de comprobantes) ----------
+  app.post('/integrations/arca/credit-notes', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'ACCOUNTANT'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = validate(arcaCreditNoteSchema, request.body);
+      const orgId = req.user.organizationId;
+
+      const payment = await prisma.payment.findFirst({
+        where: { id: input.paymentId, organizationId: orgId },
+        include: { member: true },
+      });
+      if (!payment) throw new HttpError(404, 'Pago no encontrado');
+      if (!payment.invoiceNumber) throw new HttpError(400, 'El pago no tiene comprobante emitido');
+
+      let providerData: Record<string, unknown> = {};
+      try {
+        providerData = payment.providerData ? (JSON.parse(payment.providerData) as Record<string, unknown>) : {};
+      } catch {
+        providerData = {};
+      }
+      const arcaData = (providerData.arca ?? {}) as Record<string, unknown>;
+      if (arcaData.creditNote) throw new HttpError(409, 'El comprobante ya tiene una nota de credito');
+
+      const cfg = await getArcaConfig(orgId, payment.branchId);
+      const [ptoVtaStr, nroStr] = String(payment.invoiceNumber).split('-');
+      const originalPtoVta = Number(arcaData.puntoVenta ?? ptoVtaStr) || cfg.ptoVta;
+      const originalNro = Number(nroStr) || 0;
+      const originalCbteTipo = Number(arcaData.cbteTipo) || cfg.cbteTipo;
+      const fecha = payment.paidAt ?? payment.createdAt;
+      const fechaYmd = `${fecha.getFullYear()}${String(fecha.getMonth() + 1).padStart(2, '0')}${String(fecha.getDate()).padStart(2, '0')}`;
+
+      const iva = payment.amount * 0.21;
+      const net = payment.amount - iva;
+      const ncTipo = resolveCreditNoteTipo(cfg, input.invoiceType);
+      const ncLabel = CBTE_LABEL[ncTipo] ?? String(ncTipo);
+      const isReal = cfg.hasCert && cfg.hasKey && !cfg.simulate;
+      const assoc = { tipo: originalCbteTipo, ptoVta: originalPtoVta, nro: originalNro, fecha: fechaYmd };
+      const emitOpts = {
+        invoiceType: input.invoiceType,
+        total: payment.amount,
+        neto: net,
+        iva,
+        customerTaxId: input.customerTaxId || payment.member?.documentNumber || undefined,
+        branchId: payment.branchId,
+        assoc,
+      };
+
+      let result;
+      if (isReal) {
+        result = await arcaEmitirNotaCredito(orgId, emitOpts);
+      } else {
+        const seq = await nextSequence(orgId, 'ARCA', `SEQ_NC_${input.invoiceType ?? 'C'}`);
+        result = arcaSimularNotaCredito(cfg, seq, emitOpts);
+      }
+
+      const ncNumber = `${String(result.ptoVta).padStart(5, '0')}-${String(result.numero).padStart(8, '0')}`;
+      providerData.arca = {
+        ...arcaData,
+        creditNote: {
+          mode: result.mode,
+          estado: result.estado,
+          cbteTipo: ncTipo,
+          tipoLabel: ncLabel,
+          number: ncNumber,
+          cae: result.cae,
+          caeVenc: result.venc,
+          qrUrl: result.qrUrl,
+          assoc,
+          reason: input.reason ?? 'Anulacion',
+          issuedAt: new Date().toISOString(),
+        },
+      };
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { invoiceStatus: 'CREDITED', providerData: JSON.stringify(providerData) },
+      });
+      await logActivity(req, 'ISSUE', 'ARCA_CREDIT_NOTE', payment.id, undefined, { number: ncNumber, amount: payment.amount, mode: result.mode });
+
+      return ok(
+        reply,
+        {
+          number: ncNumber,
+          type: ncLabel,
+          cbteTipo: ncTipo,
+          puntoVenta: result.ptoVta,
+          cae: result.simulated ? null : result.cae,
+          caeVenc: result.simulated ? null : result.venc,
+          qrUrl: result.qrUrl,
+          estado: result.estado,
+          simulated: result.simulated,
+          mode: result.mode,
+          assoc,
+          reason: input.reason ?? 'Anulacion',
+          amount: payment.amount,
+        },
+        201,
+      );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // ---------- ARCA: puntos de venta por sucursal ----------
+  app.get('/integrations/arca/points-of-sale', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const orgId = req.user.organizationId;
+      const globalCfg = await getArcaConfig(orgId);
+      const branches = await prisma.branch.findMany({ where: { organizationId: orgId }, orderBy: { name: 'asc' } });
+      const pointsOfSale = await Promise.all(
+        branches.map(async (branch) => {
+          const own = await getRawSetting(orgId, 'ARCA', `PTO_VENTA_${branch.id}`);
+          const pointOfSale = Number(own || '') || globalCfg.ptoVta;
+          return { branchId: branch.id, branchName: branch.name, pointOfSale, inherited: !own };
+        }),
+      );
+      return ok(reply, { globalPointOfSale: globalCfg.ptoVta, pointsOfSale });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Asigna un punto de venta AFIP a una sucursal (0 = usar el global).
+  app.put('/integrations/arca/points-of-sale', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'ACCOUNTANT'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = validate(arcaPointOfSaleSchema, request.body);
+      const orgId = req.user.organizationId;
+      const branch = await prisma.branch.findFirst({ where: { id: input.branchId, organizationId: orgId } });
+      if (!branch) throw new HttpError(404, 'Sucursal no encontrada');
+      await prisma.setting.upsert({
+        where: { organizationId_category_key: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}` } },
+        create: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}`, value: String(input.pointOfSale) },
+        update: { value: String(input.pointOfSale) },
+      });
+      await logActivity(req, 'UPDATE', 'ARCA_POS', branch.id, undefined, { pointOfSale: input.pointOfSale });
+      return ok(reply, { branchId: branch.id, pointOfSale: input.pointOfSale });
     } catch (error) {
       return fail(reply, error);
     }
@@ -816,6 +975,55 @@ export function integrationRoutes(app: FastifyInstance) {
       }));
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir');
       return ok(reply, { ok: true });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Imprime el comprobante de un pago en la impresora de la terminal Point.
+  app.post('/integrations/print/receipt/:paymentId/point', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { paymentId } = request.params as { paymentId: string };
+      const payment = await prisma.payment.findFirst({
+        where: { id: paymentId, organizationId: req.user.organizationId },
+        include: { member: { select: { firstName: true, lastName: true } }, organization: true },
+      });
+      if (!payment) throw new HttpError(404, 'Pago no encontrado');
+      const result = await printViaPoint(req.user.organizationId, buildReceiptTicket({
+        organization: payment.organization?.name ?? 'FIT System',
+        member: payment.member ? `${payment.member.firstName} ${payment.member.lastName}` : null,
+        concept: payment.concept,
+        method: payment.method,
+        amount: payment.amount,
+        reference: payment.invoiceNumber ?? payment.reference,
+        date: payment.paidAt ?? payment.createdAt,
+      }), (request.body as { deviceId?: string } | undefined)?.deviceId);
+      if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir en la terminal Point');
+      return ok(reply, { ok: true, dryRun: result.dryRun });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Imprime un ticket de prueba en la impresora de la terminal Point.
+  app.post('/integrations/print/test/point', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
+      const result = await printViaPoint(req.user.organizationId, {
+        organization: org?.name ?? 'FIT System',
+        title: 'PRUEBA POINT',
+        date: new Date().toISOString(),
+        lines: [
+          { label: 'Estado:', value: 'Conexion OK' },
+          { label: 'Sede:', value: req.user.branchId ?? '-' },
+        ],
+        total: '$0.00',
+        footer: 'Impreso por la terminal Point',
+      });
+      if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir en la terminal Point');
+      return ok(reply, { ok: true, dryRun: result.dryRun });
     } catch (error) {
       return fail(reply, error);
     }

@@ -7,6 +7,7 @@ import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
 import { formatMoney, formatDate } from '@fitsystem/utils';
 import type { DashboardData } from '@/lib/types';
+import { OnboardingChecklist } from '@/components/onboarding-checklist';
 import {
   Badge,
   Button,
@@ -71,6 +72,8 @@ export default function DashboardPage() {
           </div>
         }
       />
+
+      <OnboardingChecklist />
 
       {data.alerts.length > 0 && (
         <div className="mb-5 flex flex-col gap-2">
