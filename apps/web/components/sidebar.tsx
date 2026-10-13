@@ -40,6 +40,7 @@ const GROUPS: NavGroup[] = [
   {
     title: 'Finanzas',
     items: [
+      { href: '/charge', label: 'Cobrar', icon: 'card' },
       { href: '/payments', label: 'Pagos', icon: 'payments' },
       { href: '/cash', label: 'Caja', icon: 'cash' },
       { href: '/shop', label: 'Minishop', icon: 'shop' },

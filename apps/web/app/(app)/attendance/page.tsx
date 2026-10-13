@@ -6,9 +6,11 @@ import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime, formatDate } from '@fitsystem/utils';
 import { ATTENDANCE_METHOD_LABELS } from '@/lib/labels';
+import { detectHardware } from '@/lib/hardware';
 import type { Attendance } from '@/lib/types';
 import { FaceCaptureModal } from '@/components/face-capture';
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -37,6 +39,22 @@ interface CheckinResult {
   membershipEndDate?: string;
 }
 
+interface HardwareDevice {
+  kind: string;
+  label: string;
+  method: string;
+  available: boolean;
+  source?: string;
+  detail?: string | null;
+}
+
+interface DeviceProfile {
+  branchId: string;
+  platform: string;
+  devices: HardwareDevice[];
+  scannedAt: string;
+}
+
 export default function AttendancePage() {
   const toast = useToast();
   const { branches, activeBranchId } = useAuth();
@@ -51,6 +69,8 @@ export default function AttendancePage() {
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
   const [from, setFrom] = useState('');
+  const [devices, setDevices] = useState<DeviceProfile | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +93,40 @@ export default function AttendancePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadDevices = useCallback(async () => {
+    if (!branchId) return;
+    try {
+      const res = await http.get<{ profile: DeviceProfile | null }>('/attendance/devices', { branchId });
+      setDevices(res.profile);
+    } catch {
+      /* sin hardware cargado */
+    }
+  }, [branchId]);
+
+  useEffect(() => {
+    void loadDevices();
+  }, [loadDevices]);
+
+  async function scanHardware() {
+    if (!branchId) return;
+    setScanning(true);
+    try {
+      const scan = await detectHardware();
+      const res = await http.post<{ profile: DeviceProfile }>('/attendance/devices', {
+        branchId,
+        platform: scan.platform,
+        devices: scan.devices,
+      });
+      setDevices(res.profile);
+      const found = scan.devices.filter((d) => d.available).length;
+      toast.success(found > 0 ? `${found} dispositivo(s) detectado(s)` : 'No se detectó hardware adicional');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al detectar hardware');
+    } finally {
+      setScanning(false);
+    }
+  }
 
   async function checkin(e: React.FormEvent) {
     e.preventDefault();
@@ -178,6 +232,42 @@ export default function AttendancePage() {
                 ))}
               </div>
             )}
+          </Card>
+
+          <Card
+            title="Dispositivos de acceso"
+            className="mt-5"
+            action={
+              <Button variant="secondary" size="sm" onClick={scanHardware} loading={scanning}>
+                <Icon name="activity" size={15} /> Detectar
+              </Button>
+            }
+          >
+            {!devices ? (
+              <p className="text-sm text-text-muted">
+                Detectá el hardware instalado en este equipo (lector de huellas, lector de tarjetas, cámara o lector QR).
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {devices.devices.map((d, i) => (
+                  <div key={`${d.kind}-${i}`} className="flex items-center justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <div className="truncate text-text">{d.label}</div>
+                      <div className="truncate text-[11px] text-text-muted">{d.detail || d.source || ''}</div>
+                    </div>
+                    <Badge color={d.available ? 'green' : 'gray'}>{d.available ? 'Detectado' : 'No'}</Badge>
+                  </div>
+                ))}
+                <div className="pt-1 text-[11px] text-text-muted">
+                  Última detección: {formatDateTime(devices.scannedAt)}
+                </div>
+              </div>
+            )}
+            <div className="mt-4">
+              <Button variant="secondary" className="w-full" onClick={scanHardware} loading={scanning}>
+                <Icon name="activity" size={16} /> Detectar hardware del equipo
+              </Button>
+            </div>
           </Card>
         </div>
 

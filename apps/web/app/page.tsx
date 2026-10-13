@@ -59,34 +59,36 @@ const PLANS = [
   {
     name: 'Básico',
     tag: 'BASIC',
-    price: 'A consultar',
-    period: '12 meses',
+    price: '$299.000',
+    period: '12 meses · ARS',
     popular: false,
-    features: ['Hasta 100 socios con app', 'Todos los módulos', 'App del socio incluida', 'Soporte por email'],
+    features: ['Hasta 100 socios con app', 'Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Soporte por email'],
     cta: 'Solicitar cotización',
     href: '#contacto',
   },
   {
     name: 'Pro',
     tag: 'PRO',
-    price: 'A consultar',
-    period: '12 meses',
+    price: '$499.000',
+    period: '12 meses · ARS',
     popular: true,
-    features: ['Hasta 500 socios con app', 'Todos los módulos', 'App del socio incluida', 'Soporte prioritario'],
+    features: ['Hasta 500 socios con app', 'Todos los módulos', 'App del socio incluida', 'Multi-sucursal', 'Soporte prioritario'],
     cta: 'Solicitar cotización',
     href: '#contacto',
   },
   {
     name: 'Empresa',
     tag: 'ENTERPRISE',
-    price: 'A consultar',
-    period: '10 años',
+    price: '$899.000',
+    period: '12 meses · ARS',
     popular: false,
     features: ['Socios ilimitados con app', 'Multi-sucursal sin límite', 'Onboarding acompañado', 'Soporte dedicado'],
     cta: 'Hablar con ventas',
     href: '#contacto',
   },
 ];
+
+const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses' };
 
 const FAQS = [
   {
@@ -291,8 +293,27 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-8 text-center text-xs text-text-muted">
-            Los precios se ajustan según la cantidad de sucursales y socios. Consultanos por tu caso.
+            Todos los planes incluyen el sistema completo y el primer año de la app del socio. Los
+            precios son orientativos y se ajustan según sucursales y socios.
           </p>
+
+          <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center justify-between gap-3 rounded-xl border border-line bg-surface/60 px-5 py-4 text-center sm:flex-row sm:text-left">
+            <div>
+              <p className="text-sm font-semibold text-text">
+                ¿Necesitás más socios con app? Sumá asientos
+              </p>
+              <p className="mt-0.5 text-sm text-text-muted">
+                Pack de +{SEAT_PACK.seats} socios con app por {SEAT_PACK.price} / {SEAT_PACK.period}.
+                Se combinan con cualquier plan.
+              </p>
+            </div>
+            <a
+              href="#contacto"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
+            >
+              <Icon name="plus" size={16} /> Consultar asientos
+            </a>
+          </div>
         </div>
       </section>
 

@@ -164,6 +164,8 @@ function PortalModal({
   const [generateCode, setGenerateCode] = useState(true);
   const [saving, setSaving] = useState(false);
   const [code, setCode] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [invite, setInvite] = useState<{ username: string; password: string; email: string; emailSent: boolean; emailError?: string | null } | null>(null);
 
   useEffect(() => {
     if (row) {
@@ -171,8 +173,28 @@ function PortalModal({
       setPassword('');
       setGenerateCode(!row.hasAccount);
       setCode(null);
+      setInvite(null);
     }
   }, [row]);
+
+  async function sendInvite() {
+    if (!row) return;
+    setInviting(true);
+    try {
+      const res = await http.post<{ username: string; password: string; email: string; emailSent: boolean; emailError?: string | null }>(
+        `/members/${row.memberId}/portal/invite`,
+        { email: email || null },
+      );
+      setInvite(res);
+      if (res.emailSent) toast.success('Credenciales enviadas por email');
+      else toast.error(res.emailError || 'No se pudo enviar el email');
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al enviar');
+    } finally {
+      setInviting(false);
+    }
+  }
 
   async function submit() {
     if (!row) return;
@@ -206,6 +228,9 @@ function PortalModal({
         <>
           <Button variant="ghost" onClick={onClose}>
             Cerrar
+          </Button>
+          <Button variant="secondary" onClick={sendInvite} loading={inviting} disabled={!email}>
+            <Icon name="mail" size={15} /> Enviar credenciales
           </Button>
           <Button onClick={submit} loading={saving}>
             Guardar
@@ -242,6 +267,24 @@ function PortalModal({
               <span className="text-xs text-text-muted">
                 Compartilo con el socio para que active su cuenta en la app.
               </span>
+            </div>
+          </Card>
+        )}
+
+        {invite && (
+          <Card title="Credenciales enviadas">
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-text-muted">Usuario</span>
+                <span className="font-mono text-text">{invite.username}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-text-muted">Clave</span>
+                <span className="font-mono text-text">{invite.password}</span>
+              </div>
+              <p className="pt-1 text-xs text-text-muted">
+                {invite.emailSent ? `Enviado a ${invite.email}.` : `No se pudo enviar a ${invite.email}.`} Compartilas manualmente si hace falta.
+              </p>
             </div>
           </Card>
         )}

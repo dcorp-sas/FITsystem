@@ -105,6 +105,8 @@ export const memberSchema = z.object({
   notes: optionalString,
   status: z.enum(['ACTIVE', 'PENDING', 'SUSPENDED', 'INACTIVE', 'FROZEN']).optional(),
   memberCode: optionalString,
+  // Al crear: enviar las credenciales de acceso a la app por email al socio.
+  notify: z.boolean().optional(),
 });
 
 export const memberImportRowSchema = z.object({
@@ -291,6 +293,23 @@ export const attendanceCheckinSchema = z.object({
   method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD']).default('MANUAL'),
 });
 
+export const hardwareDeviceSchema = z.object({
+  branchId: cuid,
+  platform: z.string().max(160).optional(),
+  devices: z
+    .array(
+      z.object({
+        kind: z.enum(['FINGERPRINT', 'CARD', 'QR', 'FACE', 'TURNSTILE']),
+        label: z.string().min(1).max(120),
+        method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD']),
+        available: z.boolean(),
+        source: z.string().max(60).optional(),
+        detail: optionalString,
+      }),
+    )
+    .max(50),
+});
+
 // ---------------------------------------------------------------------------
 // Reconocimiento facial
 // ---------------------------------------------------------------------------
@@ -438,15 +457,19 @@ export const sendNotificationSchema = z.object({
 export const mpQrCreateSchema = z.object({
   amount: z.coerce.number().positive(),
   description: z.string().min(1),
+  concept: z.enum(['MEMBERSHIP', 'ENROLLMENT', 'FREEZE', 'PRODUCT', 'CLASS', 'OTHER']).default('MEMBERSHIP'),
   memberId: optionalString,
+  membershipId: optionalString,
   externalReference: optionalString,
 });
 
 export const mpPointCreateSchema = z.object({
   amount: z.coerce.number().positive(),
   description: z.string().min(1),
+  concept: z.enum(['MEMBERSHIP', 'ENROLLMENT', 'FREEZE', 'PRODUCT', 'CLASS', 'OTHER']).default('MEMBERSHIP'),
   deviceId: optionalString,
   memberId: optionalString,
+  membershipId: optionalString,
   externalReference: optionalString,
 });
 
@@ -593,6 +616,18 @@ export const routineSchema = z.object({
     .optional(),
 });
 
+export const routineLogSchema = z.object({
+  routineId: optionalString,
+  exerciseId: optionalString,
+  exerciseName: z.string().min(1),
+  dayIndex: z.coerce.number().int().min(1).max(7).optional(),
+  sets: z.coerce.number().int().min(0).optional(),
+  reps: optionalString,
+  weight: optionalString,
+  notes: optionalString,
+  completedAt: z.string().datetime().optional(),
+});
+
 export const newsPostSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
@@ -633,8 +668,12 @@ export const orgLicenseActivateSchema = z.object({
 
 export const portalAccountSchema = z.object({
   email: optionalString,
-  password: z.string().min(6).optional().nullable(),
+  password: z.string().min(6).optional(),
   generateCode: z.boolean().optional(),
+});
+
+export const portalInviteSchema = z.object({
+  email: optionalString,
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

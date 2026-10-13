@@ -4,6 +4,8 @@ import { memberSchema, memberImportSchema, faceEnrollSchema } from '@fitsystem/v
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { autoProvisionPortalAccount } from '../services/portal-account.js';
+import { signMemberQr } from '../lib/member-qr.js';
+import { sendCredentials } from '../services/onboarding.js';
 import { addDays, churnRiskScore, daysBetween, fullName, memberCode } from '@fitsystem/utils';
 
 function normalizeHeader(header: string): string {
@@ -253,7 +255,20 @@ export function memberRoutes(app: FastifyInstance) {
 
       await logActivity(req, 'CREATE', 'MEMBER', member.id, undefined, { code, name: fullName(member.firstName, member.lastName) });
       const portal = await autoProvisionPortalAccount({ organizationId: orgId, member });
-      return ok(reply, { ...member, portal }, 201);
+
+      let emailSent: boolean | undefined;
+      if (input.notify && portal.created && portal.password && member.email) {
+        const org = await prisma.organization.findUnique({ where: { id: orgId } });
+        const sent = await sendCredentials(orgId, member.email, {
+          memberName: fullName(member.firstName, member.lastName),
+          gymName: org?.name ?? 'tu gimnasio',
+          username: portal.username,
+          password: portal.password,
+        });
+        emailSent = sent.ok;
+      }
+
+      return ok(reply, { ...member, portal, emailSent }, 201);
     } catch (error) {
       return fail(reply, error);
     }
@@ -442,7 +457,7 @@ export function memberRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
       if (!member) throw new HttpError(404, 'Socio no encontrado');
-      const payload = `fitsystem://member?org=${req.user.organizationId}&code=${encodeURIComponent(member.memberCode)}&id=${id}`;
+      const payload = signMemberQr(req.user.organizationId, id, member.memberCode);
       const { default: QRCode } = await import('qrcode');
       const image = await QRCode.toDataURL(payload, { width: 512, margin: 1, color: { dark: '#0b1120', light: '#ffffff' } });
       return ok(reply, { memberId: id, memberCode: member.memberCode, payload, image });

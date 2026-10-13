@@ -32,7 +32,10 @@ export type IconName =
   | 'mobile'
   | 'news'
   | 'license'
-  | 'routines';
+  | 'routines'
+  | 'card'
+  | 'copy'
+  | 'mail';
 
 const PATHS: Record<IconName, string> = {
   dashboard: 'M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6ZM13 9h8V3h-8v6Z',
@@ -67,6 +70,9 @@ const PATHS: Record<IconName, string> = {
   news: 'M4 4h13a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 1-2Zm2 4h7M6 12h9M6 16h5',
   license: 'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-2 9 2 2 4-4',
   routines: 'M6 4h12M6 12h12M6 20h12M2 4h.01M2 12h.01M2 20h.01',
+  card: 'M2 5h20v14H2V5Zm0 5h20M6 15h4',
+  copy: 'M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2ZM5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1',
+  mail: 'M2 5h20v14H2V5Zm0 0 10 7 10-7',
 };
 
 export function Icon({ name, size = 18, className }: { name: IconName; size?: number; className?: string }) {

@@ -6,6 +6,7 @@ import { prisma } from './db.js';
 import { registerAuth } from './lib/auth.js';
 import { HttpError } from './lib/http.js';
 import { ensureSchema } from './lib/schema.js';
+import { assertLicenseUsable } from './services/license.js';
 
 import authRoutes from './routes/auth.js';
 import orgRoutes from './routes/org.js';
@@ -67,6 +68,29 @@ export async function buildServer() {
   });
 
   await registerAuth(app);
+
+  // Enforcement de licencia en la nube/escritorio: bloquea escrituras cuando la
+  // licencia esta vencida/suspendida. Las lecturas y las rutas de licencia/auth/
+  // portal siempre se permiten (activacion y app del socio no se bloquean).
+  app.addHook('preHandler', async (request, reply) => {
+    const method = request.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+    const url = request.url.split('?')[0] ?? '';
+    if (!url.startsWith('/api/')) return;
+    if (
+      url.startsWith('/api/auth') ||
+      url.startsWith('/api/license') ||
+      url.startsWith('/api/portal') ||
+      url.startsWith('/api/integrations/mercadopago/webhook') ||
+      url.startsWith('/api/provider')
+    ) {
+      return;
+    }
+    const authed = request as { user?: { organizationId?: string } };
+    const organizationId = authed.user?.organizationId;
+    if (!organizationId) return;
+    await assertLicenseUsable(organizationId);
+  });
 
   app.get('/health', async () => ({ status: 'ok', service: 'fitsystem-api', time: new Date().toISOString() }));
 

@@ -15,6 +15,7 @@ import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.j
 import { rateLimit } from '../lib/ratelimit.js';
 import { logActivity } from '../lib/activity.js';
 import { sendEmail } from '../services/email.js';
+import { ensureOrgLicense } from '../services/license.js';
 import {
   decryptSecret,
   encryptSecret,
@@ -103,6 +104,9 @@ export function authRoutes(app: FastifyInstance) {
           code: 'SC',
         },
       });
+
+      // Toda organizacion nueva arranca con una licencia TRIAL para poder operar.
+      await ensureOrgLicense(org.id);
 
       const passwordHash = await bcrypt.hash(input.password, 10);
       const user = await prisma.user.create({

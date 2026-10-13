@@ -7,6 +7,9 @@ import {
   settingsUpsertSchema,
   licenseActivateSchema,
   portalAccountSchema,
+  portalInviteSchema,
+  routineLogSchema,
+  hardwareDeviceSchema,
 } from './index.js';
 
 test('portalLoginSchema acepta un login valido', () => {
@@ -69,5 +72,44 @@ test('portalAccountSchema acepta generar codigo sin password', () => {
 
 test('portalAccountSchema rechaza password corta', () => {
   const r = portalAccountSchema.safeParse({ password: '123' });
+  assert.equal(r.success, false);
+});
+
+test('portalInviteSchema acepta email vacio', () => {
+  const r = portalInviteSchema.safeParse({ email: '' });
+  assert.equal(r.success, true);
+});
+
+test('memberSchema acepta notify', () => {
+  const r = memberSchema.safeParse({ branchId: 'br1', firstName: 'A', lastName: 'B', notify: true });
+  assert.equal(r.success, true);
+});
+
+test('routineLogSchema acepta registro minimo', () => {
+  const r = routineLogSchema.safeParse({ exerciseName: 'Press banca' });
+  assert.equal(r.success, true);
+});
+
+test('routineLogSchema rechaza sin nombre', () => {
+  const r = routineLogSchema.safeParse({ exerciseName: '' });
+  assert.equal(r.success, false);
+});
+
+test('hardwareDeviceSchema acepta un perfil de dispositivos', () => {
+  const r = hardwareDeviceSchema.safeParse({
+    branchId: 'br1',
+    devices: [
+      { kind: 'FINGERPRINT', label: 'Huella', method: 'FINGERPRINT', available: true },
+      { kind: 'QR', label: 'Lector QR', method: 'QR', available: true },
+    ],
+  });
+  assert.equal(r.success, true);
+});
+
+test('hardwareDeviceSchema rechaza kind desconocido', () => {
+  const r = hardwareDeviceSchema.safeParse({
+    branchId: 'br1',
+    devices: [{ kind: 'LASER', label: 'X', method: 'QR', available: true }],
+  });
   assert.equal(r.success, false);
 });

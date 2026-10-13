@@ -410,7 +410,8 @@ export function integrationRoutes(app: FastifyInstance) {
           organizationId: orgId,
           branchId,
           memberId: input.memberId || null,
-          concept: 'MEMBERSHIP',
+          membershipId: input.membershipId || null,
+          concept: input.concept ?? 'MEMBERSHIP',
           method: 'MERCADOPAGO_QR',
           status: 'PENDING',
           amount: input.amount,
@@ -472,7 +473,8 @@ export function integrationRoutes(app: FastifyInstance) {
           organizationId: orgId,
           branchId,
           memberId: input.memberId || null,
-          concept: 'MEMBERSHIP',
+          membershipId: input.membershipId || null,
+          concept: input.concept ?? 'MEMBERSHIP',
           method: 'MERCADOPAGO_POINT',
           status: 'PENDING',
           amount: input.amount,
@@ -543,6 +545,22 @@ export function integrationRoutes(app: FastifyInstance) {
         include: { member: { select: { firstName: true, lastName: true } } },
       });
       return ok(reply, orders);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Consulta una orden QR/POINT por su id (para polling desde el punto de venta).
+  app.get('/integrations/mercadopago/orders/:id', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const order = await prisma.payment.findFirst({
+        where: { id, organizationId: req.user.organizationId },
+        include: { member: { select: { firstName: true, lastName: true } } },
+      });
+      if (!order) throw new HttpError(404, 'Orden no encontrada');
+      return ok(reply, order);
     } catch (error) {
       return fail(reply, error);
     }

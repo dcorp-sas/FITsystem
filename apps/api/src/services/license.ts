@@ -251,6 +251,76 @@ export async function seatUsage(organizationId: string) {
   return prisma.portalAccount.count({ where: { organizationId, isActive: true } });
 }
 
+/**
+ * Garantiza que la organizacion tenga una licencia (TRIAL si aun no activo).
+ * Se usa en modo nube, donde la licencia vive por organizacion.
+ */
+export async function ensureOrgLicense(organizationId: string) {
+  const existing = await prisma.license.findUnique({ where: { organizationId } });
+  if (existing) return existing;
+  const trialExpiry = new Date(Date.now() + env.LICENSE_TRIAL_DAYS * 86400000);
+  return prisma.license.create({
+    data: {
+      organizationId,
+      installationId: `org:${organizationId}`,
+      plan: 'TRIAL',
+      seats: LICENSE_PLANS.TRIAL.seats,
+      status: 'TRIAL',
+      activatedAt: new Date(),
+      expiresAt: trialExpiry,
+    },
+  });
+}
+
+interface GuardCacheEntry {
+  usable: boolean;
+  message?: string;
+  at: number;
+}
+const guardCache = new Map<string, GuardCacheEntry>();
+const GUARD_TTL_MS = 30_000;
+
+/**
+ * Enforcement de licencia: lanza 402 si la licencia de la instalacion (desktop)
+ * o de la organizacion (nube) esta vencida o suspendida. Lecturas nunca se
+ * bloquean; solo las operaciones de escritura pasan por aca.
+ */
+export async function assertLicenseUsable(organizationId: string): Promise<void> {
+  const key = env.LICENSE_INSTALLATION_ID ? `inst:${env.LICENSE_INSTALLATION_ID}` : `org:${organizationId}`;
+  const cached = guardCache.get(key);
+  if (cached && Date.now() - cached.at < GUARD_TTL_MS) {
+    if (!cached.usable) throw new HttpError(402, cached.message || 'Licencia vencida');
+    return;
+  }
+
+  const license = env.LICENSE_INSTALLATION_ID
+    ? await prisma.license.findUnique({ where: { installationId: env.LICENSE_INSTALLATION_ID } })
+    : await ensureOrgLicense(organizationId);
+
+  // Sin licencia de instalacion aun, no se bloquea (el desktop muestra activacion).
+  if (!license) {
+    guardCache.set(key, { usable: true, at: Date.now() });
+    return;
+  }
+
+  const usable = isUsable(license.status, license.expiresAt);
+  const message = usable
+    ? undefined
+    : 'Tu licencia esta vencida o suspendida. Activala o renovala para seguir operando.';
+  guardCache.set(key, { usable, message, at: Date.now() });
+  if (!usable) throw new HttpError(402, message!);
+}
+
+/** Invalida el cache de enforcement (tras activar/renovar). */
+export function invalidateLicenseGuard(organizationId?: string): void {
+  if (!organizationId) {
+    guardCache.clear();
+    return;
+  }
+  guardCache.delete(`org:${organizationId}`);
+  guardCache.delete(`inst:${organizationId}`);
+}
+
 export function licenseInfo(license: {
   plan: string;
   seats: number;

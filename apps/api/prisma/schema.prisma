@@ -203,6 +203,7 @@ model Member {
 
   portalAccount  PortalAccount?
   routines       Routine[]
+  routineLogs    RoutineLog[]
   paymentIntents PaymentIntent[]
   face           MemberFace?
 
@@ -919,6 +920,29 @@ model RoutineExercise {
   day RoutineDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
 
   @@map("routine_exercises")
+}
+
+// Registro de progreso del socio sobre una rutina (una entrada por serie
+// registrada o por "completado" de un ejercicio, con el peso usado).
+model RoutineLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  routineId      String?
+  exerciseId     String?
+  exerciseName   String
+  dayIndex       Int?
+  sets           Int?
+  reps           String?
+  weight         String?
+  notes          String?
+  completedAt    DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, memberId, completedAt])
+  @@index([memberId, exerciseId])
+  @@map("routine_logs")
 }
 
 // Novedades / comunicados del gimnasio para la app movil.

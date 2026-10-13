@@ -6,12 +6,20 @@ import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
 import type { Member } from '@/lib/types';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/ui';
+import { Icon } from '@/components/icon';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   member?: Member | null;
   onSaved: () => void;
+}
+
+interface PortalInfo {
+  created: boolean;
+  reason?: 'already' | 'seat_limit';
+  username: string;
+  password?: string;
 }
 
 const EMPTY = {
@@ -33,14 +41,21 @@ const EMPTY = {
   memberCode: '',
 };
 
+const SOCIOS_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || '';
+
 export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
   const { branches, activeBranchId } = useAuth();
   const toast = useToast();
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
+  const [notify, setNotify] = useState(false);
+  const [creds, setCreds] = useState<{ memberId: string; username: string; password: string; email: string | null; emailSent: boolean } | null>(null);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setCreds(null);
+    setNotify(false);
     if (member) {
       setForm({
         branchId: member.branchId,
@@ -89,18 +104,123 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
       notes: form.notes.trim() || null,
       status: form.status,
       memberCode: form.memberCode.trim() || undefined,
+      notify,
     };
     try {
-      if (member) await http.put(`/members/${member.id}`, payload);
-      else await http.post('/members', payload);
-      toast.success(member ? 'Socio actualizado' : 'Socio creado');
+      if (member) {
+        await http.put(`/members/${member.id}`, payload);
+        toast.success('Socio actualizado');
+        onSaved();
+        onClose();
+        return;
+      }
+
+      const created = await http.post<{ id: string; email?: string | null; portal?: PortalInfo; emailSent?: boolean }>('/members', payload);
       onSaved();
-      onClose();
+      if (created.portal?.created && created.portal.password) {
+        setCreds({
+          memberId: created.id,
+          username: created.portal.username,
+          password: created.portal.password,
+          email: created.email ?? null,
+          emailSent: Boolean(created.emailSent),
+        });
+        toast.success('Socio creado');
+      } else {
+        toast.success('Socio creado');
+        onClose();
+      }
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
     } finally {
       setSaving(false);
     }
+  }
+
+  async function resend() {
+    if (!creds) return;
+    setResending(true);
+    try {
+      const res = await http.post<{ username: string; password: string; email: string; emailSent: boolean; emailError?: string | null }>(
+        `/members/${creds.memberId}/portal/invite`,
+        {},
+      );
+      setCreds((c) => (c ? { ...c, username: res.username, password: res.password, email: res.email, emailSent: res.emailSent } : c));
+      if (res.emailSent) toast.success('Credenciales enviadas');
+      else toast.error(res.emailError || 'No se pudo enviar el email');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo enviar');
+    } finally {
+      setResending(false);
+    }
+  }
+
+  function copy(text: string, label: string) {
+    void navigator.clipboard?.writeText(text).then(
+      () => toast.success(`${label} copiado`),
+      () => toast.error('No se pudo copiar'),
+    );
+  }
+
+  if (creds) {
+    const loginLabel = SOCIOS_URL || 'la app de socios';
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Acceso del socio creado"
+        size="lg"
+        footer={
+          <Button onClick={onClose} type="button">
+            Listo
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-text-muted">
+            Compartí estas credenciales con el socio para que ingrese a {loginLabel}. Por seguridad, la clave no se vuelve a mostrar.
+          </p>
+          <div className="rounded-lg border border-line bg-surface-alt/40 p-4 text-sm">
+            <div className="flex items-center justify-between gap-3 py-1">
+              <span className="text-text-muted">Usuario</span>
+              <span className="flex items-center gap-2">
+                <span className="font-mono text-text">{creds.username}</span>
+                <button type="button" className="text-text-muted hover:text-text" onClick={() => copy(creds.username, 'Usuario')}>
+                  <Icon name="copy" size={15} />
+                </button>
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 py-1">
+              <span className="text-text-muted">Clave</span>
+              <span className="flex items-center gap-2">
+                <span className="font-mono text-text">{creds.password}</span>
+                <button type="button" className="text-text-muted hover:text-text" onClick={() => copy(creds.password, 'Clave')}>
+                  <Icon name="copy" size={15} />
+                </button>
+              </span>
+            </div>
+            {SOCIOS_URL && (
+              <div className="flex items-center justify-between gap-3 py-1">
+                <span className="text-text-muted">Ingresar</span>
+                <a href={SOCIOS_URL} target="_blank" rel="noreferrer" className="text-primary-light hover:underline">
+                  {SOCIOS_URL}
+                </a>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-text-muted">
+              {creds.emailSent ? `Enviado a ${creds.email}` : creds.email ? `Sin enviar a ${creds.email}` : 'El socio no tiene email cargado'}
+            </span>
+            {creds.email && (
+              <Button variant="secondary" size="sm" onClick={resend} loading={resending} type="button">
+                <Icon name="mail" size={15} /> Reenviar por email
+              </Button>
+            )}
+          </div>
+        </div>
+      </Modal>
+    );
   }
 
   return (
@@ -192,6 +312,12 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
         <Field label="Notas" className="sm:col-span-2">
           <Textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} />
         </Field>
+        {!member && (
+          <label className="flex items-center gap-2 text-sm text-text sm:col-span-2">
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="h-4 w-4" />
+            Enviar credenciales de acceso a la app por email
+          </label>
+        )}
       </form>
     </Modal>
   );

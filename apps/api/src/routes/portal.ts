@@ -10,6 +10,7 @@ import {
   portalProofSchema,
   portalCheckinSchema,
   portalReserveSchema,
+  routineLogSchema,
 } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type PortalAuthedRequest } from '../lib/http.js';
 import { env } from '../env.js';
@@ -277,6 +278,49 @@ export function portalRoutes(app: FastifyInstance) {
         include: { days: { orderBy: { dayIndex: 'asc' }, include: { exercises: { orderBy: { orderIndex: 'asc' } } } } },
       });
       return ok(reply, { items });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Progreso de rutinas: historial del socio
+  app.get('/portal/routines/logs', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const query = request.query as { routineId?: string; exerciseId?: string; limit?: string };
+      const where: Record<string, unknown> = { memberId: req.portalAccount.memberId };
+      if (query.routineId) where.routineId = query.routineId;
+      if (query.exerciseId) where.exerciseId = query.exerciseId;
+      const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 200);
+      const items = await prisma.routineLog.findMany({ where, orderBy: { completedAt: 'desc' }, take: limit });
+      return ok(reply, { items });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Registrar un ejercicio completado (peso/reps/notas opcionales)
+  app.post('/portal/routines/logs', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const input = validate(routineLogSchema, request.body);
+      const { organizationId, memberId } = req.portalAccount;
+      const log = await prisma.routineLog.create({
+        data: {
+          organizationId,
+          memberId,
+          routineId: input.routineId || null,
+          exerciseId: input.exerciseId || null,
+          exerciseName: input.exerciseName,
+          dayIndex: input.dayIndex ?? null,
+          sets: input.sets ?? null,
+          reps: input.reps || null,
+          weight: input.weight || null,
+          notes: input.notes || null,
+          completedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
+        },
+      });
+      return ok(reply, log, 201);
     } catch (error) {
       return fail(reply, error);
     }

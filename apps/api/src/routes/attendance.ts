@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
-import { attendanceCheckinSchema, faceCheckinSchema } from '@fitsystem/validators';
+import { attendanceCheckinSchema, faceCheckinSchema, hardwareDeviceSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 import { getRawSetting } from '../services/settings.js';
 import { matchFace, parseThreshold } from '../services/face.js';
+import { getDeviceProfile, saveDeviceProfile, enabledMethods } from '../services/devices.js';
+import { parseMemberQr } from '../lib/member-qr.js';
 
 async function findActiveMembership(orgId: string, memberId: string) {
   return prisma.membership.findFirst({
@@ -41,6 +43,7 @@ const REJECT_MESSAGES: Record<string, string> = {
   SOCIO_INACTIVO: 'Socio dado de baja',
   SOCIO_CONGELADO: 'Membresia pausada',
   SIN_MEMBRESIA: 'Sin membresia activa',
+  QR_INVALIDO: 'El QR no es valido o fue alterado',
 };
 
 function buildCheckinReply(outcome: CheckinOutcome) {
@@ -143,16 +146,33 @@ export function attendanceRoutes(app: FastifyInstance) {
       if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
 
       let memberId = input.memberId ?? null;
-      if (!memberId && input.qr) {
-        const code = String(input.qr).trim();
-        const member = await prisma.member.findFirst({
-          where: {
-            organizationId: orgId,
-            OR: [{ memberCode: code }, { documentNumber: code }],
-          },
-        });
-        memberId = member?.id ?? null;
+      // El metodo no se confia al cliente: se deriva de la fuente real.
+      let method: string = input.method ?? 'MANUAL';
+
+      if (input.qr) {
+        const parsed = parseMemberQr(String(input.qr));
+        if (parsed.ok) {
+          // QR firmado por el servidor: el socio es el de la firma.
+          if (parsed.data.orgId !== orgId) {
+            return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'QR_INVALIDO', member: null }), 200);
+          }
+          memberId = parsed.data.memberId;
+          method = 'QR';
+        } else if (parsed.reason === 'invalid') {
+          return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'QR_INVALIDO', member: null }), 200);
+        } else {
+          // Codigo heredado (sin firma): buscar por codigo o documento.
+          const code = String(input.qr).trim();
+          const member = await prisma.member.findFirst({
+            where: {
+              organizationId: orgId,
+              OR: [{ memberCode: code }, { documentNumber: code }],
+            },
+          });
+          memberId = member?.id ?? null;
+        }
       }
+
       if (!memberId) {
         return ok(
           reply,
@@ -161,7 +181,7 @@ export function attendanceRoutes(app: FastifyInstance) {
         );
       }
 
-      const outcome = await performCheckin(req, memberId, branchId, input.method ?? 'MANUAL');
+      const outcome = await performCheckin(req, memberId, branchId, method);
       if (outcome.kind === 'reject') return ok(reply, buildCheckinReply(outcome), 200);
       return ok(reply, buildCheckinReply(outcome), 201);
     } catch (error) {
@@ -293,6 +313,34 @@ export function attendanceRoutes(app: FastifyInstance) {
         .map(([hour, count]) => ({ hour, count }))
         .sort((a, b) => b.count - a.count);
       return ok(reply, { from, to, peak, byHour: buckets });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Hardware de control de acceso detectado en la sede (lectores, camara, etc.)
+  app.get('/attendance/devices', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const query = request.query as { branchId?: string };
+      const branchId = query.branchId || req.user.branchId;
+      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+      const profile = await getDeviceProfile(req.user.organizationId, branchId);
+      return ok(reply, { profile, methods: enabledMethods(profile) });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post('/attendance/devices', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = validate(hardwareDeviceSchema, request.body);
+      const profile = await saveDeviceProfile(req.user.organizationId, input);
+      await logActivity(req, 'UPDATE', 'HARDWARE', input.branchId, undefined, {
+        devices: input.devices.filter((d) => d.available).length,
+      });
+      return ok(reply, { profile, methods: enabledMethods(profile) });
     } catch (error) {
       return fail(reply, error);
     }

@@ -14,6 +14,7 @@ import {
   validateLicense,
   LICENSE_PLANS,
   seatUsage,
+  invalidateLicenseGuard,
   type LicensePlanName,
 } from '../services/license.js';
 
@@ -90,6 +91,7 @@ export function licenseRoutes(app: FastifyInstance) {
     try {
       const input = validate(licenseActivateSchema, request.body);
       const license = await activateLicense(resolveInstallationId(input.installationId), input.licenseKey, input.machineName ?? null);
+      invalidateLicenseGuard(license.installationId);
       return ok(reply, { activated: true, info: licenseInfo(license) });
     } catch (error) {
       return fail(reply, error);
@@ -196,6 +198,7 @@ export function licenseRoutes(app: FastifyInstance) {
         data: { licenseId: license.id, type: 'ACTIVATED', seats: license.seats, detail: `Plan ${parsed.plan} (web)` },
       });
       await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: parsed.plan });
+      invalidateLicenseGuard(req.user.organizationId);
       return ok(reply, { activated: true, info: licenseInfo(license) });
     } catch (error) {
       return fail(reply, error);
@@ -250,6 +253,7 @@ export function licenseRoutes(app: FastifyInstance) {
       if (installationId) {
         const license = await activateLicense(installationId, input.licenseKey, input.machineName ?? null);
         await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: license.plan });
+        invalidateLicenseGuard(installationId);
         return ok(reply, { activated: true, info: licenseInfo(license) });
       }
       const parsed = parseLicenseKey(input.licenseKey);
@@ -282,6 +286,7 @@ export function licenseRoutes(app: FastifyInstance) {
         data: { licenseId: license.id, type: 'ACTIVATED', seats: license.seats, detail: `Plan ${parsed.plan} (config)` },
       });
       await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: parsed.plan });
+      invalidateLicenseGuard(req.user.organizationId);
       return ok(reply, { activated: true, info: licenseInfo(license) });
     } catch (error) {
       return fail(reply, error);

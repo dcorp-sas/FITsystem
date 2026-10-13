@@ -190,6 +190,30 @@ export interface Routine {
   days: RoutineDay[];
 }
 
+export interface RoutineLog {
+  id: string;
+  routineId?: string | null;
+  exerciseId?: string | null;
+  exerciseName: string;
+  dayIndex?: number | null;
+  sets?: number | null;
+  reps?: string | null;
+  weight?: string | null;
+  notes?: string | null;
+  completedAt: string;
+}
+
+export interface RoutineLogInput {
+  routineId?: string;
+  exerciseId?: string;
+  exerciseName: string;
+  dayIndex?: number;
+  sets?: number;
+  reps?: string;
+  weight?: string;
+  notes?: string;
+}
+
 export interface Checkin {
   id: string;
   checkedInAt: string;
@@ -266,6 +290,17 @@ export const portal = {
   me: () => request<{ organization: OrgInfo; member: MemberInfo; quota: Quota | null }>('/api/portal/me'),
   news: () => request<{ items: NewsItem[] }>('/api/portal/news'),
   routines: () => request<{ items: Routine[] }>('/api/portal/routines'),
+
+  routineLogs: (params?: { routineId?: string; exerciseId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.routineId) qs.set('routineId', params.routineId);
+    if (params?.exerciseId) qs.set('exerciseId', params.exerciseId);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return request<{ items: RoutineLog[] }>(`/api/portal/routines/logs${suffix}`);
+  },
+
+  logRoutine: (body: RoutineLogInput) =>
+    request<RoutineLog>('/api/portal/routines/logs', { method: 'POST', body }),
   checkins: () => request<{ items: Checkin[] }>('/api/portal/checkins'),
   classes: () => request<{ items: PortalClass[] }>('/api/portal/classes'),
 

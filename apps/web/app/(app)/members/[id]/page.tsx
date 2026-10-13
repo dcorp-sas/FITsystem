@@ -149,6 +149,9 @@ export default function MemberDetailPage() {
           <Button variant="secondary" onClick={() => setPaymentOpen(true)}>
             <Icon name="payments" size={15} /> Registrar pago
           </Button>
+          <Button variant="secondary" onClick={() => router.push(`/charge?memberId=${member.id}`)}>
+            <Icon name="card" size={15} /> Cobrar
+          </Button>
           <Button onClick={() => setMembershipOpen(true)}>
             <Icon name="plus" size={15} /> Membresía
           </Button>

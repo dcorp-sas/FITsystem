@@ -65,6 +65,9 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     | null;
 
   if (!res.ok) {
+    if (res.status === 402 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('fitsystem:license-expired'));
+    }
     const message =
       (json && 'message' in json && (json as { message?: string }).message) ||
       (json && 'error' in json && (json as { error?: string }).error) ||
