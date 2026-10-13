@@ -2,9 +2,10 @@ name: release
 
 # Publica los instaladores de Windows en GitHub Releases. La landing descarga
 # desde https://github.com/dcorp-sas/FITsystem/releases/latest/download/<archivo>,
-# por lo que los nombres de los assets deben coincidir exactamente.
+# y el auto-actualizador (electron-updater) lee `latest.yml` de la release.
+# Por eso los nombres de los assets deben coincidir exactamente.
 #
-# Uso: crear y subir un tag (ej. `git tag v0.1.0 && git push origin v0.1.0`),
+# Uso: crear y subir un tag (ej. `git tag v0.3.0 && git push origin v0.3.0`),
 # o ejecutar este workflow manualmente desde la pestaña Actions.
 
 on:
@@ -44,9 +45,17 @@ jobs:
           New-Item -ItemType Directory -Force -Path out | Out-Null
           $setup = Get-ChildItem "apps/desktop/release/*Setup*.exe" | Select-Object -First 1
           $portable = Get-ChildItem "apps/desktop/release/*Portable*.exe" | Select-Object -First 1
-          if (-not $setup) { throw "No se encontró el instalador NSIS" }
+          if (-not $setup) { throw "No se encontro el instalador NSIS" }
           Copy-Item $setup.FullName "out/FIT-System-Setup.exe"
           if ($portable) { Copy-Item $portable.FullName "out/FIT-System-Portable.exe" }
+
+          # Metadatos del auto-actualizador (electron-updater): latest.yml + blockmap.
+          $yml = Get-ChildItem "apps/desktop/release/latest.yml" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($yml) { Copy-Item $yml.FullName "out/latest.yml" }
+          $blockmap = Get-ChildItem "apps/desktop/release/*Setup*.exe.blockmap" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $blockmap) { $blockmap = Get-ChildItem "apps/desktop/release/*.exe.blockmap" -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if ($blockmap) { Copy-Item $blockmap.FullName "out/FIT-System-Setup.exe.blockmap" }
+
           $gateSetup = Get-ChildItem "apps/access-gate-desktop/release/*Setup*.exe" | Select-Object -First 1
           $gatePortable = Get-ChildItem "apps/access-gate-desktop/release/*Portable*.exe" | Select-Object -First 1
           if ($gateSetup) { Copy-Item $gateSetup.FullName "out/FIT-System-Acceso-Setup.exe" }
@@ -62,5 +71,7 @@ jobs:
           files: |
             out/FIT-System-Setup.exe
             out/FIT-System-Portable.exe
+            out/latest.yml
+            out/FIT-System-Setup.exe.blockmap
             out/FIT-System-Acceso-Setup.exe
             out/FIT-System-Acceso-Portable.exe

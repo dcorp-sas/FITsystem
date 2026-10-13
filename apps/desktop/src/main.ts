@@ -22,6 +22,10 @@ const UPDATE_FEED_URL =
   process.env.UPDATE_FEED_URL ||
   'https://raw.githubusercontent.com/dcorp-sas/FITsystem/main/updates/latest.json';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Auto-actualizador (electron-updater). Se inicializa solo en la app instalada
+// (app.isPackaged). El build portable no puede auto-actualizarse.
+let updater: import('electron-updater').AppUpdater | null = null;
+type UpdateState = { state: string; version?: string; percent?: number; message?: string };
 
 let apiProcess: ChildProcess | null = null;
 let webProcess: ChildProcess | null = null;
@@ -412,6 +416,16 @@ async function fetchUpdateInfo(): Promise<UpdateInfo | null> {
 }
 
 async function checkForUpdates(silent = false): Promise<UpdateInfo | null> {
+  // Si el auto-actualizador está disponible (app instalada), consulta GitHub
+  // Releases; el progreso llega a la UI por eventos 'update:event'.
+  if (updater) {
+    try {
+      await updater.checkForUpdates();
+    } catch (err) {
+      log('Auto-update falló:', (err as Error).message);
+    }
+    return null;
+  }
   const info = await fetchUpdateInfo();
   if (!info) {
     if (!silent) {
@@ -448,8 +462,49 @@ async function checkForUpdates(silent = false): Promise<UpdateInfo | null> {
   return info;
 }
 
+function emitUpdate(payload: UpdateState) {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:event', payload);
+  } catch {
+    /* la ventana puede no estar lista todavía */
+  }
+}
+
+async function initAutoUpdater() {
+  if (!app.isPackaged) return;
+  try {
+    const { autoUpdater } = await import('electron-updater');
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on('checking-for-update', () => emitUpdate({ state: 'checking' }));
+    autoUpdater.on('update-available', (info) => emitUpdate({ state: 'available', version: info.version }));
+    autoUpdater.on('update-not-available', () => emitUpdate({ state: 'up-to-date' }));
+    autoUpdater.on('download-progress', (p) => emitUpdate({ state: 'downloading', percent: Math.round(p.percent) }));
+    autoUpdater.on('update-downloaded', (info) => emitUpdate({ state: 'downloaded', version: info.version }));
+    autoUpdater.on('error', (err) => emitUpdate({ state: 'error', message: String((err as Error)?.message || err) }));
+    updater = autoUpdater;
+    log('Auto-updater (electron-updater) inicializado.');
+  } catch (err) {
+    log('electron-updater no disponible:', (err as Error).message);
+  }
+}
+
 function registerUpdateIpc() {
   ipcMain.handle('update:check', async () => checkForUpdates(false));
+  ipcMain.handle('update:download', async () => {
+    if (!updater) return { ok: false, error: 'Actualizador no disponible' };
+    try {
+      await updater.downloadUpdate();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+  ipcMain.handle('update:install', async () => {
+    if (!updater) return { ok: false, error: 'Actualizador no disponible' };
+    setImmediate(() => updater?.quitAndInstall());
+    return { ok: true };
+  });
 }
 
 const LICENSE_PUBLIC_KEY =
@@ -732,8 +787,11 @@ app.whenReady().then(async () => {
   // ingreso: el sistema arranca en prueba hasta que el usuario pegue su clave.
   await createWindow();
 
-  // Detección de actualizaciones: al iniciar (silenciosa) y cada 6 horas.
+  // Auto-actualización (electron-updater): consulta GitHub Releases al iniciar
+  // (silenciosa) y cada 6 horas. Requiere la app instalada (NSIS); el build
+  // portable no puede auto-actualizarse.
   if (app.isPackaged) {
+    await initAutoUpdater();
     setTimeout(() => void checkForUpdates(true), 4000);
     setInterval(() => void checkForUpdates(true), UPDATE_CHECK_INTERVAL_MS);
   }

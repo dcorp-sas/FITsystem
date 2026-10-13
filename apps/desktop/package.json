@@ -1,78 +1,99 @@
 {
-    "name":  "@fitsystem/desktop",
-    "productName":  "FIT System",
-    "version":  "0.2.0",
-    "private":  true,
-    "main":  "dist/main.js",
-    "type":  "module",
-    "scripts":  {
-                    "dev":  "concurrently -n \"api,web,electron\" -c \"blue,green,yellow\" \"pnpm --filter @fitsystem/api run dev\" \"pnpm --filter @fitsystem/web run dev\" \"electron .\"",
-                    "build:main":  "tsup src/main.ts --format esm --out-dir dist --external electron \u0026\u0026 tsup src/preload.ts --format cjs --out-dir dist --external electron",
-                    "build":  "pnpm run build:main",
-                    "start":  "electron .",
-                    "resources":  "node scripts/build-resources.mjs",
-                    "dist:win":  "pnpm run build:main \u0026\u0026 node scripts/build-resources.mjs \u0026\u0026 electron-builder --win --x64 --publish never"
-                },
-    "devDependencies":  {
-                            "@types/node":  "^22.9.0",
-                            "concurrently":  "^9.0.1",
-                            "electron":  "^33.2.0",
-                            "electron-builder":  "^25.1.8",
-                            "tsup":  "^8.3.5",
-                            "tsx":  "^4.19.2",
-                            "typescript":  "^5.6.3"
-                        },
-    "build":  {
-                  "directories":  {
-                                      "output":  "release"
-                                  },
-                  "files":  [
-                                "dist/main.js",
-                                "dist/preload.cjs",
-                                "assets/**/*",
-                                "package.json"
-                            ],
-                  "extraResources":  [
-                                         {
-                                             "from":  "build-resources/api",
-                                             "to":  "api"
-                                         },
-                                         {
-                                             "from":  "build-resources/web",
-                                             "to":  "web"
-                                         }
-                                     ],
-                  "asar":  true,
-                  "productName":  "FIT System",
-                  "win":  {
-                              "target":  [
-                                             {
-                                                 "target":  "nsis",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             },
-                                             {
-                                                 "target":  "portable",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             }
-                                         ],
-                              "icon":  "assets/icon.png",
-                              "signAndEditExecutable":  true
-                          },
-                  "appId":  "com.dcorp.fitsystem",
-                  "nsis":  {
-                               "oneClick":  false,
-                               "perMachine":  false,
-                               "allowToChangeInstallationDirectory":  true,
-                               "createDesktopShortcut":  true,
-                               "createStartMenuShortcut":  true,
-                               "artifactName":  "FIT-System-Setup.exe"
-                           },
-                  "portable":  {
-                                   "artifactName":  "FIT-System-Portable.exe"
-                               }
-              }
+  "name": "@fitsystem/desktop",
+  "productName": "FIT System",
+  "version": "0.2.0",
+  "private": true,
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n \"api,web,electron\" -c \"blue,green,yellow\" \"pnpm --filter @fitsystem/api run dev\" \"pnpm --filter @fitsystem/web run dev\" \"electron .\"",
+    "build:main": "tsup src/main.ts --format esm --out-dir dist --external electron --external electron-updater && tsup src/preload.ts --format cjs --out-dir dist --external electron",
+    "build": "pnpm run build:main",
+    "typecheck": "tsc --noEmit",
+    "start": "electron .",
+    "resources": "node scripts/build-resources.mjs",
+    "dist:win": "pnpm run build:main && node scripts/build-resources.mjs && electron-builder --win --x64 --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "concurrently": "^9.0.1",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "build": {
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main.js",
+      "dist/preload.cjs",
+      "assets/**/*",
+      "package.json",
+      "node_modules/electron-updater/**/*",
+      "node_modules/builder-util-runtime/**/*",
+      "node_modules/fs-extra/**/*",
+      "node_modules/js-yaml/**/*",
+      "node_modules/lazy-val/**/*",
+      "node_modules/lodash.escaperegexp/**/*",
+      "node_modules/semver/**/*",
+      "node_modules/tiny-typed-emitter/**/*",
+      "node_modules/sax/**/*",
+      "node_modules/argparse/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build-resources/api",
+        "to": "api"
+      },
+      {
+        "from": "build-resources/web",
+        "to": "web"
+      }
+    ],
+    "asar": true,
+    "productName": "FIT System",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dcorp-sas",
+        "repo": "FITsystem"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "signAndEditExecutable": true
+    },
+    "appId": "com.dcorp.fitsystem",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "FIT-System-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "FIT-System-Portable.exe"
+    }
+  }
 }

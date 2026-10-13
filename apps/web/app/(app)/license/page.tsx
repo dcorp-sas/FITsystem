@@ -34,8 +34,18 @@ const STATUS_LABELS: Record<string, string> = {
   UNACTIVATED: 'Sin activar',
 };
 
+interface UpdateEvent {
+  state: 'checking' | 'available' | 'up-to-date' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  percent?: number;
+  message?: string;
+}
+
 interface DesktopBridge {
-  checkUpdates?: () => Promise<{ current: string; latest: string; available: boolean } | null>;
+  checkUpdates?: () => Promise<unknown>;
+  downloadUpdate?: () => Promise<{ ok: boolean; error?: string }>;
+  installUpdate?: () => Promise<{ ok: boolean; error?: string }>;
+  onUpdateEvent?: (listener: (payload: UpdateEvent) => void) => () => void;
 }
 
 declare global {
@@ -51,16 +61,31 @@ export default function LicensePage() {
   const [key, setKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [update, setUpdate] = useState<UpdateEvent | null>(null);
   const isDesktop = typeof window !== 'undefined' && Boolean(window.fitsystem);
+
+  useEffect(() => {
+    return window.fitsystem?.onUpdateEvent?.((payload) => setUpdate(payload));
+  }, []);
 
   async function buscarActualizaciones() {
     if (!window.fitsystem?.checkUpdates) return;
     setChecking(true);
+    setUpdate({ state: 'checking' });
     try {
       await window.fitsystem.checkUpdates();
     } finally {
       setChecking(false);
     }
+  }
+
+  async function descargarActualizacion() {
+    const r = await window.fitsystem?.downloadUpdate?.();
+    if (r && !r.ok) setUpdate({ state: 'error', message: r.error });
+  }
+
+  async function instalarActualizacion() {
+    await window.fitsystem?.installUpdate?.();
   }
 
   const load = useCallback(async () => {
@@ -196,11 +221,46 @@ export default function LicensePage() {
       {isDesktop && (
         <Card title="Actualización del sistema" className="mt-5">
           <p className="mb-4 text-sm text-text-muted">
-            Buscá si hay una versión nueva de FIT System para instalar. Si existe, vas a poder descargarla.
+            Detectá e instalá actualizaciones de FIT System sin salir de la app.
           </p>
+
+          {update?.state === 'checking' && <p className="mb-3 text-sm text-text-muted">Buscando actualizaciones…</p>}
+          {update?.state === 'up-to-date' && <p className="mb-3 text-sm text-success">Estás en la última versión.</p>}
+          {update?.state === 'available' && (
+            <div className="mb-3 rounded-lg border border-line bg-surface-alt p-3 text-sm">
+              <p className="font-medium">Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}.</p>
+              <Button className="mt-3" onClick={descargarActualizacion}>
+                <Icon name="import" size={16} /> Descargar actualización
+              </Button>
+            </div>
+          )}
+          {update?.state === 'downloading' && (
+            <div className="mb-3">
+              <p className="mb-2 text-sm text-text-muted">Descargando… {update.percent ?? 0}%</p>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-alt">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${update.percent ?? 0}%` }} />
+              </div>
+            </div>
+          )}
+          {update?.state === 'downloaded' && (
+            <div className="mb-3 rounded-lg border border-line bg-surface-alt p-3 text-sm">
+              <p className="font-medium">Actualización lista para instalar.</p>
+              <Button className="mt-3" onClick={instalarActualizacion}>
+                <Icon name="check" size={16} /> Reiniciar e instalar
+              </Button>
+            </div>
+          )}
+          {update?.state === 'error' && (
+            <p className="mb-3 text-sm text-danger">No se pudo actualizar: {update.message ?? 'error desconocido'}</p>
+          )}
+
           <Button variant="secondary" onClick={buscarActualizaciones} loading={checking}>
             <Icon name="check" size={16} /> Buscar actualizaciones
           </Button>
+
+          <p className="mt-3 text-xs text-text-muted">
+            La instalación automática requiere la versión instalada (no la portable).
+          </p>
         </Card>
       )}
     </div>
