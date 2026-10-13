@@ -308,11 +308,19 @@ function activate({ key, installId, sede }) {
   const v = core.verifyKey(key, VERIFIERS);
   if (!v.ok) return { status: 400, error: v.error };
   if (v.exp < Date.now()) return { status: 400, error: 'Clave vencida el ' + new Date(v.exp).toLocaleDateString('es-AR') };
-  const row = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
-  // Solo se activan claves emitidas por este servidor. NO se re-importan: así,
-  // revocar o eliminar una licencia es efectivo (no se puede "revivir" reactivando).
-  if (!row) return { status: 404, error: 'Licencia no emitida por este servidor' };
-  if (row.state === 'revoked') return { status: 403, error: 'Licencia revocada' };
+  const row0 = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
+  if (row0 && row0.state === 'revoked') return { status: 403, error: 'Licencia revocada' };
+  let row = row0;
+  if (!row) {
+    // Clave válida y firmada por el proveedor pero ausente de la base (p. ej. tras
+    // un reinicio con disco efímero): se re-importa como emitida. La revocación se
+    // controla por estado, así que una licencia revocada NO se revive (su fila existe).
+    const issued = v.payload.i;
+    db.prepare('INSERT INTO licenses(key,client,plan,days,seats,notas,issued_at,expires,state) VALUES(?,?,?,?,?,?,?,?,?)').run(
+      key, v.payload.c, v.payload.p, v.payload.d || 365, v.payload.s || 1, 'Importada al activarse', issued, v.exp, 'emitida',
+    );
+    row = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
+  }
   const seats = Number(row.seats) || 1;
   const existing = db.prepare('SELECT * FROM activations WHERE key=? AND install_id=?').get(key, installId);
   if (existing) {
@@ -443,8 +451,11 @@ const server = http.createServer(async (req, res) => {
     }
     if (method === 'DELETE' && url === '/api/licenses') {
       const key = String(req.headers['x-license-key'] || '').trim();
-      db.prepare('DELETE FROM activations WHERE key=?').run(key);
-      db.prepare('DELETE FROM licenses WHERE key=?').run(key);
+      if (!key) return send(res, 400, { error: 'Falta la clave' });
+      // Baja lógica: se revoca la licencia (no se borra la fila) para que la
+      // re-importación de una clave firmada no la reviva.
+      db.prepare('UPDATE licenses SET state=? WHERE key=?').run('revoked', key);
+      db.prepare('UPDATE activations SET active=0 WHERE key=?').run(key);
       writeLatestBackup();
       return send(res, 200, { ok: true });
     }
