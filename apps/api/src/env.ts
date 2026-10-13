@@ -51,4 +51,8 @@ export const env = {
   // ID de instalación (solo en el producto de escritorio). Cuando está presente,
   // la licencia de la instalación se administra desde Configuración > Licencia.
   LICENSE_INSTALLATION_ID: process.env.LICENSE_INSTALLATION_ID || '',
+  // Token compartido con el Licensador para respaldar/restaurar su estado en
+  // Postgres (su disco es efímero en el plan free). Si está vacío, el respaldo
+  // remoto queda deshabilitado.
+  PROVIDER_BACKUP_TOKEN: process.env.PROVIDER_BACKUP_TOKEN || '',
 };

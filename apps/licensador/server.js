@@ -249,6 +249,69 @@ function writeLatestBackup() {
   try {
     fs.writeFileSync(path.join(DATA_DIR, 'latest-backup.json'), JSON.stringify(backupSnapshot()), { mode: 0o600 });
   } catch (e) {}
+  scheduleRemoteBackup();
+}
+
+/* ---------- respaldo remoto (durabilidad con disco efímero) ----------
+   En el plan free el disco es efímero: al reiniciar se pierden licencias,
+   asientos y revocaciones. Si BACKUP_URL y BACKUP_TOKEN están definidos, el
+   snapshot se envía a un sink externo (la API, en Postgres) y se restaura al
+   arrancar cuando la base local está vacía. */
+const BACKUP_URL = (process.env.BACKUP_URL || '').replace(/\/+$/, '');
+const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
+const BACKUP_INTERVAL_MS = Math.max(1, Number(process.env.BACKUP_INTERVAL_MIN || 30)) * 60e3;
+const REMOTE_ENABLED = Boolean(BACKUP_URL && BACKUP_TOKEN);
+
+async function pushRemoteBackup() {
+  if (!REMOTE_ENABLED) return;
+  try {
+    const res = await fetch(BACKUP_URL + '/provider/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-provider-token': BACKUP_TOKEN },
+      body: JSON.stringify(backupSnapshot()),
+    });
+    if (!res.ok) console.error('[backup] el sink respondió', res.status);
+  } catch (e) {
+    console.error('[backup] no se pudo enviar el respaldo remoto:', e.message);
+  }
+}
+
+async function pullRemoteBackup() {
+  if (!REMOTE_ENABLED) return null;
+  try {
+    const res = await fetch(BACKUP_URL + '/provider/backup', { headers: { 'x-provider-token': BACKUP_TOKEN } });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      console.error('[backup] el sink respondió', res.status);
+      return null;
+    }
+    return await res.json();
+  } catch (e) {
+    console.error('[backup] no se pudo leer el respaldo remoto:', e.message);
+    return null;
+  }
+}
+
+let remoteBackupTimer = null;
+function scheduleRemoteBackup() {
+  if (!REMOTE_ENABLED) return;
+  clearTimeout(remoteBackupTimer);
+  remoteBackupTimer = setTimeout(pushRemoteBackup, 5000);
+  if (remoteBackupTimer.unref) remoteBackupTimer.unref();
+}
+
+async function restoreFromRemoteIfEmpty() {
+  if (!REMOTE_ENABLED) return;
+  try {
+    const count = db.prepare('SELECT COUNT(*) c FROM licenses').get().c;
+    if (count > 0) return;
+    const snap = await pullRemoteBackup();
+    if (!snap) return;
+    const r = restoreSnapshot(snap);
+    console.log('[backup] estado restaurado desde el respaldo remoto:', r.licenses, 'licencias,', r.activations, 'activaciones');
+  } catch (e) {
+    console.error('[backup] falló la restauración remota:', e.message);
+  }
 }
 function restoreSnapshot(obj) {
   if (!obj || obj.producto !== 'fitsystem-licensador') throw new Error('El archivo no es un respaldo del Licensador');
@@ -474,6 +537,13 @@ const server = http.createServer(async (req, res) => {
   return send(res, 404, { error: 'not found' });
 });
 
-server.listen(PORT, () => console.log('FIT System Licensador → http://localhost:' + PORT));
+server.listen(PORT, () => {
+  console.log('FIT System Licensador → http://localhost:' + PORT);
+  if (REMOTE_ENABLED) {
+    console.log('[backup] respaldo remoto activo cada', BACKUP_INTERVAL_MS / 60000, 'min →', BACKUP_URL);
+    restoreFromRemoteIfEmpty();
+    setInterval(pushRemoteBackup, BACKUP_INTERVAL_MS).unref();
+  }
+});
 
 module.exports = { server };

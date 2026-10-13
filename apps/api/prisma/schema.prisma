@@ -1013,3 +1013,15 @@ model LicenseEvent {
   @@index([licenseId, createdAt])
   @@map("license_events")
 }
+
+// Respaldo del Licensador (servicio del proveedor). Su disco es efímero en el
+// plan free de Render, así que el estado (licencias, asientos y revocaciones) se
+// respalda aquí, en Postgres (durable), y se restaura al reiniciarse.
+model ProviderBackup {
+  key       String   @id
+  payload   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("provider_backups")
+}

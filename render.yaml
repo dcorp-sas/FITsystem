@@ -33,6 +33,13 @@ services:
         value: admin
       - key: ADMIN_PASS
         sync: false
+      # Respaldo remoto del estado (durabilidad con disco efímero). BACKUP_URL es
+      # la base de la API + /api; BACKUP_TOKEN debe coincidir con el
+      # PROVIDER_BACKUP_TOKEN de la API. Si se omite, no hay respaldo remoto.
+      - key: BACKUP_URL
+        value: https://fitsystem-api.onrender.com/api
+      - key: BACKUP_TOKEN
+        sync: false
       # Firmas: definí LICENSE_PRIVATE_KEY (Ed25519, preferido) para emitir y
       # verificar. LICENSE_SECRET (HMAC) se acepta solo si NO hay clave Ed25519.
       - key: LICENSE_SECRET
@@ -139,6 +146,11 @@ services:
       # Clave pública Ed25519 del proveedor para verificar claves/certificados del
       # Licensador. Si se omite, la API usa la clave embebida por defecto.
       - key: LICENSE_PUBLIC_KEY
+        sync: false
+      # Token compartido con el Licensador para respaldar/restaurar su estado en
+      # Postgres (ver apps/api/src/routes/provider.ts). Debe coincidir con el
+      # BACKUP_TOKEN del Licensador.
+      - key: PROVIDER_BACKUP_TOKEN
         sync: false
 
 databases:

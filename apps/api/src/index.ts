@@ -30,6 +30,7 @@ import portalRoutes from './routes/portal.js';
 import routineRoutes from './routes/routines.js';
 import newsRoutes from './routes/news.js';
 import portalAdminRoutes from './routes/portal-admin.js';
+import providerRoutes from './routes/provider.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 
 export async function buildServer() {
@@ -90,6 +91,7 @@ export async function buildServer() {
       routineRoutes(api);
       newsRoutes(api);
       portalAdminRoutes(api);
+      providerRoutes(api);
     },
     { prefix: '/api' },
   );
