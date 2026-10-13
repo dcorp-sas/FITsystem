@@ -29,6 +29,12 @@ const DATA_DIR = process.env.LICENSADOR_DATA ? path.resolve(process.env.LICENSAD
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 /* ---------- cripto: Ed25519 (recomendado) o HMAC ---------- */
+function safeEqual(a, b) {
+  const ab = Buffer.from(String(a), 'utf8');
+  const bb = Buffer.from(String(b), 'utf8');
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
 function decodeJwk(b64) {
   const raw = Buffer.from(String(b64), 'base64').toString('utf8');
   const obj = JSON.parse(raw);
@@ -75,15 +81,19 @@ if (PRIVATE_KEY) {
     console.log('AVISO: LICENSE_SECRET también definido — se usa solo para aceptar claves HMAC.');
   }
 }
-const VERIFIERS = [
-  ...(PUBLIC_KEY ? [{ type: 'ed25519', key: PUBLIC_KEY }] : []),
-  ...(SECRET ? [SECRET] : []),
-];
+// Si hay clave Ed25519 (pública o derivada de la privada), se usa SOLO Ed25519.
+// Aceptar HMAC en paralelo debilitaría el sistema (un secreto filtrado permitiría
+// forjar claves). HMAC queda como alternativa únicamente si no hay Ed25519.
+const VERIFIERS = PUBLIC_KEY ? [{ type: 'ed25519', key: PUBLIC_KEY }] : SECRET ? [{ type: 'hmac', key: SECRET }] : [];
 
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || (process.env.NODE_ENV === 'production' ? '' : 'admin123');
+const ADMIN_PASS = process.env.ADMIN_PASS || '';
 if (!ADMIN_PASS) {
-  console.error('Falta ADMIN_PASS (obligatorio en producción).');
+  console.error('Falta ADMIN_PASS (obligatorio). Definí una contraseña fuerte (mín. 8 caracteres).');
+  process.exit(1);
+}
+if (ADMIN_PASS.length < 8) {
+  console.error('ADMIN_PASS demasiado corta: usá al menos 8 caracteres.');
   process.exit(1);
 }
 const PORT = Number(process.env.PORT || 3000);
@@ -119,7 +129,7 @@ const LOGIN_MAX_FAILS = 10;
 const LOGIN_WINDOW_MS = 15 * 60e3;
 const loginFails = new Map();
 function tryLogin(user, pass) {
-  const ok = user === ADMIN_USER && pass === ADMIN_PASS;
+  const ok = user === ADMIN_USER && safeEqual(pass, ADMIN_PASS);
   const key = clientIpArg + '|' + String(user || '').toLowerCase();
   const cur = loginFails.get(key) || { n: 0, lockUntil: 0 };
   const now = Date.now();
@@ -140,7 +150,13 @@ function tryLogin(user, pass) {
 }
 
 function send(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.writeHead(code, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+  });
   res.end(JSON.stringify(obj));
 }
 function readBody(req) {
@@ -167,10 +183,17 @@ function readBody(req) {
   });
 }
 function clientIp(req) {
-  return (
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    (req.socket.remoteAddress || '').replace(/^::ffff:/, '')
-  );
+  // Solo se confía en X-Forwarded-For detrás de un proxy conocido (Render).
+  // Se toma el ÚLTIMO valor (agregado por el proxy), no el primero, para evitar
+  // que un cliente falsifique su origen y evada el bloqueo de intentos.
+  if (process.env.TRUST_PROXY === '1') {
+    const parts = String(req.headers['x-forwarded-for'] || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
+  }
+  return (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
 }
 
 function listLicenses() {
@@ -224,7 +247,7 @@ function backupSnapshot() {
 }
 function writeLatestBackup() {
   try {
-    fs.writeFileSync(path.join(DATA_DIR, 'latest-backup.json'), JSON.stringify(backupSnapshot()));
+    fs.writeFileSync(path.join(DATA_DIR, 'latest-backup.json'), JSON.stringify(backupSnapshot()), { mode: 0o600 });
   } catch (e) {}
 }
 function restoreSnapshot(obj) {
@@ -262,14 +285,17 @@ function restoreSnapshot(obj) {
   writeLatestBackup();
   return { ok: true, licenses: lic.length, activations: act.length };
 }
+const ALLOWED_PLANS = ['BASIC', 'PRO', 'ENTERPRISE'];
 function createLicense({ client, plan = 'PRO', days = 365, seats = 100, notas = '' }) {
+  plan = String(plan).toUpperCase();
+  if (!ALLOWED_PLANS.includes(plan)) return { ok: false, error: 'Plan inválido (usar BASIC, PRO o ENTERPRISE)' };
   days = Math.max(1, Math.min(MAX_DAYS, Number(days) || 365));
-  seats = Math.max(1, Number(seats) || 1);
+  seats = Math.max(1, Math.min(100000, Number(seats) || 1));
   if (!client || !String(client).trim()) return { ok: false, error: 'Falta el cliente' };
   const issued = Date.now();
-  const key = core.issue({ client: String(client).trim(), plan: String(plan), days, seats, issued }, SIGNER);
+  const key = core.issue({ client: String(client).trim(), plan, days, seats, issued }, SIGNER);
   db.prepare('INSERT INTO licenses(key,client,plan,days,seats,notas,issued_at,expires,state) VALUES(?,?,?,?,?,?,?,?,?)').run(
-    key, String(client).trim(), String(plan), days, seats, String(notas || ''), issued, issued + days * 864e5, 'emitida',
+    key, String(client).trim(), plan, days, seats, String(notas || ''), issued, issued + days * 864e5, 'emitida',
   );
   writeLatestBackup();
   return { ok: true, key, expires: issued + days * 864e5 };
@@ -282,18 +308,17 @@ function activate({ key, installId, sede }) {
   const v = core.verifyKey(key, VERIFIERS);
   if (!v.ok) return { status: 400, error: v.error };
   if (v.exp < Date.now()) return { status: 400, error: 'Clave vencida el ' + new Date(v.exp).toLocaleDateString('es-AR') };
-  let row = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
-  if (!row) {
-    const issued = v.payload.i;
-    db.prepare('INSERT INTO licenses(key,client,plan,days,seats,notas,issued_at,expires,state) VALUES(?,?,?,?,?,?,?,?,?)').run(
-      key, v.payload.c, v.payload.p, v.payload.d || 365, v.payload.s || 1, 'Importada al activarse', issued, v.exp, 'emitida',
-    );
-    row = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
-  }
+  const row = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
+  // Solo se activan claves emitidas por este servidor. NO se re-importan: así,
+  // revocar o eliminar una licencia es efectivo (no se puede "revivir" reactivando).
+  if (!row) return { status: 404, error: 'Licencia no emitida por este servidor' };
+  if (row.state === 'revoked') return { status: 403, error: 'Licencia revocada' };
   const seats = Number(row.seats) || 1;
   const existing = db.prepare('SELECT * FROM activations WHERE key=? AND install_id=?').get(key, installId);
   if (existing) {
-    db.prepare('UPDATE activations SET sede=?, last_ip=?, activated_at=?, active=1 WHERE id=?').run(
+    // No se reactiva un asiento revocado.
+    if (!existing.active) return { status: 403, error: 'La instalación fue revocada para esta licencia' };
+    db.prepare('UPDATE activations SET sede=?, last_ip=?, activated_at=? WHERE id=?').run(
       String(sede || ''), clientIpArg, Date.now(), existing.id,
     );
   } else {
@@ -310,16 +335,17 @@ function activate({ key, installId, sede }) {
   return { status: 200, ok: true, cert, client: row.client, plan: row.plan, exp: v.exp };
 }
 function revalidate({ key, installId }) {
-  const row = db
-    .prepare('SELECT * FROM activations WHERE key=? AND install_id=? AND active=1')
-    .get(String(key || '').trim(), String(installId || '').trim());
+  key = String(key || '').trim();
+  installId = String(installId || '').trim();
+  const row = db.prepare('SELECT * FROM activations WHERE key=? AND install_id=? AND active=1').get(key, installId);
   if (!row) return { status: 410, ok: false, revoked: true, error: 'Asiento revocado o no registrado' };
-  const lic = db.prepare('SELECT * FROM licenses WHERE key=?').get(String(key || '').trim());
-  const v = core.verifyKey(String(key || '').trim(), VERIFIERS);
+  const lic = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
+  if (lic && lic.state === 'revoked') return { status: 410, ok: false, revoked: true, error: 'Licencia revocada' };
+  const v = core.verifyKey(key, VERIFIERS);
   if (!v.ok) return { status: 410, ok: false, revoked: true, error: 'Clave no válida' };
   if (v.exp < Date.now()) return { status: 410, ok: false, revoked: true, error: 'Clave vencida' };
   const cert = core.makeCert(
-    { client: (lic && lic.client) || v.payload.c, plan: (lic && lic.plan) || v.payload.p, exp: v.exp, installId: String(installId || '').trim() },
+    { client: (lic && lic.client) || v.payload.c, plan: (lic && lic.plan) || v.payload.p, exp: v.exp, installId },
     SIGNER,
   );
   return { status: 200, ok: true, cert };
@@ -349,7 +375,12 @@ const server = http.createServer(async (req, res) => {
     const file = url === '/index.css' ? 'index.css' : 'index.html';
     try {
       const data = fs.readFileSync(path.join(ROOT, 'public', file));
-      res.writeHead(200, { 'Content-Type': CONTENT_TYPES[file] });
+      res.writeHead(200, {
+        'Content-Type': CONTENT_TYPES[file],
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'no-referrer',
+      });
       return res.end(data);
     } catch (e) {
       return send(res, 404, { error: 'not found' });
@@ -391,7 +422,22 @@ const server = http.createServer(async (req, res) => {
     if (method === 'POST' && url === '/api/license/revoke') {
       const key = String((body || {}).key || '').trim();
       const installId = String((body || {}).installId || '').trim();
-      db.prepare('UPDATE activations SET active=0 WHERE key=? AND install_id=?').run(key, installId);
+      if (!key) return send(res, 400, { error: 'Falta la clave' });
+      if (installId) {
+        // Revocar un asiento puntual.
+        db.prepare('UPDATE activations SET active=0 WHERE key=? AND install_id=?').run(key, installId);
+      } else {
+        // Revocar la licencia completa (todas las instalaciones).
+        db.prepare('UPDATE licenses SET state=? WHERE key=?').run('revoked', key);
+        db.prepare('UPDATE activations SET active=0 WHERE key=?').run(key);
+      }
+      writeLatestBackup();
+      return send(res, 200, { ok: true });
+    }
+    if (method === 'POST' && url === '/api/license/unrevoke') {
+      const key = String((body || {}).key || '').trim();
+      if (!key) return send(res, 400, { error: 'Falta la clave' });
+      db.prepare('UPDATE licenses SET state=? WHERE key=?').run('emitida', key);
       writeLatestBackup();
       return send(res, 200, { ok: true });
     }

@@ -278,7 +278,7 @@ async function createActivationWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
   });
   const htmlFile = path.join(app.getPath('userData'), 'activation.html');
@@ -334,9 +334,22 @@ function registerLicenseIpc() {
     const target = licenseConfig.contact
       ? `mailto:${licenseConfig.contact}?subject=${subject}&body=${body}`
       : licenseConfig.site;
-    if (target) await shell.openExternal(target);
+    if (target) openExternalSafe(target);
     return true;
   });
+}
+
+function openExternalSafe(target: string): void {
+  try {
+    const parsed = new URL(target);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mailto:') {
+      void shell.openExternal(target);
+    } else {
+      log('Bloqueado openExternal con protocolo no permitido:', target);
+    }
+  } catch {
+    log('Bloqueado openExternal con URL inválida:', target);
+  }
 }
 
 const LICENSE_PUBLIC_KEY =
@@ -433,7 +446,7 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
@@ -449,8 +462,19 @@ async function createWindow() {
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url: openUrl }) => {
-    if (openUrl.startsWith('http')) shell.openExternal(openUrl);
+    openExternalSafe(openUrl);
     return { action: 'deny' };
+  });
+
+  // Evita que la ventana principal navegue fuera de la aplicación local.
+  mainWindow.webContents.on('will-navigate', (event, navUrl) => {
+    const allowed = app.isPackaged
+      ? `http://127.0.0.1:${WEB_PORT}`
+      : 'http://localhost:3000';
+    if (!navUrl.startsWith(allowed)) {
+      event.preventDefault();
+      openExternalSafe(navUrl);
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -499,19 +523,40 @@ function formatTicket(data: Record<string, any>): string {
 function startPrintServer() {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '', `http://127.0.0.1:${PRINT_PORT}`);
+
+    // CORS: solo se refleja el origen si es loopback (el panel local). NO se usa '*'.
+    const origin = String(req.headers.origin || '');
+    const originAllowed = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
+    if (originAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      });
+      res.end();
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/printers') {
       try {
         const printers = mainWindow ? await mainWindow.webContents.getPrintersAsync() : [];
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ printers }));
         return;
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: (err as Error).message }));
         return;
       }
     }
     if (req.method === 'POST' && url.pathname === '/print') {
+      if (!originAllowed && origin) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Origen no permitido' }));
+        return;
+      }
       let body = '';
       req.on('data', (c) => (body += c));
       req.on('end', async () => {
@@ -519,7 +564,6 @@ function startPrintServer() {
           const data = JSON.parse(body || '{}');
           const printerName = data.printer || undefined;
           const content = data.raw || formatTicket(data.ticket || {});
-          const win = mainWindow;
           const printWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
           const html = `<!DOCTYPE html><html><body><pre style="font-family:monospace;font-size:12px;white-space:pre-wrap;margin:0">${content
             .replace(/&/g, '&amp;')
@@ -528,10 +572,10 @@ function startPrintServer() {
           await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
           await printWindow.webContents.print({ silent: true, deviceName: printerName, margins: { marginType: 'none' } as any });
           printWindow.close();
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: (err as Error).message }));
         }
       });

@@ -8,7 +8,8 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001').replace(/\/$/, '');
+const DEFAULT_API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:3001' : 'http://10.0.2.2:3001';
+export const API_URL = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/$/, '');
 
 export class ApiError extends Error {
   status: number;
@@ -81,11 +82,18 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   });
 
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as { data?: T; message?: string }) : {};
+  let json: { data?: T; message?: string } = {};
+  try {
+    json = text ? (JSON.parse(text) as { data?: T; message?: string }) : {};
+  } catch {
+    json = {};
+  }
   if (!res.ok) {
+    // Sesión inválida o vencida: limpiar token para forzar un nuevo login.
+    if (res.status === 401) setToken(null);
     throw new ApiError(res.status, json.message || `Error ${res.status}`);
   }
-  return (json.data ?? json) as T;
+  return (json.data ?? (json as T)) as T;
 }
 
 // ---------------------------------------------------------------------------

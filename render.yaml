@@ -1,14 +1,14 @@
 # FIT System - Blueprint de Render.
-# Deploy: dashboard.render.com -> New -> Blueprint -> elegí este repo.
-# Al crear, Render pedirá las variables marcadas con sync:false.
+# Deploy: dashboard.render.com -> New -> Blueprint -> eleg?? este repo.
+# Al crear, Render pedir?? las variables marcadas con sync:false.
 #
 # Este blueprint despliega:
 #   1) fitsystem-licensador -> servicio de licencias del proveedor (Node, sin deps).
-#   2) fitsystem-web        -> web pública (landing + panel) con Next.js.
+#   2) fitsystem-web        -> web p??blica (landing + panel) con Next.js.
 #
 # NOTA sobre la API del gimnasio: la app de escritorio corre su propia API local
-# con SQLite (DATABASE_URL=file:...), por eso NO se despliega aquí. Si más adelante
-# querés administrar el gimnasio desde la nube, hay que desplegar la API con
+# con SQLite (DATABASE_URL=file:...), por eso NO se despliega aqu??. Si m??s adelante
+# quer??s administrar el gimnasio desde la nube, hay que desplegar la API con
 # PostgreSQL (cambiar el provider de apps/api/prisma/schema.prisma a postgresql)
 # y apuntar NEXT_PUBLIC_API_URL al servicio. El bloque comentado al final lo deja listo.
 services:
@@ -28,35 +28,40 @@ services:
         value: 22.16.0
       - key: NODE_ENV
         value: production
+      # Render est?? detr??s de un proxy: permite confiar en X-Forwarded-For para el
+      # bloqueo por intentos fallidos (IP real del cliente).
+      - key: TRUST_PROXY
+        value: "1"
       - key: ADMIN_USER
         value: admin
       - key: ADMIN_PASS
         sync: false
-      # Firmas: definí LICENSE_SECRET (modo HMAC) o LICENSE_PRIVATE_KEY (Ed25519).
+      # Firmas: defin?? LICENSE_PRIVATE_KEY (Ed25519, preferido) para emitir y
+      # verificar. LICENSE_SECRET (HMAC) se acepta solo si NO hay clave Ed25519.
       - key: LICENSE_SECRET
         sync: false
       - key: LICENSE_PRIVATE_KEY
         sync: false
       - key: LICENSE_PUBLIC_KEY
         sync: false
-    # AVISO: en el plan free el disco es EFÍMERO: las licencias y activaciones se
-    # pierden al reiniciar/redeployar (las claves HMAC siguen siendo válidas y se
-    # re-importan al activar, pero se olvidan revocaciones y asientos).
-    # Para conservar los datos, pasá a un plan pago y descomentá el disco:
+    # AVISO: en el plan free el disco es EF??MERO: las licencias y activaciones se
+    # pierden al reiniciar/redeployar. Como las activaciones ya NO se re-importan
+    # (para que revocar/eliminar sea efectivo), us?? un disco persistente (plan pago)
+    # para conservar emisiones, asientos y revocaciones:
     # disk:
     #   name: licensador-data
     #   mountPath: /opt/render/project/src/apps/licensador/data
     #   sizeGB: 1
 
   # ---------------------------------------------------------------------------
-  # Web pública (landing + panel) - Next.js sobre monorepo pnpm
+  # Web p??blica (landing + panel) - Next.js sobre monorepo pnpm
   # ---------------------------------------------------------------------------
   - type: web
     name: fitsystem-web
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: "corepack enable && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @fitsystem/web build"
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/web build"
     startCommand: "pnpm --filter @fitsystem/web exec next start -p $PORT"
     healthCheckPath: /
     envVars:
@@ -64,21 +69,21 @@ services:
         value: 22.16.0
       - key: NODE_ENV
         value: production
-      # URL pública de la API del gimnasio. Se incrusta en el build (NEXT_PUBLIC_*).
+      # URL p??blica de la API del gimnasio. Se incrusta en el build (NEXT_PUBLIC_*).
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
   # ---------------------------------------------------------------------------
   # App del socio (PWA instalable) - export web de Expo.
   # Reemplaza al APK de Android: el socio abre la URL y la "instala" desde el
-  # navegador (Agregar a pantalla de inicio). Apuntá EXPO_PUBLIC_API_URL a la API
+  # navegador (Agregar a pantalla de inicio). Apunt?? EXPO_PUBLIC_API_URL a la API
   # que consuma la app (la local del gimnasio o la API en la nube).
   # ---------------------------------------------------------------------------
   - type: web
     name: fitsystem-socios
     runtime: static
     rootDir: .
-    buildCommand: "corepack enable && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @fitsystem/mobile build:web"
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/mobile build:web"
     staticPublishPath: apps/mobile/dist
     envVars:
       - key: NODE_VERSION
@@ -96,7 +101,7 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: "corepack enable && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @fitsystem/api prisma:generate:pg && pnpm --filter @fitsystem/api build"
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/api prisma:generate:pg && pnpm --filter @fitsystem/api build"
     startCommand: "pnpm --filter @fitsystem/api db:push:pg && pnpm --filter @fitsystem/api start"
     healthCheckPath: /health
     envVars:
@@ -104,6 +109,9 @@ services:
         value: 22.16.0
       - key: NODE_ENV
         value: production
+      # La API por defecto escucha solo loopback (escritorio); en Render debe ser p??blica.
+      - key: API_HOST
+        value: 0.0.0.0
       - key: DATABASE_URL
         fromDatabase:
           name: fitsystem-db

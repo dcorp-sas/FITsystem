@@ -1,6 +1,6 @@
 'use client';
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 export const API_URL = /\/api\/?$/.test(RAW_API_URL) ? RAW_API_URL.replace(/\/$/, '') : `${RAW_API_URL.replace(/\/$/, '')}/api`;
 
 const TOKEN_KEY = 'fit_token';

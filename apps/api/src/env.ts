@@ -41,7 +41,7 @@ export const env = {
   // producto para verificar las claves/certificados firmados por el Licensador.
   LICENSE_PUBLIC_KEY:
     process.env.LICENSE_PUBLIC_KEY ||
-    'eyJjcnYiOiJFZDI1NTE5IiwieCI6Il9hRExwczc0UU12eTBRdW0yOWJrOTd0QlRvQjlLT216NlRsdkVyT2xmc2MiLCJrdHkiOiJPS1AifQ==',
+    'eyJjcnYiOiJFZDI1NTE5IiwieCI6IlpIVl9fakt2SUUwUUQ3ZTZiUG5hNjBEVFdhTS1VSnRGVVEwV1hveFFYV2ciLCJrdHkiOiJPS1AifQ==',
   // Clave PRIVADA Ed25519 (solo para emitir desde este proceso; NO va en el
   // producto distribuido, vive en el Licensador). Opcional.
   LICENSE_PRIVATE_KEY: process.env.LICENSE_PRIVATE_KEY || '',

@@ -35,7 +35,7 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
     setBusy('mp');
     try {
       const res = await portal.createIntent('MERCADOPAGO');
-      if (res.checkoutUrl) {
+      if (res.checkoutUrl && /^https?:\/\//i.test(res.checkoutUrl)) {
         await Linking.openURL(res.checkoutUrl);
       } else {
         Alert.alert('MercadoPago', 'Se genero la intencion de pago. El gimnasio aun no tiene configurado MercadoPago online; acercate a recepcion.');

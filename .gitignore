@@ -29,6 +29,17 @@ apps/mobile/ios/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+
+# Secrets / claves
+*.pem
+*.key
+*.jwk
+*.p12
+*.pfx
+licencias*.csv
+apps/licensador/data/
 
 # Database
 *.db
