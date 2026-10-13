@@ -75,11 +75,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // Sin respuesta del servidor (sin conexión, servidor caído o arrancando).
+    throw new ApiError(0, 'No se pudo conectar con el gimnasio. Revisá tu conexión e intentá de nuevo en unos segundos.');
+  }
 
   const text = await res.text();
   let json: { data?: T; message?: string } = {};
