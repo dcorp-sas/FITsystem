@@ -15,6 +15,14 @@ const WEB_PORT = 3000;
 const PRINT_PORT = 3999;
 const LOG_FILE = path.join(os.tmpdir(), 'fitsystem-desktop.log');
 
+// Manifiesto público de versiones (archivo updates/latest.json del repo). Cambiá esta
+// URL con UPDATE_FEED_URL si preferís otro hosting. Formato:
+//   { "version": "0.1.4", "url": "https://.../FIT-System-Setup.exe", "notes": "...", "mandatory": false }
+const UPDATE_FEED_URL =
+  process.env.UPDATE_FEED_URL ||
+  'https://raw.githubusercontent.com/dcorp-sas/FITsystem/main/updates/latest.json';
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
 let apiProcess: ChildProcess | null = null;
 let webProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -352,6 +360,98 @@ function openExternalSafe(target: string): void {
   }
 }
 
+interface UpdateInfo {
+  available: boolean;
+  current: string;
+  latest: string;
+  url: string;
+  notes: string;
+  mandatory: boolean;
+}
+
+function compareVersions(a: string, b: string): number {
+  const parse = (v: string) =>
+    v
+      .replace(/^v/i, '')
+      .split(/[.+-]/)
+      .map((n) => parseInt(n, 10) || 0);
+  const pa = parse(a);
+  const pb = parse(b);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] || 0;
+    const db = pb[i] || 0;
+    if (da !== db) return da > db ? 1 : -1;
+  }
+  return 0;
+}
+
+async function fetchUpdateInfo(): Promise<UpdateInfo | null> {
+  try {
+    const res = await fetch(`${UPDATE_FEED_URL}?t=${Date.now()}`);
+    if (!res.ok) {
+      log('Feed de actualizaciones respondio', res.status);
+      return null;
+    }
+    const data = (await res.json()) as Record<string, unknown>;
+    const latest = String(data.version || '').trim();
+    if (!latest) return null;
+    const current = app.getVersion();
+    return {
+      available: compareVersions(latest, current) > 0,
+      current,
+      latest,
+      url: String(data.url || ''),
+      notes: String(data.notes || ''),
+      mandatory: Boolean(data.mandatory),
+    };
+  } catch (err) {
+    log('No se pudo consultar actualizaciones:', (err as Error).message);
+    return null;
+  }
+}
+
+async function checkForUpdates(silent = false): Promise<UpdateInfo | null> {
+  const info = await fetchUpdateInfo();
+  if (!info) {
+    if (!silent) {
+      await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Actualizaciones',
+        message: 'No se pudo consultar el servidor de actualizaciones.',
+        detail: 'Revisá tu conexión a internet e intentá de nuevo.',
+      });
+    }
+    return null;
+  }
+  if (!info.available) {
+    if (!silent) {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Actualizaciones',
+        message: `Estás al día. Versión ${info.current}.`,
+      });
+    }
+    return info;
+  }
+  const detail = info.notes ? `\n\nNovedades:\n${info.notes}` : '';
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    title: 'Actualización disponible',
+    message: `Hay una nueva versión de FIT System (${info.latest}).`,
+    detail: `Tenés instalada la versión ${info.current}.${detail}\n\nDescargá el instalador y ejecutalo para actualizar.`,
+    buttons: info.url ? ['Descargar', 'Más tarde'] : ['Aceptar'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0 && info.url) openExternalSafe(info.url);
+  return info;
+}
+
+function registerUpdateIpc() {
+  ipcMain.handle('update:check', async () => checkForUpdates(false));
+}
+
 const LICENSE_PUBLIC_KEY =
   'eyJjcnYiOiJFZDI1NTE5IiwieCI6IlpIVl9fakt2SUUwUUQ3ZTZiUG5hNjBEVFdhTS1VSnRGVVEwV1hveFFYV2ciLCJrdHkiOiJPS1AifQ==';
 
@@ -617,6 +717,7 @@ app.whenReady().then(async () => {
   }
 
   registerLicenseIpc();
+  registerUpdateIpc();
 
   if (app.isPackaged && servicesReady) {
     try {
@@ -630,6 +731,12 @@ app.whenReady().then(async () => {
   // La licencia se administra desde Configuración > Licencia. No bloqueamos el
   // ingreso: el sistema arranca en prueba hasta que el usuario pegue su clave.
   await createWindow();
+
+  // Detección de actualizaciones: al iniciar (silenciosa) y cada 6 horas.
+  if (app.isPackaged) {
+    setTimeout(() => void checkForUpdates(true), 4000);
+    setInterval(() => void checkForUpdates(true), UPDATE_CHECK_INTERVAL_MS);
+  }
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {

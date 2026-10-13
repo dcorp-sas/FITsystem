@@ -34,12 +34,34 @@ const STATUS_LABELS: Record<string, string> = {
   UNACTIVATED: 'Sin activar',
 };
 
+interface DesktopBridge {
+  checkUpdates?: () => Promise<{ current: string; latest: string; available: boolean } | null>;
+}
+
+declare global {
+  interface Window {
+    fitsystem?: DesktopBridge;
+  }
+}
+
 export default function LicensePage() {
   const toast = useToast();
   const [data, setData] = useState<LicenseResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [key, setKey] = useState('');
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const isDesktop = typeof window !== 'undefined' && Boolean(window.fitsystem);
+
+  async function buscarActualizaciones() {
+    if (!window.fitsystem?.checkUpdates) return;
+    setChecking(true);
+    try {
+      await window.fitsystem.checkUpdates();
+    } finally {
+      setChecking(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -170,6 +192,17 @@ export default function LicensePage() {
           )}
         </Card>
       </div>
+
+      {isDesktop && (
+        <Card title="Actualización del sistema" className="mt-5">
+          <p className="mb-4 text-sm text-text-muted">
+            Buscá si hay una versión nueva de FIT System para instalar. Si existe, vas a poder descargarla.
+          </p>
+          <Button variant="secondary" onClick={buscarActualizaciones} loading={checking}>
+            <Icon name="check" size={16} /> Buscar actualizaciones
+          </Button>
+        </Card>
+      )}
     </div>
   );
 }

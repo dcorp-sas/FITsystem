@@ -274,20 +274,23 @@ async function main() {
     });
   }
 
-  // Clase demo en 2 dias
-  const sessionStart = new Date(now.getTime() + 2 * 86400000);
-  sessionStart.setHours(10, 0, 0, 0);
-  await prisma.classSession.create({
-    data: {
-      classId: yoga.id,
-      branchId: central.id,
-      instructorId: instructor.id,
-      startAt: sessionStart,
-      endAt: new Date(sessionStart.getTime() + 60 * 60000),
-      capacity: 20,
-      room: 'Sala A',
-    },
-  });
+  // Clase demo en 2 dias (idempotente: una sola sesion por clase)
+  const existingSession = await prisma.classSession.findFirst({ where: { classId: yoga.id } });
+  if (!existingSession) {
+    const sessionStart = new Date(now.getTime() + 2 * 86400000);
+    sessionStart.setHours(10, 0, 0, 0);
+    await prisma.classSession.create({
+      data: {
+        classId: yoga.id,
+        branchId: central.id,
+        instructorId: instructor.id,
+        startAt: sessionStart,
+        endAt: new Date(sessionStart.getTime() + 60 * 60000),
+        capacity: 20,
+        room: 'Sala A',
+      },
+    });
+  }
 
   // Plantilla de notificacion WhatsApp
   await prisma.notificationTemplate.upsert({

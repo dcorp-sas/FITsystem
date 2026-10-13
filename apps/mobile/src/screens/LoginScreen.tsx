@@ -4,6 +4,10 @@ import { colors, spacing } from '../theme';
 import { PrimaryButton, Title } from '../components/ui';
 import { portal, setToken, type LoginResponse } from '../lib/api';
 
+const DEMO_ORG = 'fit-demo';
+const DEMO_IDENTIFIER = 'juan@mail.com';
+const DEMO_PASSWORD = 'socio123';
+
 export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) => void }) {
   const [mode, setMode] = useState<'login' | 'activate'>('login');
   const [orgSlug, setOrgSlug] = useState('');
@@ -25,6 +29,20 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
       onLogged(session);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesion');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function demo() {
+    setError(null);
+    setLoading(true);
+    try {
+      const session = await portal.login(DEMO_ORG, DEMO_IDENTIFIER, DEMO_PASSWORD);
+      setToken(session.token);
+      onLogged(session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar la cuenta de prueba');
     } finally {
       setLoading(false);
     }
@@ -101,10 +119,19 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
                 setMode(mode === 'login' ? 'activate' : 'login');
               }}
             />
+            <PrimaryButton
+              label="Probar con cuenta de prueba"
+              variant="ghost"
+              onPress={demo}
+              disabled={loading}
+            />
           </View>
         </View>
 
         <Text style={styles.hint}>El codigo y las claves de acceso te los entrega tu gimnasio al darte de alta.</Text>
+        <Text style={styles.hint}>
+          Demo: gimnasio {DEMO_ORG} · {DEMO_IDENTIFIER} · {DEMO_PASSWORD}
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

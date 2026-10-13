@@ -1,0 +1,6 @@
+{
+  "version": "0.2.0",
+  "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
+  "notes": "Detección de actualizaciones, mejoras de seguridad y cuenta de prueba en la app de socios.",
+  "mandatory": false
+}

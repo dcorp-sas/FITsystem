@@ -101,7 +101,7 @@ services:
     autoDeploy: true
     rootDir: .
     buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/api prisma:generate:pg && pnpm --filter @fitsystem/api build"
-    startCommand: "pnpm --filter @fitsystem/api db:push:pg && pnpm --filter @fitsystem/api start"
+    startCommand: "pnpm --filter @fitsystem/api db:push:pg && if [ \"$SEED_DEMO\" = \"1\" ]; then pnpm --filter @fitsystem/api prisma:seed; fi && pnpm --filter @fitsystem/api start"
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
@@ -117,6 +117,12 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      # Carga datos de demostración al arrancar (organización "fit-demo" con socios
+      # y cuentas del portal). Idempotente. Poné "0" para desactivarlo en un
+      # despliegue real con datos propios.
+      # Demo socios: gimnasio "fit-demo", email "juan@mail.com" / "socio123".
+      - key: SEED_DEMO
+        value: "1"
       # URL pública de la API (para webhooks de MercadoPago). Ej: https://fitsystem-api.onrender.com
       - key: PUBLIC_URL
         sync: false
