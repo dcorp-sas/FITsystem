@@ -15,6 +15,7 @@ services:
     name: fitsystem-licensador
     runtime: node
     plan: free
+    autoDeploy: true
     rootDir: apps/licensador
     buildCommand: ""
     startCommand: "node server.js"
@@ -56,6 +57,7 @@ services:
     name: fitsystem-web
     runtime: node
     plan: free
+    autoDeploy: true
     rootDir: .
     buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/web build"
     startCommand: "pnpm --filter @fitsystem/web exec next start -p $PORT"
@@ -77,6 +79,7 @@ services:
   - type: web
     name: fitsystem-socios
     runtime: static
+    autoDeploy: true
     rootDir: .
     buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/mobile build:web"
     staticPublishPath: apps/mobile/dist
@@ -95,6 +98,7 @@ services:
     name: fitsystem-api
     runtime: node
     plan: free
+    autoDeploy: true
     rootDir: .
     buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/api prisma:generate:pg && pnpm --filter @fitsystem/api build"
     startCommand: "pnpm --filter @fitsystem/api db:push:pg && pnpm --filter @fitsystem/api start"
