@@ -15,9 +15,12 @@
     "db:generate": "pnpm --filter @fitsystem/api prisma generate",
     "db:push": "pnpm --filter @fitsystem/api prisma db push",
     "db:migrate": "pnpm --filter @fitsystem/api prisma migrate dev",
-    "db:seed": "pnpm --filter @fitsystem/api prisma db seed"
+    "db:seed": "pnpm --filter @fitsystem/api prisma db seed",
+    "db:export": "node scripts/db-export.mjs",
+    "db:import": "node scripts/db-import.mjs"
   },
   "devDependencies": {
+    "pg": "^8.13.1",
     "turbo": "^2.2.3",
     "typescript": "^5.6.3",
     "prettier": "^3.3.3"

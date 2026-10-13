@@ -1,0 +1,56 @@
+name: backup
+
+# Backup semanal de la base PostgreSQL (export JSON) como artefacto del workflow.
+# El plan free de Render no da backups, asi que esto guarda copias fuera de Render.
+#
+# Requiere el secreto del repositorio RENDER_API_KEY (Settings > Secrets > Actions).
+# Si no esta definido, el workflow se saltea sin fallar.
+# Restaurar: node scripts/db-import.mjs --file <dump.json> --url "<DATABASE_URL>"
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  db-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar si hay RENDER_API_KEY
+        id: check
+        run: |
+          if [ -n "${{ secrets.RENDER_API_KEY }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Falta el secreto RENDER_API_KEY; se omite el backup."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.enabled == 'true'
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        if: steps.check.outputs.enabled == 'true'
+        run: corepack enable && pnpm install --frozen-lockfile
+
+      - name: Exportar la base
+        if: steps.check.outputs.enabled == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: node scripts/db-export.mjs
+
+      - name: Publicar el backup como artefacto
+        if: steps.check.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: backups/*.json
+          retention-days: 30
+          if-no-files-found: error

@@ -49,6 +49,9 @@ apps/api/prisma/*.db-journal
 # Esquema PostgreSQL generado (ver apps/api/scripts/pg-schema.mjs)
 apps/api/prisma/schema.postgres.prisma
 
+# Backups locales de la base (ver scripts/pg-export.mjs)
+backups/
+
 # Logs
 *.log
 npm-debug.log*
