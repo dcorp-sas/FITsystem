@@ -41,6 +41,17 @@ async function persistToken(value: string | null) {
   }
 }
 
+/** Pide al service worker que vacíe la caché de datos de la API (PWA). */
+function clearOfflineCache() {
+  try {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'clear-api-cache' });
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Carga el token guardado (si existe) para restaurar la sesión al abrir la app. */
 export async function bootstrapToken(): Promise<string | null> {
   try {
@@ -57,6 +68,7 @@ export async function bootstrapToken(): Promise<string | null> {
 
 export function setToken(value: string | null) {
   token = value;
+  if (!value) clearOfflineCache();
   void persistToken(value);
 }
 

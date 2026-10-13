@@ -103,6 +103,72 @@ async function completeMpOrder(orgId: string, paymentId: string, userId?: string
   return payment;
 }
 
+/**
+ * Marca una intencion de pago del portal (app de socios) como pagada: crea el
+ * pago, registra el movimiento de caja, activa la membresia y notifica al socio.
+ * Idempotente (si ya estaba PAID no hace nada).
+ */
+async function completeMpIntent(orgId: string, intentId: string) {
+  const intent = await prisma.paymentIntent.findFirst({ where: { id: intentId, organizationId: orgId } });
+  if (!intent) return null;
+  if (intent.status === 'PAID') return intent;
+
+  const member = await prisma.member.findUnique({ where: { id: intent.memberId } });
+  const branchId = member?.branchId;
+  let paymentId = intent.paidPaymentId ?? null;
+
+  if (!paymentId && branchId) {
+    const session = await prisma.cashSession.findFirst({
+      where: { organizationId: orgId, branchId, status: 'OPEN' },
+    });
+    const [payment] = await prisma.$transaction([
+      prisma.payment.create({
+        data: {
+          organizationId: orgId,
+          branchId,
+          memberId: intent.memberId,
+          membershipId: intent.membershipId,
+          concept: intent.concept || 'MEMBERSHIP',
+          method: 'MERCADOPAGO',
+          status: 'COMPLETED',
+          amount: intent.amount,
+          currency: intent.currency,
+          reference: intent.externalRef,
+          providerId: intent.providerId,
+          providerStatus: 'approved',
+          providerData: JSON.stringify({ intentId: intent.id, source: 'PORTAL' }),
+          paidAt: new Date(),
+        },
+      }),
+      prisma.cashMovement.create({
+        data: {
+          organizationId: orgId,
+          branchId,
+          cashSessionId: session?.id ?? null,
+          type: 'INCOME',
+          category: intent.concept || 'MEMBERSHIP',
+          method: 'MERCADOPAGO',
+          amount: intent.amount,
+          description: `Cobro online ${intent.externalRef ?? ''}`.trim(),
+          memberId: intent.memberId,
+          referenceId: intent.id,
+        },
+      }),
+    ]);
+    paymentId = payment.id;
+  }
+
+  if (intent.membershipId) {
+    await prisma.membership.update({ where: { id: intent.membershipId }, data: { status: 'ACTIVE' } });
+  }
+  if (member) await notifyEvent(orgId, member.id, 'PAYMENT_CONFIRMATION', { member, amount: intent.amount });
+
+  return prisma.paymentIntent.update({
+    where: { id: intent.id },
+    data: { status: 'PAID', paidPaymentId: paymentId },
+  });
+}
+
 export function integrationRoutes(app: FastifyInstance) {
   const auth = app.authenticate;
 
@@ -425,24 +491,32 @@ export function integrationRoutes(app: FastifyInstance) {
       const body = (request.body ?? {}) as { type?: string; action?: string; data?: { id?: string | number }; external_reference?: string };
       const paymentId = body.data?.id != null ? String(body.data.id) : null;
 
-      // Buscar la orden local: por external_reference, o por providerId (id de MP).
+      // Buscar la orden/intencion local: por external_reference, o por providerId (id de MP).
       let order = null as Awaited<ReturnType<typeof prisma.payment.findFirst>>;
+      let intent = null as Awaited<ReturnType<typeof prisma.paymentIntent.findFirst>>;
       if (body.external_reference) {
         order = await prisma.payment.findFirst({ where: { reference: body.external_reference } });
+        if (!order) {
+          intent = await prisma.paymentIntent.findFirst({ where: { externalRef: body.external_reference } });
+        }
       }
-      if (!order && paymentId) {
+      if (!order && !intent && paymentId) {
         order = await prisma.payment.findFirst({ where: { providerId: paymentId } });
+        if (!order) {
+          intent = await prisma.paymentIntent.findFirst({ where: { providerId: paymentId } });
+        }
       }
-      if (!order) return ok(reply, { received: true, matched: false });
+      if (!order && !intent) return ok(reply, { received: true, matched: false });
 
-      const orgId = order.organizationId;
+      const orgId = (order ?? intent)!.organizationId;
+      const localRef = order?.reference ?? intent?.externalRef ?? null;
 
       // 1) Si hay secreto configurado, exigir firma valida de MercadoPago.
       const secret = await getRawSetting(orgId, 'MERCADOPAGO', 'WEBHOOK_SECRET');
       if (secret) {
         const sig = request.headers['x-signature'] as string | undefined;
         const reqId = request.headers['x-request-id'] as string | string[] | undefined;
-        if (!verifyMpSignature(secret, sig, reqId, paymentId ?? order.reference ?? '')) {
+        if (!verifyMpSignature(secret, sig, reqId, paymentId ?? localRef ?? '')) {
           throw new HttpError(401, 'Firma de webhook invalida');
         }
       }
@@ -461,13 +535,16 @@ export function integrationRoutes(app: FastifyInstance) {
         return ok(reply, { received: true, matched: true, approved: false, pending: true });
       }
       const data = (await res.json()) as { status?: string; external_reference?: string | null };
-      // Si MP reporta una referencia distinta a la de la orden, no completar.
-      if (data.external_reference && order.reference && data.external_reference !== order.reference) {
+      // Si MP reporta una referencia distinta a la local, no completar.
+      if (data.external_reference && localRef && data.external_reference !== localRef) {
         return ok(reply, { received: true, matched: true, approved: false, pending: true });
       }
       const approved = data.status === 'approved';
-      if (approved) await completeMpOrder(orgId, order.id, null);
-      return ok(reply, { received: true, matched: true, approved });
+      if (approved) {
+        if (order) await completeMpOrder(orgId, order.id, null);
+        else if (intent) await completeMpIntent(orgId, intent.id);
+      }
+      return ok(reply, { received: true, matched: true, approved, source: order ? 'ORDER' : 'PORTAL' });
     } catch (error) {
       return fail(reply, error);
     }

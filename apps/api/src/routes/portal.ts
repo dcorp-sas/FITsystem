@@ -12,6 +12,7 @@ import {
   portalReserveSchema,
 } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type PortalAuthedRequest } from '../lib/http.js';
+import { env } from '../env.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { getRawSetting } from '../services/settings.js';
 import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
@@ -335,8 +336,27 @@ export function portalRoutes(app: FastifyInstance) {
       const accessToken = await getRawSetting(organizationId, 'MERCADOPAGO', 'ACCESS_TOKEN');
       let checkoutUrl: string | null = null;
       let providerId: string | null = null;
+
+      // Si ya hay una intencion pendiente y reciente con checkout, se reutiliza
+      // para no generar preferencias duplicadas si el socio toca "Pagar" varias veces.
+      const recent = await prisma.paymentIntent.findFirst({
+        where: {
+          organizationId,
+          memberId,
+          method: 'MERCADOPAGO',
+          status: 'PENDING',
+          amount,
+          checkoutUrl: { not: null },
+          createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (recent) return ok(reply, { intent: recent, checkoutUrl: recent.checkoutUrl });
+
       if (accessToken) {
         try {
+          const returnUrl = (await getRawSetting(organizationId, 'MERCADOPAGO', 'RETURN_URL')) || env.SOCIOS_URL;
+          const backUrls = returnUrl ? { success: returnUrl, failure: returnUrl, pending: returnUrl } : undefined;
           const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
             method: 'POST',
             headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -344,7 +364,9 @@ export function portalRoutes(app: FastifyInstance) {
               items: [{ title: `Cuota ${active?.plan.name ?? ''}`.trim(), quantity: 1, unit_price: amount, currency_id: 'ARS' }],
               external_reference: externalRef,
               payer: member?.email ? { email: member.email } : undefined,
-              notification_url: undefined,
+              notification_url: env.PUBLIC_URL ? `${env.PUBLIC_URL}/api/integrations/mercadopago/webhook` : undefined,
+              back_urls: backUrls,
+              auto_return: backUrls ? 'approved' : undefined,
             }),
           });
           if (res.ok) {

@@ -25,9 +25,23 @@ export default function App() {
   const [status, setStatus] = useState<'loading' | 'ready'>('loading');
   const [session, setSession] = useState<LoginResponse | null>(null);
   const [tab, setTab] = useState<Tab>('home');
+  const [online, setOnline] = useState(true);
 
   useEffect(() => {
     configureNotifications();
+  }, []);
+
+  // Indicador de conexión (solo web/PWA): avisa cuando se ven datos guardados.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    const update = () => setOnline(typeof navigator === 'undefined' ? true : navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
   }, []);
 
   // Restaura la sesión guardada al abrir la app (PWA recarga o nativo reabierto).
@@ -96,6 +110,12 @@ export default function App() {
         </Pressable>
       </View>
 
+      {!online && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Sin conexión · mostrando datos guardados</Text>
+        </View>
+      )}
+
       <View style={styles.content}>
         {tab === 'home' && <HomeScreen org={session.organization} member={session.member} initialQuota={session.quota} />}
         {tab === 'classes' && <ClassesScreen />}
@@ -132,6 +152,12 @@ const styles = StyleSheet.create({
   logout: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
   logoutText: { color: colors.textMuted, fontSize: 13 },
   content: { flex: 1 },
+  offlineBanner: {
+    backgroundColor: '#7c2d12',
+    paddingVertical: 6,
+    paddingHorizontal: spacing.lg,
+  },
+  offlineText: { color: '#fed7aa', fontSize: 12, textAlign: 'center', fontWeight: '600' },
   tabbar: {
     flexDirection: 'row',
     borderTopWidth: 1,

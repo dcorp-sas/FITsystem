@@ -157,6 +157,10 @@ services:
       # URL pública de la API (para webhooks de MercadoPago). Ej: https://fitsystem-api.onrender.com
       - key: PUBLIC_URL
         sync: false
+      # URL pública de la app de socios (PWA): retorno de MercadoPago tras pagar.
+      # Ej: https://fitsystem-socios.onrender.com
+      - key: SOCIOS_URL
+        sync: false
       # Orígenes permitidos (CORS), separados por coma. Ej:
       # https://fitsystem-web.onrender.com,https://fitsystem-socios.onrender.com
       - key: WEB_ORIGIN
