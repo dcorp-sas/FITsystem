@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import forge from 'node-forge';
 import { getRawSetting } from './settings.js';
 
 export type CbteTipo = 'A' | 'B' | 'C';
@@ -14,26 +16,62 @@ const ENDPOINTS = {
   },
 } as const;
 
-const CBTE_TIPO: Record<CbteTipo, number> = { A: 1, B: 2, C: 6 };
+// Codigos de comprobante AFIP (los correctos): 1=Factura A, 6=Factura B, 11=Factura C.
+const CBTE_TIPO: Record<CbteTipo, number> = { A: 1, B: 6, C: 11 };
+
+export const CBTE_LABEL: Record<number, string> = {
+  1: 'Factura A',
+  2: 'Nota de debito A',
+  3: 'Nota de credito A',
+  6: 'Factura B',
+  7: 'Nota de debito B',
+  8: 'Nota de credito B',
+  9: 'Nota de credito C',
+  10: 'Nota de debito C',
+  11: 'Factura C',
+};
+
+export const CONDICION_IVA_LABEL: Record<string, string> = {
+  '1': 'Responsable inscripto',
+  '4': 'Exento',
+  '5': 'Consumidor final',
+  '6': 'Monotributo',
+};
+
+const AFIP_QR_BASE = 'https://www.afip.gob.ar/fe/qr/?p=';
 
 export interface ArcaConfig {
+  enabled: boolean;
+  simulate: boolean;
   cuit: string;
   ptoVta: number;
   entorno: 'homologacion' | 'produccion';
+  cbteTipo: number;
+  concepto: number;
+  condicionReceptor: string;
+  condicionEmisor: string;
   certPem: string;
   keyPem: string;
   hasCert: boolean;
   hasKey: boolean;
+  certSubject: string;
+  certNotAfter: string;
+  certError: string | null;
 }
 
 export interface ArcaEmitResult {
   numero: number;
   ptoVta: number;
-  tipo: CbteTipo;
+  tipo: string;
+  cbteTipo: number;
   cae: string;
   venc: string;
-  mode: 'real';
+  qrUrl: string;
+  estado: 'AUTORIZADO' | 'SIMULADO';
+  simulated: boolean;
+  mode: 'real' | 'mock';
 }
+
 
 /* ===================== DER / PKCS#7 ===================== */
 function readLen(buf: Buffer, off: number): [number, number] {
@@ -136,28 +174,126 @@ export function signCms(xml: string, certPem: string, keyPem: string): Buffer {
 }
 
 /* ===================== config ===================== */
+const SHROUDED_KEYBAG = '1.2.840.113549.1.12.1.3';
+const KEYBAG = '1.2.840.113549.1.12.1.1';
+
+/** Extrae certificado y clave de un archivo PKCS#12 (.p12) y los devuelve en PEM. */
+function p12ToPem(buffer: Buffer, password: string): { certPem: string; keyPem: string; subject: string; notAfter: string } {
+  const der = buffer.toString('binary');
+  const p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(der), false, String(password ?? ''));
+  const certBagOid = String(forge.pki.oids.certBag);
+  const certBags = (p12.getBags({ bagType: certBagOid })[certBagOid] ?? []) as forge.pkcs12.Bag[];
+  const keyBags = [
+    ...(p12.getBags({ bagType: SHROUDED_KEYBAG })[SHROUDED_KEYBAG] ?? []),
+    ...(p12.getBags({ bagType: KEYBAG })[KEYBAG] ?? []),
+  ] as forge.pkcs12.Bag[];
+  if (!certBags.length) throw new Error('El .p12 no contiene certificados');
+  const keyBag = keyBags.find((b) => b.key);
+  if (!keyBag?.key) throw new Error('El .p12 no contiene la clave privada');
+  const key = keyBag.key;
+  let cert = certBags[0]?.cert;
+  if (!cert) throw new Error('El .p12 no contiene certificados');
+  for (const bag of certBags) {
+    const pk = bag.cert?.publicKey as { n?: unknown } | undefined;
+    if (pk?.n && key.n && String(pk.n) === String(key.n)) {
+      cert = bag.cert!;
+      break;
+    }
+  }
+  const subject = (cert.subject?.attributes ?? []).map((a) => `${a.shortName ?? a.name}=${a.value}`).join(', ');
+  const notAfter = cert.validity?.notAfter ? new Date(cert.validity.notAfter).toISOString() : '';
+  return {
+    certPem: forge.pki.certificateToPem(cert),
+    keyPem: forge.pki.privateKeyToPem(key),
+    subject,
+    notAfter,
+  };
+}
+
+function certMetadata(certPem: string): { subject: string; notAfter: string } {
+  try {
+    const x = new crypto.X509Certificate(certPem);
+    const notAfter = x.validTo ? new Date(x.validTo).toISOString() : '';
+    return { subject: x.subject.split(/\r?\n/).join(', '), notAfter };
+  } catch {
+    return { subject: '', notAfter: '' };
+  }
+}
+
 export async function getArcaConfig(orgId: string): Promise<ArcaConfig> {
   const cuit = ((await getRawSetting(orgId, 'ARCA', 'CUIT')) || '').replace(/\D/g, '');
   const rawPto = await getRawSetting(orgId, 'ARCA', 'PUNTO_VENTA');
   const rawEnv = ((await getRawSetting(orgId, 'ARCA', 'ENVIRONMENT')) || '').toLowerCase();
-  const certPem = (await getRawSetting(orgId, 'ARCA', 'CERT')) || '';
-  const keyPem = (await getRawSetting(orgId, 'ARCA', 'PRIVATE_KEY')) || '';
+  const enabled = (await getRawSetting(orgId, 'ARCA', 'ENABLED')) === 'true';
+  const simulate = (await getRawSetting(orgId, 'ARCA', 'SIMULATE')) !== 'false';
+  const cbteTipo = Number(await getRawSetting(orgId, 'ARCA', 'CBTE_TIPO')) || 11;
+  const concepto = Number(await getRawSetting(orgId, 'ARCA', 'CONCEPTO')) || 1;
+  const condicionReceptor = String((await getRawSetting(orgId, 'ARCA', 'CONDICION_RECEPTOR')) ?? '5').trim();
+  const condicionEmisor = String((await getRawSetting(orgId, 'ARCA', 'CONDICION_EMISOR')) ?? '6').trim();
+
+  let certPem = (await getRawSetting(orgId, 'ARCA', 'CERT')) || '';
+  let keyPem = (await getRawSetting(orgId, 'ARCA', 'PRIVATE_KEY')) || '';
+  let certSubject = '';
+  let certNotAfter = '';
+  let certError: string | null = null;
+
+  const hasPem = /BEGIN CERTIFICATE/.test(certPem) && /BEGIN [A-Z ]*PRIVATE KEY/.test(keyPem);
+  if (!hasPem) {
+    // Formato PKCS#12: base64 en el ajuste CERT_P12, o ruta en CERT_PATH (uso local).
+    const certPassword = (await getRawSetting(orgId, 'ARCA', 'CERT_PASSWORD')) || '';
+    try {
+      const b64 = (await getRawSetting(orgId, 'ARCA', 'CERT_P12')) || '';
+      const certPath = (await getRawSetting(orgId, 'ARCA', 'CERT_PATH')) || '';
+      let buffer: Buffer | null = null;
+      if (b64) buffer = Buffer.from(b64.replace(/^data:[^,]*,/, ''), 'base64');
+      else if (certPath && fs.existsSync(certPath)) buffer = fs.readFileSync(certPath);
+      if (buffer && buffer.length) {
+        const parsed = p12ToPem(buffer, certPassword);
+        certPem = parsed.certPem;
+        keyPem = parsed.keyPem;
+        certSubject = parsed.subject;
+        certNotAfter = parsed.notAfter;
+      }
+    } catch (err) {
+      certError = (err as Error).message;
+    }
+  }
+
   const hasCert = /BEGIN CERTIFICATE/.test(certPem);
   const hasKey = /BEGIN [A-Z ]*PRIVATE KEY/.test(keyPem);
+  if (hasCert) {
+    try {
+      const meta = certMetadata(certPem);
+      certSubject = certSubject || meta.subject;
+      certNotAfter = certNotAfter || meta.notAfter;
+    } catch {
+      /* ignore */
+    }
+  }
+
   return {
+    enabled,
+    simulate,
     cuit,
     ptoVta: Number(rawPto || '1') || 1,
     entorno: rawEnv.includes('prod') ? 'produccion' : 'homologacion',
+    cbteTipo,
+    concepto,
+    condicionReceptor,
+    condicionEmisor,
     certPem,
     keyPem,
     hasCert,
     hasKey,
+    certSubject,
+    certNotAfter,
+    certError,
   };
 }
 
 export async function arcaMode(orgId: string): Promise<'real' | 'mock'> {
   const cfg = await getArcaConfig(orgId);
-  return cfg.hasCert && cfg.hasKey ? 'real' : 'mock';
+  return cfg.hasCert && cfg.hasKey && !cfg.simulate ? 'real' : 'mock';
 }
 
 /* ===================== SOAP ===================== */
@@ -286,28 +422,94 @@ async function feUltimo(orgId: string, cfg: ArcaConfig, cbteTipo: number): Promi
   return Number(tag(txt, 'CbteNro')) || 0;
 }
 
-async function feAutorizar(
-  orgId: string,
-  cfg: ArcaConfig,
-  { tipo, total, neto, iva }: { tipo: CbteTipo; total: number; neto: number; iva: number },
-): Promise<ArcaEmitResult> {
-  const cbteTipo = CBTE_TIPO[tipo];
-  if (!cbteTipo) throw new Error('Tipo de comprobante inválido: ' + tipo);
+const f2 = (n: number) => (Number.isFinite(n) ? n : 0).toFixed(2);
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const ddmmyyyy = (d: Date) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+const ymd = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** Resuelve el codigo de comprobante AFIP: override por letra (A/B/C) o el configurado. */
+export function resolveCbteTipo(cfg: ArcaConfig, invoiceType?: string): number {
+  if (invoiceType && (invoiceType as CbteTipo) in CBTE_TIPO) return CBTE_TIPO[invoiceType as CbteTipo];
+  return cfg.cbteTipo || 11;
+}
+
+/** URL del QR oficial de AFIP para imprimir en el comprobante (payload JSON en base64url). */
+export function afipQrUrl(p: {
+  fecha: string;
+  cuit: string;
+  ptoVta: number;
+  cbteTipo: number;
+  nro: number;
+  importe: number;
+  tipoDocRec: number;
+  nroDocRec: number;
+  cae: string;
+}): string {
+  const data = {
+    ver: 1,
+    fecha: p.fecha,
+    cuit: Number(p.cuit) || 0,
+    ptoVta: p.ptoVta,
+    tipoCmp: p.cbteTipo,
+    nroCmp: p.nro,
+    importe: Number(p.importe.toFixed(2)),
+    moneda: 'PES',
+    ctz: 1,
+    tipoDocRec: p.tipoDocRec,
+    nroDocRec: p.nroDocRec,
+    tipoCodAut: 'E',
+    codAut: Number(p.cae) || 0,
+  };
+  return AFIP_QR_BASE + Buffer.from(JSON.stringify(data)).toString('base64url');
+}
+
+export interface ArcaEmitOptions {
+  invoiceType?: string;
+  total: number;
+  neto: number;
+  iva: number;
+  customerTaxId?: string;
+  fecha?: Date;
+}
+
+/** Genera un comprobante SIMULADO (sin contactar a AFIP) para el modo prueba. */
+export function arcaSimular(cfg: ArcaConfig, numero: number, opts: ArcaEmitOptions): ArcaEmitResult {
+  const cbteTipo = resolveCbteTipo(cfg, opts.invoiceType);
+  const fecha = opts.fecha ?? new Date();
+  const docTipo = opts.customerTaxId ? 80 : 99;
+  const docNro = opts.customerTaxId ? Number(opts.customerTaxId.replace(/\D/g, '')) : 0;
+  const cae = Array.from({ length: 14 }, () => Math.floor(Math.random() * 10)).join('');
+  const venc = new Date(fecha.getTime() + 10 * 86400000);
+  return {
+    numero,
+    ptoVta: cfg.ptoVta,
+    tipo: CBTE_LABEL[cbteTipo] ?? String(cbteTipo),
+    cbteTipo,
+    cae,
+    venc: ddmmyyyy(venc),
+    qrUrl: afipQrUrl({ fecha: ymd(fecha), cuit: cfg.cuit, ptoVta: cfg.ptoVta, cbteTipo, nro: numero, importe: opts.total, tipoDocRec: docTipo, nroDocRec: docNro, cae }),
+    estado: 'SIMULADO',
+    simulated: true,
+    mode: 'mock',
+  };
+}
+
+async function feAutorizar(orgId: string, cfg: ArcaConfig, cbteTipo: number, opts: ArcaEmitOptions): Promise<ArcaEmitResult> {
   const ultimo = await feUltimo(orgId, cfg, cbteTipo);
   const nro = ultimo + 1;
-  const now = new Date();
-  const fch = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-  const f2 = (n: number) => Number(n).toFixed(2);
-  const ivaBlock =
-    (Number(iva) || 0) > 0.01
-      ? `<Iva><AlicIva><Id>5</Id><BaseImp>${f2(neto)}</BaseImp><Importe>${f2(iva)}</Importe></AlicIva></Iva>`
-      : '';
+  const fecha = opts.fecha ?? new Date();
+  const fch = Number(`${fecha.getFullYear()}${pad2(fecha.getMonth() + 1)}${pad2(fecha.getDate())}`);
+  const docTipo = opts.customerTaxId ? 80 : 99;
+  const docNro = opts.customerTaxId ? Number(opts.customerTaxId.replace(/\D/g, '')) : 0;
+  const { total, neto, iva } = opts;
+  const ivaBlock = iva > 0 ? `<Iva><AlicIva><Id>5</Id><BaseImp>${f2(neto)}</BaseImp><Importe>${f2(iva)}</Importe></AlicIva></Iva>` : '';
+  const condicion = cfg.condicionReceptor ? `<CondicionIVAReceptorId>${cfg.condicionReceptor}</CondicionIVAReceptorId>` : '';
   const inner =
     '<FeCAEReq>' +
     `<FeCabReq><CantReg>1</CantReg><PtoVta>${cfg.ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo></FeCabReq>` +
     '<FeDetReq><FECAEDetRequest>' +
-    '<Concepto>1</Concepto>' +
-    '<DocTipo>96</DocTipo><DocNro>0</DocNro>' +
+    `<Concepto>${cfg.concepto || 1}</Concepto>` +
+    `<DocTipo>${docTipo}</DocTipo><DocNro>${docNro}</DocNro>` +
     `<CbteDesde>${nro}</CbteDesde><CbteHasta>${nro}</CbteHasta>` +
     `<CbteFch>${fch}</CbteFch>` +
     `<ImpTotal>${f2(total)}</ImpTotal><ImpTotConc>0</ImpTotConc>` +
@@ -315,6 +517,7 @@ async function feAutorizar(
     `<ImpIVA>${f2(iva)}</ImpIVA>` +
     '<MonId>PES</MonId><MonCotiz>1</MonCotiz>' +
     ivaBlock +
+    condicion +
     '</FECAEDetRequest></FeDetReq>' +
     '</FeCAEReq>';
 
@@ -330,36 +533,76 @@ async function feAutorizar(
   return {
     numero: nro,
     ptoVta: cfg.ptoVta,
-    tipo,
+    tipo: CBTE_LABEL[cbteTipo] ?? String(cbteTipo),
+    cbteTipo,
     cae,
     venc: vto ? `${vto.slice(6, 8)}/${vto.slice(4, 6)}/${vto.slice(0, 4)}` : '',
+    qrUrl: afipQrUrl({ fecha: ymd(fecha), cuit: cfg.cuit, ptoVta: cfg.ptoVta, cbteTipo, nro, importe: total, tipoDocRec: docTipo, nroDocRec: docNro, cae }),
+    estado: 'AUTORIZADO',
+    simulated: false,
     mode: 'real',
   };
 }
 
-/** Emite un comprobante real contra ARCA. Solo debe llamarse cuando arcaMode === 'real'. */
-export async function arcaEmitir(
-  orgId: string,
-  { tipo, total, neto, iva }: { tipo: CbteTipo; total: number; neto: number; iva: number },
-): Promise<ArcaEmitResult> {
+/** Emite un comprobante real contra ARCA. Solo debe llamarse cuando el modo es real (sin simulacion y con certificado). */
+export async function arcaEmitir(orgId: string, opts: ArcaEmitOptions): Promise<ArcaEmitResult> {
   const cfg = await getArcaConfig(orgId);
   if (!cfg.hasCert || !cfg.hasKey) throw new Error('Sin certificado/clave cargados');
   if (!cfg.cuit) throw new Error('Sin CUIT cargado (Configuración → Facturación)');
-  return feAutorizar(orgId, cfg, { tipo, total, neto, iva });
+  return feAutorizar(orgId, cfg, resolveCbteTipo(cfg, opts.invoiceType), opts);
 }
 
-export async function arcaTest(orgId: string): Promise<{ ok: boolean; mode: string; detail: string; cuit?: string }> {
+export interface ArcaTestResult {
+  ok: boolean;
+  mode: 'real' | 'mock';
+  simulate: boolean;
+  detail: string;
+  ambiente: 'homologacion' | 'produccion';
+  cuit?: string;
+  ptoVta?: number;
+  cbteLabel?: string;
+  condicionReceptor?: string;
+  cert?: { present: boolean; subject: string; notAfter: string };
+  dummy?: Record<string, string | null>;
+  token?: { ok: boolean; error?: string };
+  lastCbte?: number | null;
+}
+
+export async function arcaTest(orgId: string): Promise<ArcaTestResult> {
   const cfg = await getArcaConfig(orgId);
+  const base: ArcaTestResult = {
+    ok: true,
+    mode: cfg.hasCert && cfg.hasKey && !cfg.simulate ? 'real' : 'mock',
+    simulate: cfg.simulate,
+    ambiente: cfg.entorno,
+    detail: '',
+    cuit: cfg.cuit || undefined,
+    ptoVta: cfg.ptoVta,
+    cbteLabel: CBTE_LABEL[cfg.cbteTipo] ?? String(cfg.cbteTipo),
+    condicionReceptor: CONDICION_IVA_LABEL[cfg.condicionReceptor] ?? cfg.condicionReceptor,
+    cert: { present: cfg.hasCert && cfg.hasKey, subject: cfg.certSubject, notAfter: cfg.certNotAfter },
+  };
+
+  if (cfg.certError) return { ...base, ok: false, detail: `Error al leer el certificado: ${cfg.certError}` };
   if (!cfg.hasCert || !cfg.hasKey) {
-    return {
-      ok: true,
-      mode: 'mock',
-      detail: 'Sin certificado cargado: la facturación usa numeración interna. Cargá certificado + clave para emitir CAE reales.',
-    };
+    return { ...base, detail: 'Sin certificado cargado: la facturación usa numeración interna / simulación.' };
   }
-  if (!cfg.cuit) return { ok: false, mode: 'real', detail: 'Falta el CUIT' };
-  await getTA(orgId, true);
-  return { ok: true, mode: 'real', detail: `Certificado verificado contra WSAA (${cfg.entorno})`, cuit: cfg.cuit };
+  if (!cfg.cuit) return { ...base, ok: false, detail: 'Falta el CUIT.' };
+  if (cfg.simulate) return { ...base, detail: 'Certificado presente. Simulación activada: no se contacta a AFIP.' };
+
+  const dummy = await arcaDummy(orgId).catch(() => ({ mode: 'real' } as Record<string, string | null>));
+  try {
+    await getTA(orgId, true);
+  } catch (err) {
+    return { ...base, ok: false, dummy, token: { ok: false, error: (err as Error).message }, detail: 'El certificado no pudo autenticar contra WSAA.' };
+  }
+  let lastCbte: number | null = null;
+  try {
+    lastCbte = await feUltimo(orgId, cfg, cfg.cbteTipo);
+  } catch {
+    /* ultimo opcional */
+  }
+  return { ...base, dummy, token: { ok: true }, lastCbte, detail: `Certificado verificado contra WSAA (${cfg.entorno}).` };
 }
 
 export async function arcaDummy(orgId: string): Promise<Record<string, string | null>> {

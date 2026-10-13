@@ -19,8 +19,33 @@ import {
 type SettingsMap = Record<string, Record<string, string>>;
 
 interface IntegrationStatus {
-  mercadopago: { configured: boolean; pointDeviceId: string; hasStaticQr: boolean };
-  arca: { configured: boolean; mode: string; cuit: string; puntoVenta: string; environment: string; hasCertificate: boolean };
+  mercadopago: {
+    configured: boolean;
+    dryRun: boolean;
+    accessTokenMasked: string;
+    publicKey: string;
+    hasStaticQr: boolean;
+    pointEnabled: boolean;
+    pointDeviceId: string;
+    hasPointToken: boolean;
+    hasQrToken: boolean;
+    qrPosId: string;
+    qrPosExternalId: string;
+    qrFixedEnabled: boolean;
+  };
+  arca: {
+    configured: boolean;
+    enabled: boolean;
+    simulate: boolean;
+    mode: string;
+    cuit: string;
+    puntoVenta: number;
+    environment: string;
+    cbteTipo: number;
+    cbteLabel: string;
+    condicionReceptor: string;
+    hasCertificate: boolean;
+  };
   whatsapp: { configured: boolean; businessPhone: string; cloudConfigured: boolean };
   email: { configured: boolean; host: string; port: number; from: string };
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean };
@@ -99,14 +124,54 @@ export default function SettingsPage() {
               category="MERCADOPAGO"
               values={settings.MERCADOPAGO ?? {}}
               fields={[
-                { key: 'ACCESS_TOKEN', label: 'Access Token (secreto)', placeholder: 'APP_USR-...' },
-                { key: 'PUBLIC_KEY', label: 'Public Key', placeholder: 'APP_USR-...' },
-                { key: 'POINT_DEVICE_ID', label: 'ID del dispositivo Point' },
-                { key: 'STATIC_QR_PAYLOAD', label: 'Payload del QR estático', placeholder: 'fitsystem://pay?...' },
+                {
+                  key: 'DRY_RUN',
+                  label: 'Modo simulación (no cobra de verdad)',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí (simulado)' },
+                    { value: 'false', label: 'No (real)' },
+                  ],
+                },
+                { key: 'ACCESS_TOKEN', label: 'Access Token general (secreto)', type: 'password', secret: true, placeholder: 'APP_USR-...' },
+                { key: 'PUBLIC_KEY', label: 'Public Key general', placeholder: 'APP_USR-...' },
+                { key: 'POINT_PUBLIC_KEY', label: 'Point: Public Key' },
+                { key: 'POINT_ACCESS_TOKEN', label: 'Point: Access Token (secreto)', type: 'password', secret: true },
+                { key: 'POINT_DEVICE_ID', label: 'Point: ID del dispositivo / terminal' },
+                {
+                  key: 'POINT_ENABLED',
+                  label: 'Point habilitado',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí' },
+                    { value: 'false', label: 'No' },
+                  ],
+                },
+                { key: 'QR_PUBLIC_KEY', label: 'QR: Public Key' },
+                { key: 'QR_ACCESS_TOKEN', label: 'QR: Access Token (secreto)', type: 'password', secret: true },
+                { key: 'QR_POS_ID', label: 'QR: ID de la caja (POS)' },
+                { key: 'QR_POS_EXTERNAL_ID', label: 'QR: External ID de la caja (sucursal)' },
+                {
+                  key: 'QR_FIXED_ENABLED',
+                  label: 'QR fijo con confirmación automática',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí' },
+                    { value: 'false', label: 'No' },
+                  ],
+                },
+                { key: 'STATIC_QR_PAYLOAD', label: 'Payload del QR estático (alternativo)', placeholder: 'fitsystem://pay?...' },
+                { key: 'WEBHOOK_SECRET', label: 'Secreto del webhook (secreto)', type: 'password', secret: true },
                 { key: 'TRANSFER_ALIAS', label: 'Alias/CBU para transferencias' },
+                { key: 'RETURN_URL', label: 'URL de retorno tras el pago' },
               ]}
               onSaved={load}
-              extra={<StaticQrCard status={status} />}
+              extra={
+                <div className="space-y-5">
+                  <MpCard status={status} />
+                  <StaticQrCard status={status} />
+                </div>
+              }
             />
           )}
 
@@ -116,11 +181,81 @@ export default function SettingsPage() {
               category="ARCA"
               values={settings.ARCA ?? {}}
               fields={[
+                {
+                  key: 'ENABLED',
+                  label: 'Facturación ARCA habilitada',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí' },
+                    { value: 'false', label: 'No' },
+                  ],
+                },
+                {
+                  key: 'SIMULATE',
+                  label: 'Modo simulación (CAE de prueba)',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí (no contacta AFIP)' },
+                    { value: 'false', label: 'No (emite real)' },
+                  ],
+                },
                 { key: 'CUIT', label: 'CUIT del emisor' },
                 { key: 'PUNTO_VENTA', label: 'Punto de venta' },
-                { key: 'ENVIRONMENT', label: 'Entorno (HOMOLOGACION / PRODUCCION)' },
-                { key: 'CERT', label: 'Certificado (PEM, secreto)' },
-                { key: 'PRIVATE_KEY', label: 'Clave privada (PEM, secreto)' },
+                {
+                  key: 'ENVIRONMENT',
+                  label: 'Entorno',
+                  type: 'select',
+                  options: [
+                    { value: 'HOMOLOGACION', label: 'Homologación (pruebas)' },
+                    { value: 'PRODUCCION', label: 'Producción' },
+                  ],
+                },
+                {
+                  key: 'CBTE_TIPO',
+                  label: 'Tipo de comprobante',
+                  type: 'select',
+                  options: [
+                    { value: '11', label: 'Factura C (11)' },
+                    { value: '6', label: 'Factura B (6)' },
+                    { value: '1', label: 'Factura A (1)' },
+                  ],
+                },
+                {
+                  key: 'CONCEPTO',
+                  label: 'Concepto',
+                  type: 'select',
+                  options: [
+                    { value: '1', label: 'Productos (1)' },
+                    { value: '2', label: 'Servicios (2)' },
+                    { value: '3', label: 'Productos y servicios (3)' },
+                  ],
+                },
+                {
+                  key: 'CONDICION_RECEPTOR',
+                  label: 'Condición IVA del receptor',
+                  type: 'select',
+                  options: [
+                    { value: '5', label: 'Consumidor final (5)' },
+                    { value: '1', label: 'Responsable inscripto (1)' },
+                    { value: '4', label: 'Exento (4)' },
+                    { value: '6', label: 'Monotributo (6)' },
+                  ],
+                },
+                {
+                  key: 'CONDICION_EMISOR',
+                  label: 'Condición IVA del emisor',
+                  type: 'select',
+                  options: [
+                    { value: '6', label: 'Monotributo (6)' },
+                    { value: '1', label: 'Responsable inscripto (1)' },
+                    { value: '4', label: 'Exento (4)' },
+                  ],
+                },
+                { key: 'CERT', label: 'Certificado (PEM, secreto)', type: 'textarea', secret: true },
+                { key: 'PRIVATE_KEY', label: 'Clave privada (PEM, secreto)', type: 'textarea', secret: true },
+                { key: 'CERT_P12', label: 'Certificado .p12 en base64 (secreto)', type: 'textarea', secret: true, placeholder: 'Alternativa a PEM' },
+                { key: 'CERT_PATH', label: 'Ruta a un .p12 en el servidor (solo local)' },
+                { key: 'CERT_PASSWORD', label: 'Contraseña del .p12 (secreto)', type: 'password', secret: true },
               ]}
               onSaved={load}
               extra={<ArcaCard status={status} />}
@@ -136,7 +271,7 @@ export default function SettingsPage() {
                 { key: 'BUSINESS_PHONE', label: 'Teléfono del negocio (con código de país)', placeholder: '5491155551234' },
                 { key: 'WA_URL_BASE', label: 'Base del enlace', placeholder: 'https://wa.me' },
                 { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto' },
-                { key: 'CLOUD_TOKEN', label: 'Cloud API: Token permanente (secreto)', type: 'password' },
+                { key: 'CLOUD_TOKEN', label: 'Cloud API: Token permanente (secreto)', type: 'password', secret: true },
                 { key: 'PHONE_NUMBER_ID', label: 'Cloud API: Phone Number ID' },
                 { key: 'API_VERSION', label: 'Cloud API: Versión de Graph', placeholder: 'v20.0' },
               ]}
@@ -201,7 +336,9 @@ interface FieldDef {
   key: string;
   label: string;
   placeholder?: string;
-  type?: 'text' | 'password';
+  type?: 'text' | 'password' | 'textarea' | 'select';
+  options?: { value: string; label: string }[];
+  secret?: boolean;
 }
 
 function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSaved: () => void }) {
@@ -298,7 +435,7 @@ function CategoryForm({
   title: string;
   category: string;
   values: Record<string, string>;
-  fields: { key: string; label: string; placeholder?: string; type?: 'text' | 'password' }[];
+  fields: FieldDef[];
   onSaved: () => void;
   extra?: React.ReactNode;
 }) {
@@ -308,7 +445,7 @@ function CategoryForm({
 
   useEffect(() => {
     const next: Record<string, string> = {};
-    for (const f of fields) next[f.key] = values[f.key] ?? '';
+    for (const f of fields) next[f.key] = values[f.key] ?? (f.options ? f.options[0]?.value ?? '' : '');
     setForm(next);
   }, [values, fields]);
 
@@ -316,7 +453,11 @@ function CategoryForm({
     e.preventDefault();
     setSaving(true);
     try {
-      await http.put(`/settings/${category}`, { category, values: form });
+      const payload: Record<string, string> = { ...form };
+      for (const f of fields) {
+        if (f.secret && !payload[f.key]) delete payload[f.key];
+      }
+      await http.put(`/settings/${category}`, { category, values: payload });
       toast.success(title + ' guardado');
       onSaved();
     } catch (error) {
@@ -332,12 +473,30 @@ function CategoryForm({
         <form onSubmit={onSubmit} className="space-y-4">
           {fields.map((f) => (
             <Field key={f.key} label={f.label}>
-              <Input
-                type={f.type ?? 'text'}
-                value={form[f.key] ?? ''}
-                placeholder={f.placeholder}
-                onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-              />
+              {f.type === 'select' ? (
+                <Select value={form[f.key] ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}>
+                  {(f.options ?? []).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              ) : f.type === 'textarea' ? (
+                <textarea
+                  rows={4}
+                  value={form[f.key] ?? ''}
+                  placeholder={f.placeholder}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-text focus:border-primary focus:outline-none"
+                />
+              ) : (
+                <Input
+                  type={f.type ?? 'text'}
+                  value={form[f.key] ?? ''}
+                  placeholder={f.placeholder}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                />
+              )}
             </Field>
           ))}
           <Button type="submit" loading={saving}>
@@ -350,17 +509,35 @@ function CategoryForm({
   );
 }
 
+interface ArcaTestResponse {
+  ok: boolean;
+  mode: string;
+  simulate: boolean;
+  detail: string;
+  ambiente: string;
+  cuit?: string;
+  ptoVta?: number;
+  cbteLabel?: string;
+  condicionReceptor?: string;
+  cert?: { present: boolean; subject: string; notAfter: string };
+  dummy?: Record<string, string | null>;
+  token?: { ok: boolean; error?: string };
+  lastCbte?: number | null;
+}
+
 function ArcaCard({ status }: { status: IntegrationStatus | null }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const mode = status?.arca.mode ?? 'mock';
+  const [result, setResult] = useState<ArcaTestResponse | null>(null);
+  const arca = status?.arca;
+  const mode = arca?.mode ?? 'mock';
+  const simulate = arca?.simulate ?? true;
 
   async function test() {
     setBusy(true);
     try {
-      const res = await http.post<{ ok: boolean; mode: string; detail: string }>('/integrations/arca/test', {});
-      setResult(res.detail);
+      const res = await http.post<ArcaTestResponse>('/integrations/arca/test', {});
+      setResult(res);
       toast.success(res.ok ? 'Conexión con ARCA verificada' : 'Revisá la configuración de ARCA');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al probar ARCA');
@@ -371,20 +548,129 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
 
   return (
     <Card title="Estado de facturación">
-      <div className="flex items-center gap-2 text-sm">
-        <Badge color={mode === 'real' ? 'green' : 'gray'}>
-          {mode === 'real' ? 'CAE real (certificado cargado)' : 'Numeración interna'}
-        </Badge>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge color={mode === 'real' ? 'green' : 'gray'}>{mode === 'real' ? 'CAE real' : 'Simulado / interno'}</Badge>
+        {simulate && <Badge color="yellow">Simulación activa</Badge>}
+        {arca?.cbteLabel && <Badge color="blue">{arca.cbteLabel}</Badge>}
+        {arca?.environment && <span className="text-xs text-text-muted">{arca.environment}</span>}
       </div>
+      {arca?.cuit && (
+        <p className="mt-3 text-sm text-text-muted">
+          CUIT {arca.cuit} · Punto de venta {arca.puntoVenta}
+        </p>
+      )}
       <p className="mt-3 text-sm text-text-muted">
         {mode === 'real'
-          ? 'Se emiten comprobantes reales contra ARCA (WSAA/WSFE).'
-          : 'Sin certificado: los comprobantes usan numeración interna. Cargá certificado y clave privada para emitir CAE reales.'}
+          ? 'Se emiten comprobantes reales contra ARCA (WSAA/WSFE), sin simulación.'
+          : simulate
+            ? 'Modo simulación: los comprobantes generan un CAE de prueba y no contactan a AFIP.'
+            : 'Sin certificado válido: los comprobantes usan numeración interna. Cargá certificado y clave para emitir CAE reales.'}
       </p>
       <Button onClick={test} disabled={busy} className="mt-4">
         {busy ? 'Probando...' : 'Probar conexión ARCA'}
       </Button>
-      {result && <p className="mt-3 text-sm text-text-muted">{result}</p>}
+      {result && (
+        <div className="mt-3 space-y-1 text-sm text-text-muted">
+          <p>{result.detail}</p>
+          {result.cert?.present && (
+            <p>
+              Certificado: {result.cert.subject || '(sin datos)'}
+              {result.cert.notAfter ? ` · vence ${new Date(result.cert.notAfter).toLocaleDateString()}` : ''}
+            </p>
+          )}
+          {result.lastCbte != null && <p>Último comprobante autorizado: {result.lastCbte}</p>}
+          {result.dummy && result.dummy.app != null && (
+            <p>
+              AFIP · App {result.dummy.app ?? '-'} · DB {result.dummy.db ?? '-'} · Auth {result.dummy.auth ?? '-'}
+            </p>
+          )}
+          {result.token && !result.token.ok && (
+            <p className="text-danger">Token WSAA: {result.token.error}</p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+interface MpTerminal {
+  id?: string;
+  pos_id?: number | string;
+  external_pos_id?: string;
+  operating_mode?: string;
+}
+
+function MpCard({ status }: { status: IntegrationStatus | null }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [ping, setPing] = useState<{ ok: boolean; userId?: string; nickname?: string; terminals?: number; error?: string } | null>(null);
+  const [terminals, setTerminals] = useState<MpTerminal[] | null>(null);
+  const mp = status?.mercadopago;
+
+  async function test() {
+    setBusy(true);
+    try {
+      const res = await http.post<{ ok: boolean; userId?: string; nickname?: string; terminals?: number; error?: string }>(
+        '/integrations/mercadopago/ping',
+        {},
+      );
+      setPing(res);
+      toast[res.ok ? 'success' : 'error'](res.ok ? 'Credenciales de MercadoPago válidas' : res.error || 'MercadoPago rechazó las credenciales');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al probar MercadoPago');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadTerminals() {
+    try {
+      const res = await http.get<MpTerminal[]>('/integrations/mercadopago/terminals?refresh=true');
+      setTerminals(res);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al listar terminales');
+    }
+  }
+
+  return (
+    <Card title="Estado de cobros">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge color={mp?.dryRun ? 'yellow' : 'green'}>{mp?.dryRun ? 'Simulación activa' : 'Cobros reales'}</Badge>
+        <Badge color={mp?.hasPointToken || mp?.hasQrToken || mp?.accessTokenMasked ? 'green' : 'gray'}>
+          {mp?.hasPointToken || mp?.hasQrToken || mp?.accessTokenMasked ? 'Credenciales cargadas' : 'Sin credenciales'}
+        </Badge>
+        {mp?.pointDeviceId && <span className="text-xs text-text-muted">Point: {mp.pointDeviceId}</span>}
+      </div>
+      <p className="mt-3 text-sm text-text-muted">
+        {mp?.dryRun
+          ? 'Con el modo simulación activo no se envían cobros a MercadoPago: sirve para probar el circuito.'
+          : 'Los cobros se envían a MercadoPago con las credenciales configuradas.'}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={test} loading={busy}>
+          Probar conexión
+        </Button>
+        <Button variant="secondary" onClick={loadTerminals}>
+          Ver terminales
+        </Button>
+      </div>
+      {ping && (
+        <p className="mt-3 text-sm text-text-muted">
+          {ping.ok
+            ? `Cuenta ${ping.nickname ?? ping.userId ?? 'OK'}${ping.terminals != null ? ` · ${ping.terminals} terminal(es)` : ''}`
+            : ping.error}
+        </p>
+      )}
+      {terminals && (
+        <ul className="mt-3 space-y-1 text-sm text-text-muted">
+          {terminals.length === 0 && <li>No hay terminales asociadas.</li>}
+          {terminals.map((t, i) => (
+            <li key={t.id ?? i}>
+              {t.pos_id ?? t.id} {t.external_pos_id ? `· ${t.external_pos_id}` : ''} {t.operating_mode ? `(${t.operating_mode})` : ''}
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

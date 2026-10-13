@@ -28,7 +28,14 @@ export function settingsRoutes(app: FastifyInstance) {
 
       const secrets = Object.keys(input.values).filter((k) => {
         const kk = k.toUpperCase();
-        return SECRET_KEYS.some((s) => kk.includes(s)) || kk === 'ACCESS_TOKEN' || kk === 'PRIVATE_KEY' || kk === 'CERT' || kk === 'API_SECRET';
+        return (
+          SECRET_KEYS.some((s) => kk.includes(s)) ||
+          kk === 'ACCESS_TOKEN' ||
+          kk === 'PRIVATE_KEY' ||
+          kk === 'CERT' ||
+          kk === 'CERT_P12' ||
+          kk === 'API_SECRET'
+        );
       });
       const updated = await upsertSettings(req.user.organizationId, input.category, input.values, secrets);
       await logActivity(req, 'UPDATE', 'SETTINGS', input.category, undefined, { category: input.category, keys: Object.keys(input.values) });
