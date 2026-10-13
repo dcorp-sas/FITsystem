@@ -90,6 +90,30 @@ services:
     rootDir: .
     buildCommand: "corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @fitsystem/mobile build:web"
     staticPublishPath: apps/mobile/dist
+    # Cabeceras de seguridad del sitio estático (CDN de Render). Sin CSP para no
+    # romper el PWA (scripts inline); el resto endurece la respuesta.
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Permitted-Cross-Domain-Policies
+        value: none
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(self), microphone=(self), geolocation=()
+      - path: /*
+        name: Strict-Transport-Security
+        value: "max-age=15552000; includeSubDomains"
+      - path: /*
+        name: X-DNS-Prefetch-Control
+        value: "off"
     envVars:
       - key: NODE_VERSION
         value: 22.16.0

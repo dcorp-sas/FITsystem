@@ -156,6 +156,10 @@ function send(res, code, obj) {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'no-referrer',
+    'Strict-Transport-Security': 'max-age=15552000; includeSubDomains',
+    'X-Permitted-Cross-Domain-Policies': 'none',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'X-DNS-Prefetch-Control': 'off',
   });
   res.end(JSON.stringify(obj));
 }
@@ -451,6 +455,10 @@ const server = http.createServer(async (req, res) => {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'no-referrer',
+        'Strict-Transport-Security': 'max-age=15552000; includeSubDomains',
+        'X-Permitted-Cross-Domain-Policies': 'none',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+        'X-DNS-Prefetch-Control': 'off',
       });
       return res.end(data);
     } catch (e) {
