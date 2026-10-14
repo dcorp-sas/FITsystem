@@ -23,51 +23,60 @@ interface PortalJwt {
   typ: 'portal';
 }
 
-async function findMemberForLogin(orgId: string, identifier: string) {
+// Cuentas del portal que podrian corresponder al identificador (DNI, email,
+// legajo o telefono). Si no hay coincidencia exacta, reintenta sin distinguir
+// mayusculas. Si no se pasa organizationId, busca en TODA la plataforma: asi el
+// socio puede ingresar solo con su DNI, sin saber el codigo del gimnasio.
+async function findCandidateAccounts(identifier: string, organizationId?: string) {
   const id = identifier.trim();
+  const orgFilter = organizationId ? { organizationId } : {};
 
-  const byMemberField = await prisma.member.findFirst({
+  const direct = await prisma.portalAccount.findMany({
     where: {
-      organizationId: orgId,
+      isActive: true,
+      ...orgFilter,
       OR: [
-        { email: id },
         { documentNumber: id },
-        { memberCode: id },
-        { phone: id },
+        { email: id },
+        {
+          member: {
+            is: {
+              OR: [{ documentNumber: id }, { memberCode: id }, { email: id }, { phone: id }],
+            },
+          },
+        },
       ],
     },
-  });
-  if (byMemberField) return byMemberField;
-
-  // La app tambien acepta el email/DNI cargado al habilitar el acceso a la app
-  // (viven en la cuenta del portal, no necesariamente en la ficha del socio).
-  const byAccount = await prisma.portalAccount.findFirst({
-    where: { organizationId: orgId, OR: [{ email: id }, { documentNumber: id }] },
     include: { member: true },
   });
-  if (byAccount) return byAccount.member;
+  if (direct.length) return direct;
 
-  // Ultimo recurso: comparacion sin distinguir mayusculas (emails/documentos).
   const lower = id.toLowerCase();
-  const members = await prisma.member.findMany({ where: { organizationId: orgId } });
-  const memberHit = members.find(
-    (m) =>
-      m.email?.toLowerCase() === lower ||
-      m.documentNumber?.toLowerCase() === lower ||
-      m.memberCode?.toLowerCase() === lower ||
-      m.phone?.toLowerCase() === lower,
-  );
-  if (memberHit) return memberHit;
-
-  const accounts = await prisma.portalAccount.findMany({
-    where: { organizationId: orgId },
+  const all = await prisma.portalAccount.findMany({
+    where: { isActive: true, ...orgFilter },
     include: { member: true },
   });
-  return (
-    accounts.find(
-      (a) => a.email?.toLowerCase() === lower || a.documentNumber?.toLowerCase() === lower,
-    )?.member ?? null
+  return all.filter((a) =>
+    [
+      a.email,
+      a.documentNumber,
+      a.member.email,
+      a.member.documentNumber,
+      a.member.memberCode,
+      a.member.phone,
+    ].some((v) => v != null && v.toLowerCase() === lower),
   );
+}
+
+// Devuelve la cuenta cuyo hash coincide con la contrasena (si hay varias
+// coincidencias de DNI en distintos gimnasios, gana la que valide la clave).
+async function authenticateAccount(identifier: string, password: string, organizationId?: string) {
+  const candidates = await findCandidateAccounts(identifier, organizationId);
+  for (const account of candidates) {
+    if (!account.passwordHash) continue;
+    if (await bcrypt.compare(password, account.passwordHash)) return account;
+  }
+  return null;
 }
 
 async function loadContext(organizationId: string, memberId: string) {
@@ -120,27 +129,26 @@ export function portalRoutes(app: FastifyInstance) {
   app.post('/portal/auth/login', { onRequest: [rateLimit({ max: 10, windowMs: 5 * 60 * 1000, keyPrefix: 'portal-login' })] }, async (request, reply) => {
     try {
       const input = validate(portalLoginSchema, request.body);
-      const org = await prisma.organization.findUnique({ where: { slug: input.organizationSlug } });
-      if (!org) throw new HttpError(401, 'Credenciales invalidas');
+      const org = input.organizationSlug
+        ? await prisma.organization.findUnique({ where: { slug: input.organizationSlug } })
+        : null;
+      if (input.organizationSlug && !org) throw new HttpError(401, 'Credenciales invalidas');
 
-      const member = await findMemberForLogin(org.id, input.identifier);
-      if (!member) throw new HttpError(401, 'Credenciales invalidas');
+      const account = await authenticateAccount(input.identifier, input.password, org?.id);
+      if (!account) throw new HttpError(401, 'Credenciales invalidas');
 
-      const account = await prisma.portalAccount.findUnique({ where: { memberId: member.id } });
-      if (!account || !account.isActive || !account.passwordHash) {
-        throw new HttpError(401, 'Credenciales invalidas');
-      }
-
-      const valid = await bcrypt.compare(input.password, account.passwordHash);
-      if (!valid) throw new HttpError(401, 'Credenciales invalidas');
+      const member = account.member;
+      const resolvedOrg =
+        org ?? (await prisma.organization.findUnique({ where: { id: account.organizationId } }));
+      if (!resolvedOrg) throw new HttpError(401, 'Credenciales invalidas');
 
       await prisma.portalAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
 
       const token = app.jwt.sign({ sub: account.id, typ: 'portal' } satisfies PortalJwt);
-      const ctx = await loadContext(org.id, member.id);
+      const ctx = await loadContext(resolvedOrg.id, member.id);
       return ok(reply, {
         token,
-        organization: { id: org.id, name: org.name, slug: org.slug, logoUrl: org.logoUrl, currency: org.currency },
+        organization: { id: resolvedOrg.id, name: resolvedOrg.name, slug: resolvedOrg.slug, logoUrl: resolvedOrg.logoUrl, currency: resolvedOrg.currency },
         member: { id: member.id, name: fullName(member.firstName, member.lastName), memberCode: member.memberCode, photoUrl: member.photoUrl },
         quota: ctx.quota,
       });
@@ -153,18 +161,26 @@ export function portalRoutes(app: FastifyInstance) {
   app.post('/portal/auth/activate', { onRequest: [rateLimit({ max: 10, windowMs: 10 * 60 * 1000, keyPrefix: 'portal-activate' })] }, async (request, reply) => {
     try {
       const input = validate(portalActivateSchema, request.body);
-      const org = await prisma.organization.findUnique({ where: { slug: input.organizationSlug } });
-      if (!org) throw new HttpError(400, 'Datos de activacion invalidos');
+      const code = input.activationCode.trim();
+      const org = input.organizationSlug
+        ? await prisma.organization.findUnique({ where: { slug: input.organizationSlug } })
+        : null;
+      if (input.organizationSlug && !org) throw new HttpError(400, 'Datos de activacion invalidos');
 
-      const member = await findMemberForLogin(org.id, input.identifier);
-      if (!member) throw new HttpError(400, 'Datos de activacion invalidos');
-
-      const account = await prisma.portalAccount.findUnique({ where: { memberId: member.id } });
-      if (!account) throw new HttpError(400, 'Datos de activacion invalidos');
-      if (!account.activationCode) throw new HttpError(400, 'La cuenta ya esta activada. Pedi un nuevo codigo en tu gimnasio si necesitas recuperar la clave.');
-      if (account.activationCode !== input.activationCode.trim()) {
+      const candidates = await findCandidateAccounts(input.identifier, org?.id);
+      const account = candidates.find((a) => a.activationCode != null && a.activationCode === code);
+      if (!account) {
+        const alreadyActive = candidates.find((a) => a.activationCode == null && a.passwordHash);
+        if (alreadyActive) {
+          throw new HttpError(400, 'La cuenta ya esta activada. Pedi un nuevo codigo en tu gimnasio si necesitas recuperar la clave.');
+        }
         throw new HttpError(400, 'Datos de activacion invalidos');
       }
+
+      const member = account.member;
+      const resolvedOrg =
+        org ?? (await prisma.organization.findUnique({ where: { id: account.organizationId } }));
+      if (!resolvedOrg) throw new HttpError(400, 'Datos de activacion invalidos');
 
       const passwordHash = await bcrypt.hash(input.password, 10);
       await prisma.portalAccount.update({
@@ -173,10 +189,10 @@ export function portalRoutes(app: FastifyInstance) {
       });
 
       const token = app.jwt.sign({ sub: account.id, typ: 'portal' } satisfies PortalJwt);
-      const ctx = await loadContext(org.id, member.id);
+      const ctx = await loadContext(resolvedOrg.id, member.id);
       return ok(reply, {
         token,
-        organization: { id: org.id, name: org.name, slug: org.slug, logoUrl: org.logoUrl, currency: org.currency },
+        organization: { id: resolvedOrg.id, name: resolvedOrg.name, slug: resolvedOrg.slug, logoUrl: resolvedOrg.logoUrl, currency: resolvedOrg.currency },
         member: { id: member.id, name: fullName(member.firstName, member.lastName), memberCode: member.memberCode, photoUrl: member.photoUrl },
         quota: ctx.quota,
       });

@@ -51,7 +51,7 @@ interface IntegrationStatus {
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
 
-type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face' | 'sistema';
+type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -61,7 +61,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'email', label: 'Email (SMTP)' },
   { key: 'print', label: 'Impresión' },
   { key: 'face', label: 'Reconocimiento facial' },
-  { key: 'sistema', label: 'Sistema' },
 ];
 
 export default function SettingsPage() {
@@ -274,12 +273,8 @@ export default function SettingsPage() {
               category="WHATSAPP"
               values={settings.WHATSAPP ?? {}}
               fields={[
-                { key: 'BUSINESS_PHONE', label: 'Teléfono del negocio (con código de país)', placeholder: '5491155551234' },
-                { key: 'WA_URL_BASE', label: 'Base del enlace', placeholder: 'https://wa.me' },
-                { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto' },
-                { key: 'CLOUD_TOKEN', label: 'Cloud API: Token permanente (secreto)', type: 'password', secret: true },
-                { key: 'PHONE_NUMBER_ID', label: 'Cloud API: Phone Number ID' },
-                { key: 'API_VERSION', label: 'Cloud API: Versión de Graph', placeholder: 'v20.0' },
+                { key: 'BUSINESS_PHONE', label: 'Número de WhatsApp del gimnasio (con código de país, sin + ni espacios)', placeholder: '5491155551234' },
+                { key: 'DEFAULT_MESSAGE', label: 'Mensaje que se escribe solo al abrir el chat (opcional)', placeholder: '¡Hola! Quería consultar por...' },
               ]}
               onSaved={load}
               extra={<WhatsappCard status={status} />}
@@ -288,16 +283,26 @@ export default function SettingsPage() {
 
           {tab === 'email' && (
             <CategoryForm
-              title="Email (SMTP)"
+              title="Email"
               category="SMTP"
               values={settings.SMTP ?? {}}
+              intro={
+                <p className="text-xs text-text-muted">
+                  Sirve para enviar la bienvenida y los avisos de vencimiento. Si usás Gmail, activá la verificación en
+                  2 pasos y creá una «contraseña de aplicación» (no uses tu contraseña normal).
+                </p>
+              }
+              presets={[
+                { label: 'Gmail', values: { SMTP_HOST: 'smtp.gmail.com', SMTP_PORT: '587', SMTP_SECURE: 'false' } },
+                { label: 'Outlook / Hotmail', values: { SMTP_HOST: 'smtp.office365.com', SMTP_PORT: '587', SMTP_SECURE: 'false' } },
+              ]}
               fields={[
-                { key: 'SMTP_HOST', label: 'Servidor SMTP', placeholder: 'smtp.tuproveedor.com' },
-                { key: 'SMTP_PORT', label: 'Puerto', placeholder: '587' },
-                { key: 'SMTP_SECURE', label: 'Conexión segura (true/false)', placeholder: 'false' },
-                { key: 'SMTP_USER', label: 'Usuario', placeholder: 'tu@correo.com' },
-                { key: 'SMTP_PASS', label: 'Contraseña (secreto)' },
-                { key: 'SMTP_FROM', label: 'Remitente', placeholder: 'FIT System <no-reply@tu.com>' },
+                { key: 'SMTP_USER', label: 'Correo desde el que enviás', placeholder: 'gimnasio@gmail.com' },
+                { key: 'SMTP_PASS', label: 'Contraseña de la aplicación', type: 'password', secret: true, help: 'En Gmail: Cuenta > Seguridad > Contraseñas de aplicaciones.' },
+                { key: 'SMTP_FROM', label: 'Nombre y correo que ve el socio', placeholder: 'Mi Gimnasio <gimnasio@gmail.com>' },
+                { key: 'SMTP_HOST', label: 'Servidor de correo', placeholder: 'smtp.gmail.com', advanced: true },
+                { key: 'SMTP_PORT', label: 'Puerto', placeholder: '587', advanced: true },
+                { key: 'SMTP_SECURE', label: 'Conexión segura (true/false)', placeholder: 'false', advanced: true },
               ]}
               onSaved={load}
               extra={<EmailCard status={status} />}
@@ -309,22 +314,36 @@ export default function SettingsPage() {
               title="Impresión"
               category="PRINT"
               values={settings.PRINT ?? {}}
+              intro={
+                <p className="text-xs text-text-muted">
+                  Elegí dónde se imprime el comprobante. Lo más común es «Impresora conectada a esta PC» y probar con el
+                  botón «Imprimir prueba».
+                </p>
+              }
               fields={[
                 {
                   key: 'DESTINATION',
-                  label: 'Destino de impresión',
+                  label: '¿Dónde imprimir?',
                   type: 'select',
                   options: [
-                    { value: 'server', label: 'Impresora de red / local' },
+                    { value: 'server', label: 'Impresora conectada a esta PC (red / USB)' },
                     { value: 'point', label: 'Impresora de la terminal Point' },
-                    { value: 'both', label: 'Ambas' },
+                    { value: 'both', label: 'En las dos' },
                   ],
                 },
-                { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999' },
-                { key: 'PRINTER_NAME', label: 'Impresora (opcional)', placeholder: 'EPSON TM-T20' },
-                { key: 'POINT_DEVICE_ID', label: 'Terminal Point para imprimir (opcional)', placeholder: 'NEWLAND_N950__...' },
-                { key: 'PRINT_ON_PAYMENT', label: 'Imprimir comprobante al cobrar (true/false)', placeholder: 'false' },
-                { key: 'TICKET_TEMPLATE', label: 'Plantilla de ticket', placeholder: 'default' },
+                { key: 'PRINTER_NAME', label: 'Nombre de la impresora (opcional)', placeholder: 'EPSON TM-T20' },
+                {
+                  key: 'PRINT_ON_PAYMENT',
+                  label: 'Imprimir automáticamente al cobrar',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí' },
+                    { value: 'false', label: 'No' },
+                  ],
+                },
+                { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999', advanced: true },
+                { key: 'POINT_DEVICE_ID', label: 'Terminal Point (opcional)', placeholder: 'NEWLAND_N950__...', advanced: true },
+                { key: 'TICKET_TEMPLATE', label: 'Plantilla de ticket', placeholder: 'default', advanced: true },
               ]}
               onSaved={load}
               extra={<PrintCard status={status} />}
@@ -336,15 +355,26 @@ export default function SettingsPage() {
               title="Reconocimiento facial"
               category="FACE"
               values={settings.FACE ?? {}}
+              intro={
+                <p className="text-xs text-text-muted">
+                  Para usar la cámara: abrí la ficha del socio y tocá «Registrar rostro». Después el socio entra mirando
+                  a la cámara desde «Registrar asistencia». Si la cámara no conecta, revisá que esté enchufada y que el
+                  navegador tenga permiso de cámara.
+                </p>
+              }
               fields={[
-                { key: 'MATCH_THRESHOLD', label: 'Umbral de coincidencia', placeholder: '0.55' },
+                {
+                  key: 'MATCH_THRESHOLD',
+                  label: 'Exigencia del reconocimiento',
+                  placeholder: '0.55',
+                  advanced: true,
+                  help: 'Valor entre 0.4 y 0.6 (más bajo = más estricto). Vacío = recomendado (0.55).',
+                },
               ]}
               onSaved={load}
               extra={<FaceInfoCard />}
             />
           )}
-
-          {tab === 'sistema' && <SystemPanel />}
         </>
       )}
     </div>
@@ -358,6 +388,8 @@ interface FieldDef {
   type?: 'text' | 'password' | 'textarea' | 'select';
   options?: { value: string; label: string }[];
   secret?: boolean;
+  advanced?: boolean;
+  help?: string;
 }
 
 function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSaved: () => void }) {
@@ -450,6 +482,8 @@ function CategoryForm({
   fields,
   onSaved,
   extra,
+  presets,
+  intro,
 }: {
   title: string;
   category: string;
@@ -457,16 +491,54 @@ function CategoryForm({
   fields: FieldDef[];
   onSaved: () => void;
   extra?: React.ReactNode;
+  presets?: { label: string; values: Record<string, string> }[];
+  intro?: React.ReactNode;
 }) {
   const toast = useToast();
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     const next: Record<string, string> = {};
     for (const f of fields) next[f.key] = values[f.key] ?? (f.options ? f.options[0]?.value ?? '' : '');
     setForm(next);
   }, [values, fields]);
+
+  const basicFields = fields.filter((f) => !f.advanced);
+  const advancedFields = fields.filter((f) => f.advanced);
+
+  function renderField(f: FieldDef) {
+    return (
+      <Field key={f.key} label={f.label}>
+        {f.type === 'select' ? (
+          <Select value={form[f.key] ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}>
+            {(f.options ?? []).map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        ) : f.type === 'textarea' ? (
+          <textarea
+            rows={4}
+            value={form[f.key] ?? ''}
+            placeholder={f.placeholder}
+            onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-text focus:border-primary focus:outline-none"
+          />
+        ) : (
+          <Input
+            type={f.type ?? 'text'}
+            value={form[f.key] ?? ''}
+            placeholder={f.placeholder}
+            onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+          />
+        )}
+        {f.help && <p className="mt-1 text-xs text-text-muted">{f.help}</p>}
+      </Field>
+    );
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -490,34 +562,35 @@ function CategoryForm({
     <div className="grid gap-5 lg:grid-cols-2">
       <Card title={title}>
         <form onSubmit={onSubmit} className="space-y-4">
-          {fields.map((f) => (
-            <Field key={f.key} label={f.label}>
-              {f.type === 'select' ? (
-                <Select value={form[f.key] ?? ''} onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}>
-                  {(f.options ?? []).map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              ) : f.type === 'textarea' ? (
-                <textarea
-                  rows={4}
-                  value={form[f.key] ?? ''}
-                  placeholder={f.placeholder}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-text focus:border-primary focus:outline-none"
-                />
-              ) : (
-                <Input
-                  type={f.type ?? 'text'}
-                  value={form[f.key] ?? ''}
-                  placeholder={f.placeholder}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                />
-              )}
-            </Field>
-          ))}
+          {intro}
+          {presets && presets.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-text-muted">Carga rápida:</span>
+              {presets.map((p) => (
+                <Button
+                  key={p.label}
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setForm((prev) => ({ ...prev, ...p.values }))}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          )}
+          {basicFields.map(renderField)}
+          {advancedFields.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="text-xs text-text-muted hover:text-text"
+              >
+                {showAdvanced ? 'Ocultar opciones avanzadas' : 'Mostrar opciones avanzadas'}
+              </button>
+              {showAdvanced && <div className="mt-4 space-y-4">{advancedFields.map(renderField)}</div>}
+            </div>
+          )}
           <Button type="submit" loading={saving}>
             Guardar
           </Button>
@@ -788,17 +861,13 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
   return (
     <Card title="Envío de mensajes">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge color={status?.whatsapp.cloudConfigured ? 'green' : 'gray'}>
-          {status?.whatsapp.cloudConfigured ? 'Cloud API (envío automático)' : 'Enlace wa.me (manual)'}
-        </Badge>
         <Badge color={status?.whatsapp.configured ? 'green' : 'gray'}>
-          {status?.whatsapp.configured ? 'Teléfono cargado' : 'Sin teléfono'}
+          {status?.whatsapp.configured ? 'Número cargado' : 'Sin número'}
         </Badge>
       </div>
       <p className="mt-3 text-sm text-text-muted">
-        {status?.whatsapp.cloudConfigured
-          ? 'Los avisos se envían automáticamente por la WhatsApp Cloud API de Meta.'
-          : 'Sin Cloud API configurada, los avisos generan un enlace wa.me que se abre desde el celular. Cargá el Token y el Phone Number ID para envío automático.'}
+        Los mensajes se envían abriendo WhatsApp con el chat y el mensaje ya escritos. Solo necesitás cargar el
+        número del gimnasio; no hace falta ninguna cuenta de empresa ni API.
       </p>
       {link && (
         <a

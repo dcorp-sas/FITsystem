@@ -1,6 +1,6 @@
 {
-  "version": "0.3.2",
+  "version": "0.3.3",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Prueba de 15 días, ingreso automático al panel sin login y bloqueo de la app al vencer la prueba sin licencia.",
+  "notes": "App de socios con ingreso solo por DNI y contraseña. Configuración más simple (WhatsApp, email e impresión) y reconocimiento facial con cámara funcionando.",
   "mandatory": false
 }

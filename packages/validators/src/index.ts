@@ -541,14 +541,16 @@ export const arcaPointPrintSchema = z.object({
 // Portal de socios (app movil)
 // ---------------------------------------------------------------------------
 
+// El gimnasio (organizationSlug) es opcional: si no viene, el sistema resuelve
+// la organizacion a partir del DNI/email del socio (busqueda global).
 export const portalLoginSchema = z.object({
-  organizationSlug: z.string().min(1),
-  identifier: z.string().min(3), // email o numero de documento
+  organizationSlug: z.string().min(1).optional(),
+  identifier: z.string().min(3), // DNI, email, legajo o telefono
   password: z.string().min(1),
 });
 
 export const portalActivateSchema = z.object({
-  organizationSlug: z.string().min(1),
+  organizationSlug: z.string().min(1).optional(),
   identifier: z.string().min(3),
   activationCode: z.string().min(4),
   password: z.string().min(6, 'La contrasena debe tener al menos 6 caracteres'),

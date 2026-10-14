@@ -273,17 +273,19 @@ export interface PaymentIntent {
 // ---------------------------------------------------------------------------
 
 export const portal = {
-  login: (organizationSlug: string, identifier: string, password: string) =>
+  // El gimnasio no hace falta: el servidor resuelve la organizacion por el DNI
+  // (o email/legajo) del socio.
+  login: (identifier: string, password: string) =>
     request<LoginResponse>('/api/portal/auth/login', {
       method: 'POST',
-      body: { organizationSlug, identifier, password },
+      body: { identifier, password },
       auth: false,
     }),
 
-  activate: (organizationSlug: string, identifier: string, activationCode: string, password: string) =>
+  activate: (identifier: string, activationCode: string, password: string) =>
     request<LoginResponse>('/api/portal/auth/activate', {
       method: 'POST',
-      body: { organizationSlug, identifier, activationCode, password },
+      body: { identifier, activationCode, password },
       auth: false,
     }),
 

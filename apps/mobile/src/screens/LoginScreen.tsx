@@ -4,13 +4,11 @@ import { colors, spacing } from '../theme';
 import { PrimaryButton, Title } from '../components/ui';
 import { portal, setToken, type LoginResponse } from '../lib/api';
 
-const DEMO_ORG = 'fit-demo';
 const DEMO_IDENTIFIER = 'juan@mail.com';
 const DEMO_PASSWORD = 'socio123';
 
 export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) => void }) {
   const [mode, setMode] = useState<'login' | 'activate'>('login');
-  const [orgSlug, setOrgSlug] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [activationCode, setActivationCode] = useState('');
@@ -23,8 +21,8 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
     try {
       const session =
         mode === 'login'
-          ? await portal.login(orgSlug.trim(), identifier.trim(), password)
-          : await portal.activate(orgSlug.trim(), identifier.trim(), activationCode.trim(), password);
+          ? await portal.login(identifier.trim(), password)
+          : await portal.activate(identifier.trim(), activationCode.trim(), password);
       setToken(session.token);
       onLogged(session);
     } catch (err) {
@@ -38,7 +36,7 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
     setError(null);
     setLoading(true);
     try {
-      const session = await portal.login(DEMO_ORG, DEMO_IDENTIFIER, DEMO_PASSWORD);
+      const session = await portal.login(DEMO_IDENTIFIER, DEMO_PASSWORD);
       setToken(session.token);
       onLogged(session);
     } catch (err) {
@@ -58,23 +56,13 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Gimnasio (codigo)</Text>
-          <TextInput
-            style={styles.input}
-            value={orgSlug}
-            onChangeText={setOrgSlug}
-            autoCapitalize="none"
-            placeholder="mi-gimnasio"
-            placeholderTextColor={colors.textMuted}
-          />
-
-          <Text style={styles.label}>Email, DNI o legajo</Text>
+          <Text style={styles.label}>DNI</Text>
           <TextInput
             style={styles.input}
             value={identifier}
             onChangeText={setIdentifier}
             autoCapitalize="none"
-            placeholder="tu@email.com"
+            placeholder="12345678"
             placeholderTextColor={colors.textMuted}
           />
 
@@ -109,7 +97,7 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
               label={mode === 'login' ? 'Ingresar' : 'Activar cuenta'}
               onPress={submit}
               loading={loading}
-              disabled={!orgSlug || !identifier || !password}
+              disabled={!identifier || !password}
             />
             <PrimaryButton
               label={mode === 'login' ? 'Tengo un codigo de activacion' : 'Ya tengo cuenta'}
@@ -128,10 +116,10 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
           </View>
         </View>
 
-        <Text style={styles.hint}>El codigo y las claves de acceso te los entrega tu gimnasio al darte de alta.</Text>
         <Text style={styles.hint}>
-          Demo: gimnasio {DEMO_ORG} · {DEMO_IDENTIFIER} · {DEMO_PASSWORD}
+          Ingresa con tu DNI y tu contrasena. La primera vez, usa el codigo de activacion que te dio tu gimnasio.
         </Text>
+        <Text style={styles.hint}>Tu gimnasio te entrega el codigo y la clave al darte de alta.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

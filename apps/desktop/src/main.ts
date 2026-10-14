@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, session, shell, dialog, ipcMain } from 'electron';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
@@ -867,9 +867,28 @@ app.on('second-instance', () => {
   }
 });
 
+// Permite el uso de la cámara (reconocimiento facial / check-in) sólo para el
+// panel local. Sin esto, Electron bloquea getUserMedia y la cámara "no conecta".
+function grantLocalMediaPermissions() {
+  const isLocal = (url: string) =>
+    url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost');
+  const allowed = new Set(['media', 'camera', 'microphone', 'mediaKeySystem', 'audioCapture', 'videoCapture']);
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(allowed.has(permission) && isLocal(webContents.getURL()));
+  });
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
+    allowed.has(permission) && isLocal(requestingOrigin),
+  );
+}
+
 app.whenReady().then(async () => {
   if (!gotSingleInstanceLock) return;
   log('=== FIT System iniciando ===', 'packaged=', app.isPackaged, 'userData=', app.getPath('userData'));
+  try {
+    grantLocalMediaPermissions();
+  } catch (err) {
+    log('No se pudo configurar el permiso de cámara:', (err as Error).message);
+  }
   try {
     printServer = startPrintServer();
   } catch (err) {
