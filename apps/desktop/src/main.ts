@@ -30,6 +30,7 @@ type UpdateState = { state: string; version?: string; percent?: number; message?
 let apiProcess: ChildProcess | null = null;
 let webProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
+let lastUpdateState: UpdateState | null = null;
 // Pantalla de activación opcional (respaldo). En uso normal la licencia se
 // administra desde Configuración > Licencia y no se muestra al ingresar.
 let activationWindow: BrowserWindow | null = null;
@@ -463,6 +464,9 @@ async function checkForUpdates(silent = false): Promise<UpdateInfo | null> {
 }
 
 function emitUpdate(payload: UpdateState) {
+  // Guardamos el último estado para que cualquier pantalla pueda consultarlo
+  // (banner global) aunque el evento se haya emitido antes de montar el listener.
+  lastUpdateState = payload;
   try {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:event', payload);
   } catch {
@@ -491,6 +495,7 @@ async function initAutoUpdater() {
 
 function registerUpdateIpc() {
   ipcMain.handle('update:check', async () => checkForUpdates(false));
+  ipcMain.handle('update:state', () => lastUpdateState);
   ipcMain.handle('update:download', async () => {
     if (!updater) return { ok: false, error: 'Actualizador no disponible' };
     try {

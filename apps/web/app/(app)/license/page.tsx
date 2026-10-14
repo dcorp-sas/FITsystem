@@ -6,6 +6,7 @@ import { useToast } from '@/lib/toast';
 import { formatDate } from '@fitsystem/utils';
 import { Badge, Button, Card, Field, Input, PageHeader, Spinner, StatCard } from '@/components/ui';
 import { Icon } from '@/components/icon';
+import type { UpdateEvent } from '@/lib/desktop';
 
 interface LicenseInfo {
   plan: string;
@@ -33,26 +34,6 @@ const STATUS_LABELS: Record<string, string> = {
   SUSPENDED: 'Suspendida',
   UNACTIVATED: 'Sin activar',
 };
-
-interface UpdateEvent {
-  state: 'checking' | 'available' | 'up-to-date' | 'downloading' | 'downloaded' | 'error';
-  version?: string;
-  percent?: number;
-  message?: string;
-}
-
-interface DesktopBridge {
-  checkUpdates?: () => Promise<unknown>;
-  downloadUpdate?: () => Promise<{ ok: boolean; error?: string }>;
-  installUpdate?: () => Promise<{ ok: boolean; error?: string }>;
-  onUpdateEvent?: (listener: (payload: UpdateEvent) => void) => () => void;
-}
-
-declare global {
-  interface Window {
-    fitsystem?: DesktopBridge;
-  }
-}
 
 export default function LicensePage() {
   const toast = useToast();
