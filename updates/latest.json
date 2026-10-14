@@ -1,6 +1,6 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Aviso de actualizaciones en todo el sistema con botón Actualizar sistema, sección de producto con capturas y despliegue self-hosted con Docker.",
+  "notes": "Corrige un cierre inesperado si otra instancia ya estaba abierta (puerto de impresión ocupado) y evita abrir dos instancias a la vez.",
   "mandatory": false
 }
