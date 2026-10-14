@@ -34,7 +34,10 @@ function requireAdminKey(headers: Record<string, unknown>) {
 // Los endpoints de licencia de instalacion son publicos SOLO en el producto de
 // escritorio (API local, con LICENSE_INSTALLATION_ID embebido). En la nube
 // requieren el header de administracion para evitar creacion/probe de licencias.
-function licenseEntry(request: FastifyRequest) {
+// Debe ser async: Fastify avanza los hooks solo si devuelven una promesa o
+// invocan el callback `next` (un hook sincrono que solo retorna deja la request
+// colgada indefinidamente).
+async function licenseEntry(request: FastifyRequest) {
   if (env.LICENSE_INSTALLATION_ID) return;
   requireAdminKey(request.headers as Record<string, unknown>);
 }
@@ -102,7 +105,10 @@ export function licenseRoutes(app: FastifyInstance) {
   app.post('/license/validate', { onRequest: [licenseEntry, rateLimit({ max: 60, windowMs: 60 * 60 * 1000, keyPrefix: 'license-validate' })] }, async (request, reply) => {
     try {
       const input = validate(licenseValidateSchema, request.body);
-      const license = await validateLicense(resolveInstallationId(input.installationId), input.licenseKey ?? null);
+      const license = await validateLicense(resolveInstallationId(input.installationId), input.licenseKey ?? null, {
+        machineName: input.machineName ?? null,
+        firstRunAt: input.firstRunAt ?? null,
+      });
       return ok(reply, {
         info: licenseInfo(license),
         config: licenseConfigPayload(),

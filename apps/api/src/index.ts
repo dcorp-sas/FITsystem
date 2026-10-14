@@ -6,7 +6,7 @@ import { prisma } from './db.js';
 import { registerAuth } from './lib/auth.js';
 import { HttpError } from './lib/http.js';
 import { ensureSchema } from './lib/schema.js';
-import { assertLicenseUsable } from './services/license.js';
+import { assertLicenseUsable, assertInstallationUsable } from './services/license.js';
 
 import authRoutes from './routes/auth.js';
 import orgRoutes from './routes/org.js';
@@ -70,12 +70,11 @@ export async function buildServer() {
 
   await registerAuth(app);
 
-  // Enforcement de licencia en la nube/escritorio: bloquea escrituras cuando la
-  // licencia esta vencida/suspendida. Las lecturas y las rutas de licencia/auth/
-  // portal siempre se permiten (activacion y app del socio no se bloquean).
-  app.addHook('preHandler', async (request, reply) => {
-    const method = request.method.toUpperCase();
-    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+  // Enforcement de licencia: en el escritorio es un bloqueo DURO (vence la
+  // prueba y no hay licencia => no opera el panel, ni lectura ni escritura). En
+  // la nube solo bloquea escrituras. Las rutas de licencia/auth/portal siempre
+  // se permiten (activación y app del socio no se bloquean).
+  app.addHook('preHandler', async (request, _reply) => {
     const url = request.url.split('?')[0] ?? '';
     if (!url.startsWith('/api/')) return;
     if (
@@ -87,6 +86,14 @@ export async function buildServer() {
     ) {
       return;
     }
+
+    if (env.LICENSE_INSTALLATION_ID) {
+      await assertInstallationUsable();
+      return;
+    }
+
+    const method = request.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
     const authed = request as { user?: { organizationId?: string } };
     const organizationId = authed.user?.organizationId;
     if (!organizationId) return;

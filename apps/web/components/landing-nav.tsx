@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Icon } from '@/components/icon';
 
 const LINKS = [
@@ -38,12 +37,6 @@ export function LandingNav() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link
-            href="/login"
-            className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
-          >
-            Iniciar sesión
-          </Link>
           <a
             href="#contacto"
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
@@ -77,12 +70,6 @@ export function LandingNav() {
             ))}
           </nav>
           <div className="mt-3 flex flex-col gap-2">
-            <Link
-              href="/login"
-              className="rounded-lg border border-line px-4 py-2.5 text-center text-sm font-medium text-text transition-colors hover:bg-surface-alt"
-            >
-              Iniciar sesión
-            </Link>
             <a
               href="#contacto"
               onClick={() => setOpen(false)}

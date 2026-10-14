@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 
@@ -102,22 +102,73 @@ function waitForUrl(url: string, timeoutMs = 90000): Promise<void> {
 // Licencia
 // ---------------------------------------------------------------------------
 
+// Identificador estable del equipo: combina el MachineGuid de Windows con el
+// nombre del equipo y el usuario. Al derivar de esto el ID de instalación y el
+// ancla de la prueba, reinstalar el sistema NO reinicia los 15 días.
+function getMachineId(): string {
+  let guid = '';
+  try {
+    const out = execFileSync('reg', ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+    const match = out.match(/MachineGuid\s+REG_SZ\s+([0-9a-fA-F-]+)/);
+    if (match?.[1]) guid = match[1];
+  } catch {
+    /* sin acceso: se usa el fallback */
+  }
+  const base = `${os.hostname()}|${os.userInfo().username}|${guid}`;
+  return crypto.createHash('sha256').update(base).digest('hex');
+}
+
+const TRIAL_REG_KEY = 'HKCU\\Software\\FITSystem';
+const TRIAL_REG_VALUE = 'FirstRunAt';
+
+function readRegistryValue(key: string, name: string): string | null {
+  try {
+    const out = execFileSync('reg', ['query', key, '/v', name], { encoding: 'utf8', windowsHide: true });
+    const match = out.match(new RegExp(`${name}\\s+REG_SZ\\s+(.+)`));
+    if (match?.[1]) return match[1].trim();
+  } catch {
+    /* valor inexistente */
+  }
+  return null;
+}
+
+function writeRegistryValue(key: string, name: string, value: string): void {
+  try {
+    execFileSync('reg', ['add', key, '/v', name, '/t', 'REG_SZ', '/d', value, '/f'], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+  } catch {
+    /* sin permisos: se ignora */
+  }
+}
+
+// Marca de primera ejecución de la prueba. Se guarda en el registro de Windows
+// (fuera de AppData) para que sobreviva a reinstalaciones y limpiezas de datos.
+function getTrialAnchor(): string {
+  const existing = readRegistryValue(TRIAL_REG_KEY, TRIAL_REG_VALUE);
+  if (existing) return existing;
+  const now = new Date().toISOString();
+  writeRegistryValue(TRIAL_REG_KEY, TRIAL_REG_VALUE, now);
+  return now;
+}
+
+// ID de instalación determinista por equipo (mismo equipo => mismo ID). Así la
+// licencia/prueba registrada en la API se reutiliza tras reinstalar.
 function getInstallationId(): string {
+  const machineId = getMachineId();
+  const installationId = `inst_${crypto.createHash('sha256').update(`fitsystem|${machineId}`).digest('hex').slice(0, 32)}`;
   const file = path.join(app.getPath('userData'), 'installation.json');
   try {
-    if (fs.existsSync(file)) {
-      const data = JSON.parse(fs.readFileSync(file, 'utf8')) as { installationId?: string };
-      if (data.installationId) return data.installationId;
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ installationId, machineName: os.hostname(), createdAt: new Date().toISOString() }, null, 2),
+      );
     }
-  } catch {
-    /* regenerate */
-  }
-  const installationId = crypto.randomUUID();
-  try {
-    fs.writeFileSync(
-      file,
-      JSON.stringify({ installationId, machineName: os.hostname(), createdAt: new Date().toISOString() }, null, 2),
-    );
   } catch {
     /* ignore */
   }
@@ -145,7 +196,7 @@ function getApiSecret(): string {
   return secret;
 }
 
-function apiJson(method: string, pathname: string, body?: unknown): Promise<Record<string, any>> {
+function apiJson(method: string, pathname: string, body?: unknown, timeoutMs = 15000): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const req = http.request(
@@ -163,6 +214,7 @@ function apiJson(method: string, pathname: string, body?: unknown): Promise<Reco
         let data = '';
         res.on('data', (c) => (data += c));
         res.on('end', () => {
+          clearTimeout(timer);
           try {
             resolve(JSON.parse(data || '{}'));
           } catch {
@@ -171,7 +223,13 @@ function apiJson(method: string, pathname: string, body?: unknown): Promise<Reco
         });
       },
     );
-    req.on('error', reject);
+    // Sin timeout, una request colgada (p. ej. un endpoint bloqueado) impide que
+    // la app avance. Abortamos y rechazamos para que el llamador pueda seguir.
+    const timer = setTimeout(() => req.destroy(new Error('Tiempo de espera agotado')), timeoutMs);
+    req.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     if (payload) req.write(payload);
     req.end();
   });
@@ -179,7 +237,11 @@ function apiJson(method: string, pathname: string, body?: unknown): Promise<Reco
 
 async function checkLicense(): Promise<LicenseInfo | null> {
   const installationId = getInstallationId();
-  const res = await apiJson('POST', '/api/license/validate', { installationId });
+  const res = await apiJson('POST', '/api/license/validate', {
+    installationId,
+    machineName: os.hostname(),
+    firstRunAt: getTrialAnchor(),
+  });
   licenseInfo = (res?.data?.info as LicenseInfo) ?? null;
   if (res?.data?.config) licenseConfig = { ...licenseConfig, ...(res.data.config as Partial<LicenseConfig>) };
   return licenseInfo;
@@ -334,7 +396,16 @@ function registerLicenseIpc() {
       activationWindow.close();
       activationWindow = null;
     }
-    if (!mainWindow) await createWindow();
+    if (!mainWindow) {
+      await createWindow();
+    } else {
+      // Si la ventana principal mostraba la pantalla de activación, se recarga el panel.
+      try {
+        await mainWindow.loadURL(appUrl());
+      } catch (err) {
+        log('No se pudo abrir el panel tras activar:', (err as Error).message);
+      }
+    }
     return true;
   });
 
@@ -477,7 +548,18 @@ function emitUpdate(payload: UpdateState) {
 async function initAutoUpdater() {
   if (!app.isPackaged) return;
   try {
-    const { autoUpdater } = await import('electron-updater');
+    // Interop ESM/CJS: segun como se empaquete, el export puede venir en el
+    // namespace o en `.default`. Sin esto, `autoUpdater` es undefined y la
+    // auto-actualizacion falla ("Cannot set properties of undefined").
+    const mod = (await import('electron-updater')) as unknown as {
+      autoUpdater?: typeof import('electron-updater').autoUpdater;
+      default?: { autoUpdater?: typeof import('electron-updater').autoUpdater };
+    };
+    const autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater;
+    if (!autoUpdater) {
+      log('electron-updater no disponible: el modulo no expone autoUpdater');
+      return;
+    }
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.on('checking-for-update', () => emitUpdate({ state: 'checking' }));
@@ -591,6 +673,23 @@ function stopServices() {
   }
 }
 
+function appUrl(): string {
+  return app.isPackaged ? `http://127.0.0.1:${WEB_PORT}/dashboard` : 'http://localhost:3000/dashboard';
+}
+
+// Bloqueo duro: si la prueba venció y no hay licencia, la ventana principal
+// muestra SOLO la pantalla de activación (no se entra al panel).
+async function showActivationInMain(info: LicenseInfo | null): Promise<void> {
+  if (!mainWindow) return;
+  const htmlFile = path.join(app.getPath('userData'), 'activation.html');
+  try {
+    fs.writeFileSync(htmlFile, activationHtml(info));
+    await mainWindow.loadFile(htmlFile);
+  } catch (err) {
+    log('No se pudo mostrar la pantalla de activación:', (err as Error).message);
+  }
+}
+
 async function createWindow() {
   const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
   mainWindow = new BrowserWindow({
@@ -612,9 +711,7 @@ async function createWindow() {
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
 
-  const url = app.isPackaged
-    ? `http://127.0.0.1:${WEB_PORT}/dashboard`
-    : 'http://localhost:3000/dashboard';
+  const url = appUrl();
   try {
     await mainWindow.loadURL(url);
   } catch (err) {
@@ -802,18 +899,23 @@ app.whenReady().then(async () => {
   registerLicenseIpc();
   registerUpdateIpc();
 
+  // La ventana se crea SIEMPRE primero: nunca debe quedar sin abrir por una
+  // validación de licencia/red lenta o colgada. La licencia se consulta después.
+  await createWindow();
+
   if (app.isPackaged && servicesReady) {
     try {
       const info = await checkLicense();
       log('Estado de licencia al iniciar:', info?.plan, info?.status, 'usable=', info?.isUsable);
+      // Bloqueo duro: prueba vencida / licencia suspendida y sin activar => el
+      // panel queda inaccesible; solo se muestra la pantalla de activación.
+      if (info && !info.isUsable) {
+        await showActivationInMain(info);
+      }
     } catch (err) {
       log('No se pudo validar la licencia:', (err as Error).message);
     }
   }
-
-  // La licencia se administra desde Configuración > Licencia. No bloqueamos el
-  // ingreso: el sistema arranca en prueba hasta que el usuario pegue su clave.
-  await createWindow();
 
   // Auto-actualización (electron-updater): consulta GitHub Releases al iniciar
   // (silenciosa) y cada 6 horas. Requiere la app instalada (NSIS); el build

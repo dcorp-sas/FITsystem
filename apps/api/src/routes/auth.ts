@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
+import crypto from 'node:crypto';
 import { prisma } from '../db.js';
 import {
   loginSchema,
@@ -16,6 +17,7 @@ import { rateLimit } from '../lib/ratelimit.js';
 import { logActivity } from '../lib/activity.js';
 import { sendEmail } from '../services/email.js';
 import { ensureOrgLicense } from '../services/license.js';
+import { env } from '../env.js';
 import {
   decryptSecret,
   encryptSecret,
@@ -82,6 +84,61 @@ export function authRoutes(app: FastifyInstance) {
       branches,
     };
   }
+
+  /**
+   * Organización/usuario "local" del producto de escritorio. FIT System en la PC
+   * de un gimnasio es single-tenant: no hay pantalla de login, entra directo como
+   * administrador. Esta función crea (de forma idempotente) la organización, la
+   * sede y el usuario OWNER por defecto.
+   */
+  async function ensureLocalOwner() {
+    const slug = 'local';
+    let org = await prisma.organization.findUnique({ where: { slug } });
+    if (!org) {
+      org = await prisma.organization.create({ data: { name: 'FIT System', slug, currency: 'ARS' } });
+    }
+    let branch = await prisma.branch.findFirst({ where: { organizationId: org.id }, orderBy: { name: 'asc' } });
+    if (!branch) {
+      branch = await prisma.branch.create({ data: { organizationId: org.id, name: 'Sede Central', code: 'SC' } });
+    }
+    await ensureOrgLicense(org.id).catch(() => undefined);
+    const email = 'admin@fitsystem.local';
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      const passwordHash = await bcrypt.hash(crypto.randomUUID(), 10);
+      user = await prisma.user.create({
+        data: {
+          organizationId: org.id,
+          branchId: branch.id,
+          name: 'Administrador',
+          email,
+          passwordHash,
+          role: 'OWNER',
+        },
+      });
+    } else if (!user.branchId) {
+      user = await prisma.user.update({ where: { id: user.id }, data: { branchId: branch.id } });
+    }
+    return user;
+  }
+
+  /* Sesión automática del panel de escritorio. Solo existe en la instalación
+   * local (API embebida); en la nube responde 404. */
+  app.post('/auth/desktop-session', async (_request, reply) => {
+    try {
+      if (!env.LICENSE_INSTALLATION_ID) throw new HttpError(404, 'No disponible');
+      const user = await ensureLocalOwner();
+      await logActivity(
+        { user: { id: user.id, organizationId: user.organizationId, branchId: user.branchId, name: user.name, email: user.email, role: user.role } } as unknown as AuthedRequest,
+        'LOGIN',
+        'USER',
+        user.id,
+      );
+      return ok(reply, await issueSession(user));
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
 
   app.post('/auth/register', { onRequest: [rateLimit({ max: 5, windowMs: 60 * 60 * 1000, keyPrefix: 'register' })] }, async (request, reply) => {
     try {

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.1",
+  "version": "0.3.2",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Corrige un cierre inesperado si otra instancia ya estaba abierta (puerto de impresión ocupado) y evita abrir dos instancias a la vez.",
+  "notes": "Prueba de 15 días, ingreso automático al panel sin login y bloqueo de la app al vencer la prueba sin licencia.",
   "mandatory": false
 }

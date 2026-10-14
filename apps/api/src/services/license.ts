@@ -97,10 +97,46 @@ export function parseLicenseKey(key: string): ParsedLicense {
   return { plan: parsed.plan, seats: parsed.seats, expiresAt: parsed.expiresAt, client: parsed.client };
 }
 
-async function getOrCreateLicense(installationId: string, machineName?: string | null) {
+/**
+ * Normaliza el ancla de primera ejecución enviada por el escritorio (registro de
+ * Windows). Solo se aceptan fechas pasadas y razonables: una fecha futura se
+ * ignora (no permite adelantar ni atrasar el vencimiento de la prueba).
+ */
+function clampTrialStart(value?: string | null): Date | null {
+  if (!value) return null;
+  const t = new Date(value).getTime();
+  if (!Number.isFinite(t)) return null;
+  const now = Date.now();
+  if (t > now) return null;
+  if (t < now - 10 * 365 * 86400000) return null;
+  return new Date(t);
+}
+
+async function getOrCreateLicense(installationId: string, machineName?: string | null, firstRunAt?: string | null) {
+  const anchor = clampTrialStart(firstRunAt);
   const existing = await prisma.license.findUnique({ where: { installationId } });
-  if (existing) return existing;
-  const trialExpiry = new Date(Date.now() + env.LICENSE_TRIAL_DAYS * 86400000);
+  if (existing) {
+    // La prueba solo puede acortarse, nunca extenderse: si el ancla (registro de
+    // Windows) es anterior al inicio registrado, adelantamos el vencimiento.
+    const updates: { activatedAt?: Date; expiresAt?: Date; machineName?: string } = {};
+    if (existing.plan === 'TRIAL' && anchor) {
+      const currentStart = existing.activatedAt?.getTime() ?? Date.now();
+      if (anchor.getTime() < currentStart) {
+        updates.activatedAt = anchor;
+        const anchoredExpiry = anchor.getTime() + env.LICENSE_TRIAL_DAYS * 86400000;
+        if (!existing.expiresAt || anchoredExpiry < existing.expiresAt.getTime()) {
+          updates.expiresAt = new Date(anchoredExpiry);
+        }
+      }
+    }
+    if (machineName && !existing.machineName) updates.machineName = machineName;
+    if (Object.keys(updates).length) {
+      return prisma.license.update({ where: { id: existing.id }, data: updates });
+    }
+    return existing;
+  }
+  const start = clampTrialStart(firstRunAt) ?? new Date();
+  const trialExpiry = new Date(start.getTime() + env.LICENSE_TRIAL_DAYS * 86400000);
   return prisma.license.create({
     data: {
       installationId,
@@ -109,7 +145,7 @@ async function getOrCreateLicense(installationId: string, machineName?: string |
       status: 'TRIAL',
       machineName: machineName ?? null,
       expiresAt: trialExpiry,
-      activatedAt: new Date(),
+      activatedAt: start,
     },
   });
 }
@@ -235,8 +271,12 @@ async function maybeRevalidate(license: {
   }
 }
 
-export async function validateLicense(installationId: string, licenseKey?: string | null): Promise<License> {
-  const license = await getOrCreateLicense(installationId);
+export async function validateLicense(
+  installationId: string,
+  licenseKey?: string | null,
+  opts?: { machineName?: string | null; firstRunAt?: string | null },
+): Promise<License> {
+  const license = await getOrCreateLicense(installationId, opts?.machineName, opts?.firstRunAt);
   let status = license.status;
 
   if (license.expiresAt && license.expiresAt.getTime() < Date.now()) {
@@ -328,6 +368,35 @@ export function invalidateLicenseGuard(organizationId?: string): void {
   }
   guardCache.delete(`org:${organizationId}`);
   guardCache.delete(`inst:${organizationId}`);
+}
+
+/**
+ * Bloqueo duro del producto de escritorio: si la licencia de la instalación no
+ * es usable (prueba vencida o licencia suspendida) se deniega toda operación del
+ * panel, tanto lectura como escritura. La activación y la app del socio quedan
+ * exceptuadas para poder renovar / operar. El ancla de la prueba vive fuera de la
+ * base (registro de Windows) para que no se reinicie al reinstalar.
+ */
+export async function assertInstallationUsable(): Promise<void> {
+  const id = env.LICENSE_INSTALLATION_ID;
+  if (!id) return;
+  const key = `inst:${id}`;
+  const cached = guardCache.get(key);
+  if (cached && Date.now() - cached.at < GUARD_TTL_MS) {
+    if (!cached.usable) throw new HttpError(402, cached.message || 'Licencia vencida');
+    return;
+  }
+  const license = await prisma.license.findUnique({ where: { installationId: id } });
+  if (!license) {
+    guardCache.set(key, { usable: true, at: Date.now() });
+    return;
+  }
+  const usable = isUsable(license.status, license.expiresAt);
+  const message = usable
+    ? undefined
+    : 'La prueba gratuita finalizó. Activá tu licencia para seguir usando FIT System.';
+  guardCache.set(key, { usable, message, at: Date.now() });
+  if (!usable) throw new HttpError(402, message!);
 }
 
 export function licenseInfo(license: {

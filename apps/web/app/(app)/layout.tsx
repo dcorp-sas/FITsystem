@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Sidebar } from '@/components/sidebar';
@@ -11,20 +9,25 @@ import { Spinner } from '@/components/ui';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
 
-  useEffect(() => {
-    if (ready && !user) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-    }
-  }, [ready, user, router, pathname]);
-
-  if (!ready || !user) {
+  if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center gap-3 text-text-muted">
         <Spinner className="h-6 w-6" />
         Cargando...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6 text-center">
+        <div className="max-w-md space-y-2">
+          <h1 className="text-lg font-semibold text-text">Panel no disponible</h1>
+          <p className="text-sm text-text-muted">
+            El panel del gimnasio se administra desde la aplicación de escritorio de FIT System.
+          </p>
+        </div>
       </div>
     );
   }

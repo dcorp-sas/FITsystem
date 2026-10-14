@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { LandingNav } from '@/components/landing-nav';
 import { Icon, type IconName } from '@/components/icon';
 
@@ -11,7 +10,7 @@ export const metadata: Metadata = {
 
 const CONTACT_EMAIL = 'contacto@fitsystem.app';
 const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = 15;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
 const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://fitsystem-socios.onrender.com';
@@ -152,12 +151,6 @@ export default function LandingPage() {
                 <Icon name="dashboard" size={18} />
                 Pedir una demo
               </a>
-              <Link
-                href="/login"
-                className="inline-flex h-12 items-center gap-2 rounded-lg border border-line px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
-              >
-                Iniciar sesión
-              </Link>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-text-muted">
@@ -436,10 +429,10 @@ export default function LandingPage() {
               },
               {
                 icon: 'reports' as IconName,
-                title: 'Panel en la nube',
-                text: 'Accedé a tu gestión desde cualquier navegador con tu usuario y contraseña.',
-                cta: 'Iniciar sesión',
-                href: '/login',
+                title: 'Acceso desde la PC del gimnasio',
+                text: 'Accedé a tu gestión desde la computadora del gimnasio con la aplicación de escritorio; entra directo, sin usuario ni contraseña.',
+                cta: 'Pedir demo',
+                href: '#contacto',
                 note: 'Para administradores y recepción',
               },
             ].map((item) => (
@@ -578,7 +571,6 @@ export default function LandingPage() {
             <div>
               <h4 className="text-sm font-semibold text-text">Acceso</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-text-muted">
-                <li><Link href="/login" className="transition-colors hover:text-text">Iniciar sesión</Link></li>
                 <li><a href="#contacto" className="transition-colors hover:text-text">Contacto</a></li>
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
               </ul>

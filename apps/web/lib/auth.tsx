@@ -50,29 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeBranchId, setActiveBranchIdState] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setReady(true);
-      return;
-    }
-    api<{ user: AuthUser; organization: Organization; branches: Branch[] }>('/auth/me')
-      .then((data) => {
-        setUser(data.user);
-        setOrganization(data.organization);
-        setBranches(data.branches);
-        if (typeof window !== 'undefined') {
-          const saved = window.localStorage.getItem('fit_branch');
-          if (saved && data.branches.some((b) => b.id === saved)) setActiveBranchIdState(saved);
-          else setActiveBranchIdState(data.user.branchId || data.branches[0]?.id || null);
-        }
-      })
-      .catch(() => {
-        setToken(null);
-      })
-      .finally(() => setReady(true));
-  }, []);
-
   const applySession = useCallback(
     (data: { token: string; user: AuthUser; organization: Organization; branches: Branch[] }) => {
       setToken(data.token);
@@ -83,6 +60,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const token = getToken();
+    const bootstrap = async () => {
+      if (token) {
+        try {
+          const data = await api<{ user: AuthUser; organization: Organization; branches: Branch[] }>('/auth/me');
+          if (cancelled) return;
+          setUser(data.user);
+          setOrganization(data.organization);
+          setBranches(data.branches);
+          if (typeof window !== 'undefined') {
+            const saved = window.localStorage.getItem('fit_branch');
+            if (saved && data.branches.some((b) => b.id === saved)) setActiveBranchIdState(saved);
+            else setActiveBranchIdState(data.user.branchId || data.branches[0]?.id || null);
+          }
+        } catch {
+          setToken(null);
+        }
+        if (!cancelled) setReady(true);
+        return;
+      }
+      // Sin token: el panel de escritorio (single-tenant) entra directo como
+      // administrador local. En la nube este endpoint no existe y queda sin sesión.
+      try {
+        const data = await api<{ token: string; user: AuthUser; organization: Organization; branches: Branch[] }>(
+          '/auth/desktop-session',
+          { method: 'POST' },
+        );
+        if (!cancelled) applySession(data);
+      } catch {
+        /* sin sesión automática */
+      }
+      if (!cancelled) setReady(true);
+    };
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, [applySession]);
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await api<{

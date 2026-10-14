@@ -650,6 +650,10 @@ export const licenseActivateSchema = z.object({
 export const licenseValidateSchema = z.object({
   installationId: z.string().min(4),
   licenseKey: optionalString,
+  machineName: optionalString,
+  // Ancla de primera ejecución (registro de Windows) para que la prueba no se
+  // reinicie al reinstalar el sistema. Solo se usa si es anterior a la fecha actual.
+  firstRunAt: optionalString,
 });
 
 export const licenseSeatSchema = z.object({

@@ -40,7 +40,7 @@ export const env = {
   // para volver a la app despues de pagar. Si esta vacia se omite el retorno.
   SOCIOS_URL: (process.env.SOCIOS_URL || '').replace(/\/+$/, ''),
   LICENSE_SECRET: process.env.LICENSE_SECRET || '',
-  LICENSE_TRIAL_DAYS: Number(process.env.LICENSE_TRIAL_DAYS || 7),
+  LICENSE_TRIAL_DAYS: Number(process.env.LICENSE_TRIAL_DAYS || 15),
   // URL del Licensador (sistema de licencias del proveedor). Si está definida,
   // la activación se hace en línea y se guarda un certificado firmado.
   LICENSE_SERVER: (process.env.LICENSE_SERVER || '').replace(/\/+$/, ''),
