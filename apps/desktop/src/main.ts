@@ -744,11 +744,34 @@ function startPrintServer() {
     res.writeHead(404);
     res.end();
   });
+  // El error de listen es asincrono: sin este handler, un puerto ocupado
+  // (p. ej. otra instancia abierta) lanzaria una excepcion no capturada y
+  // tumbaria el proceso principal. Lo registramos y degradamos sin crashear.
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      log('Servidor de impresion: puerto', PRINT_PORT, 'ocupado; impresion local deshabilitada en esta sesion');
+    } else {
+      log('Servidor de impresion: error', err.message);
+    }
+  });
   server.listen(PRINT_PORT, '127.0.0.1', () => log('Servidor de impresion escuchando en', PRINT_PORT));
   return server;
 }
 
+// Una sola instancia: evita que una segunda ventana intente ocupar los puertos
+// internos (3001 api, 3000 web, 3999 impresion) y falle. Si ya hay una abierta,
+// se la enfoca en lugar de iniciar otra.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) app.quit();
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
 app.whenReady().then(async () => {
+  if (!gotSingleInstanceLock) return;
   log('=== FIT System iniciando ===', 'packaged=', app.isPackaged, 'userData=', app.getPath('userData'));
   try {
     printServer = startPrintServer();
