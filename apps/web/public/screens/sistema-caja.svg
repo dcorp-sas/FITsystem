@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <rect width="1280" height="800" fill="#0b1120"/>
+  <rect x="0" y="0" width="230" height="800" fill="#111827"/>
+  <line x1="230" y1="0" x2="230" y2="800" stroke="#1e293b"/>
+  <g>
+    <rect x="20" y="22" width="34" height="34" rx="10" fill="#2563eb"/>
+    <text x="37" y="45" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">F</text>
+    <text x="66" y="45" font-size="17" font-weight="700" fill="#e2e8f0">FIT System</text>
+  </g>
+  <g font-size="14" fill="#94a3b8">
+    <text x="46" y="111">Panel</text>
+    <circle cx="31" cy="106" r="4" fill="#334155"/>
+    <text x="46" y="155">Socios</text>
+    <circle cx="31" cy="150" r="4" fill="#334155"/>
+    <text x="46" y="199">Membresías</text>
+    <circle cx="31" cy="194" r="4" fill="#334155"/>
+    <rect x="16" y="220" width="198" height="36" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="46" y="243" fill="#3b82f6" font-weight="600">Cobros</text>
+    <circle cx="31" cy="238" r="4" fill="#3b82f6"/>
+    <text x="46" y="287">Caja diaria</text>
+    <circle cx="31" cy="282" r="4" fill="#334155"/>
+    <text x="46" y="331">Asistencia</text>
+    <circle cx="31" cy="326" r="4" fill="#334155"/>
+    <text x="46" y="375">Clases</text>
+    <circle cx="31" cy="370" r="4" fill="#334155"/>
+  </g>
+  <text x="262" y="76" font-size="24" font-weight="700" fill="#e2e8f0">Cobrar cuota</text>
+  <text x="262" y="100" font-size="13" fill="#94a3b8">Registrá el pago del socio en efectivo, transferencia o MercadoPago.</text>
+
+  <g>
+    <rect x="262" y="126" width="620" height="640" rx="16" fill="#111827" stroke="#1e293b"/>
+    <text x="292" y="166" font-size="14" fill="#94a3b8">Socio</text>
+    <g>
+      <circle cx="296" cy="200" r="18" fill="#1f2937"/>
+      <text x="296" y="205" text-anchor="middle" font-size="13" fill="#e2e8f0">SR</text>
+      <text x="326" y="200" font-size="16" font-weight="600" fill="#e2e8f0">Sofía Ramírez</text>
+      <text x="326" y="218" font-size="12" fill="#64748b">DNI 36.204.118 · Mensual Pro · Al día</text>
+      <rect x="790" y="196" width="72" height="28" rx="8" fill="#1f2937"/>
+      <text x="826" y="214" text-anchor="middle" font-size="12" fill="#94a3b8">Cambiar</text>
+    </g>
+    <line x1="286" y1="270" x2="858" y2="270" stroke="#1e293b"/>
+
+    <text x="286" y="308" font-size="13" fill="#94a3b8">Concepto</text>
+    <rect x="286" y="320" width="572" height="46" rx="10" fill="#0b1120" stroke="#1e293b"/>
+    <text x="306" y="348" font-size="14" fill="#e2e8f0">Cuota mensual — Plan Pro · Noviembre 2026</text>
+
+    <text x="262" y="404" font-size="13" fill="#94a3b8" transform="translate(0,5)"/>
+    <text x="286" y="404" font-size="13" fill="#94a3b8">Monto</text>
+    <rect x="262" y="418" width="620" height="72" rx="14" fill="#0b1120" stroke="#1e293b"/>
+    <text x="288" y="464" font-size="34" font-weight="700" fill="#e2e8f0">$ 42.000</text>
+    <text x="862" y="462" text-anchor="end" font-size="12" fill="#64748b">ARS</text>
+
+    <text x="262" y="596" font-size="13" fill="#94a3b8">Medio de pago</text>
+    <rect x="262" y="612" width="196" height="60" rx="12" fill="#2563eb" opacity="0.16" stroke="#2563eb"/>
+    <text x="360" y="640" text-anchor="middle" font-size="14" font-weight="600" fill="#e2e8f0">Efectivo</text>
+    <text x="360" y="658" text-anchor="middle" font-size="11" fill="#3b82f6">Seleccionado</text>
+
+    <rect x="474" y="612" width="196" height="60" rx="12" fill="#0b1120" stroke="#1e293b"/>
+    <text x="572" y="640" text-anchor="middle" font-size="14" font-weight="600" fill="#e2e8f0">Transferencia</text>
+    <text x="572" y="658" text-anchor="middle" font-size="11" fill="#64748b">Alias / CBU</text>
+
+    <rect x="686" y="612" width="196" height="60" rx="12" fill="#0b1120" stroke="#1e293b"/>
+    <text x="784" y="640" text-anchor="middle" font-size="14" font-weight="600" fill="#e2e8f0">MercadoPago</text>
+    <text x="784" y="658" text-anchor="middle" font-size="11" fill="#64748b">QR o Point</text>
+
+    <rect x="262" y="698" width="620" height="52" rx="12" fill="#2563eb"/>
+    <text x="572" y="730" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Confirmar cobro y emitir comprobante</text>
+  </g>
+
+  <g>
+    <rect x="906" y="126" width="340" height="300" rx="16" fill="#111827" stroke="#1e293b"/>
+    <text x="934" y="162" font-size="16" font-weight="700" fill="#e2e8f0">Caja de hoy</text>
+    <text x="934" y="214" font-size="12" fill="#94a3b8">Apertura</text>
+    <text x="1218" y="214" text-anchor="end" font-size="14" fill="#e2e8f0">08:00 · $5.000</text>
+    <rect x="934" y="228" width="284" height="1" fill="#1e293b"/>
+    <text x="934" y="256" font-size="12" fill="#94a3b8">Efectivo</text>
+    <text x="1218" y="256" text-anchor="end" font-size="14" fill="#22c55e">+ $186.500</text>
+    <text x="934" y="292" font-size="12" fill="#94a3b8">Transferencias</text>
+    <text x="1218" y="292" text-anchor="end" font-size="14" fill="#22c55e">+ $92.000</text>
+    <text x="934" y="328" font-size="12" fill="#94a3b8">MercadoPago</text>
+    <text x="1218" y="292+36" text-anchor="end" font-size="14" fill="#22c55e">+ $54.300</text>
+    <rect x="934" y="316" width="284" height="1" fill="#1e293b"/>
+    <text x="934" y="352" font-size="12" fill="#94a3b8">Egresos</text>
+    <text x="1218" y="352" text-anchor="end" font-size="14" fill="#ef4444">- $12.000</text>
+    <rect x="934" y="368" width="284" height="1" fill="#1e293b"/>
+    <text x="934" y="400" font-size="13" font-weight="600" fill="#e2e8f0">Total del día</text>
+    <text x="1218" y="400" text-anchor="end" font-size="18" font-weight="700" fill="#e2e8f0">$ 233.000</text>
+  </g>
+
+  <g>
+    <rect x="906" y="446" width="340" height="320" rx="16" fill="#111827" stroke="#1e293b"/>
+    <text x="934" y="482" font-size="16" font-weight="700" fill="#e2e8f0">Últimos cobros</text>
+    <text x="934" y="524" font-size="13" fill="#e2e8f0">Sofía Ramírez</text>
+    <text x="1218" y="524" text-anchor="end" font-size="13" fill="#22c55e">$42.000</text>
+    <text x="934" y="542" font-size="11" fill="#64748b">Efectivo · 09:41</text>
+    <text x="934" y="582" font-size="13" fill="#e2e8f0">Julián Ortega</text>
+    <text x="1218" y="582" text-anchor="end" font-size="13" fill="#22c55e">$58.000</text>
+    <text x="934" y="600" font-size="11" fill="#64748b">MercadoPago QR · 09:28</text>
+    <text x="934" y="640" font-size="13" fill="#e2e8f0">Lucía Gómez</text>
+    <text x="1218" y="640" text-anchor="end" font-size="13" fill="#22c55e">$42.000</text>
+    <text x="934" y="658" font-size="11" fill="#64748b">Transferencia · 09:12</text>
+    <text x="934" y="698" font-size="13" fill="#e2e8f0">Martín Bravo</text>
+    <text x="1218" y="698" text-anchor="end" font-size="13" fill="#22c55e">$36.000</text>
+    <text x="934" y="716" font-size="11" fill="#64748b">Efectivo · 08:55</text>
+  </g>
+</svg>

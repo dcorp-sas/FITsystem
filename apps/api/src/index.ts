@@ -37,6 +37,7 @@ import onboardingRoutes from './routes/onboarding.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
 import { recordError } from './services/observability.js';
+import { licensePublicKeyFingerprint } from './services/license.js';
 
 export async function buildServer() {
   const app = Fastify({
@@ -93,6 +94,10 @@ export async function buildServer() {
   });
 
   app.get('/health', async () => ({ status: 'ok', service: 'fitsystem-api', time: new Date().toISOString() }));
+
+  // Huella de la clave pública de licencias configurada. Debe coincidir con la
+  // que imprime el Licensador en su arranque; si no, las claves no se verifican.
+  app.log.info({ licensePublicKeyFingerprint: licensePublicKeyFingerprint() }, 'license public key fingerprint');
 
   await app.register(
     async (api) => {

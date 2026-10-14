@@ -14,7 +14,7 @@ const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/do
 const TRIAL_DAYS = 7;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
 const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
-const PWA_URL = 'https://fitsystem-socios.onrender.com';
+const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://fitsystem-socios.onrender.com';
 
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
@@ -181,6 +181,93 @@ export default function LandingPage() {
               <div className="mt-1 text-xs text-text-muted sm:text-sm">{stat.label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Producto */}
+      <section id="producto" className="scroll-mt-20 py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
+              Todo tu gimnasio, en una pantalla
+            </h2>
+            <p className="mt-4 text-base text-text-muted">
+              El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT System
+              por dentro.
+            </p>
+          </div>
+
+          {/* Panel de escritorio */}
+          <div className="mt-12 overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl shadow-black/40">
+            <div className="flex items-center gap-2 border-b border-line bg-surface-alt/50 px-4 py-3">
+              <span className="h-3 w-3 rounded-full bg-danger/70" />
+              <span className="h-3 w-3 rounded-full bg-warning/70" />
+              <span className="h-3 w-3 rounded-full bg-success/70" />
+              <span className="ml-3 text-xs text-text-muted">FIT System · Panel general</span>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT System con métricas del gimnasio" className="w-full" />
+          </div>
+
+          {/* Módulos destacados */}
+          <div className="mt-6 grid gap-6 sm:grid-cols-2">
+            {[
+              {
+                src: '/screens/sistema-socios.svg',
+                alt: 'Gestión de socios y cuotas en FIT System',
+                title: 'Socios y cuotas',
+                text: 'Ficha de cada socio, estado de cuenta y cobro en un clic.',
+              },
+              {
+                src: '/screens/sistema-caja.svg',
+                alt: 'Cobros y caja diaria en FIT System',
+                title: 'Cobros y caja',
+                text: 'Efectivo, transferencia o MercadoPago, con arqueo por turno.',
+              },
+            ].map((shot) => (
+              <figure key={shot.src} className="overflow-hidden rounded-2xl border border-line bg-surface">
+                <div className="flex items-center gap-2 border-b border-line bg-surface-alt/50 px-3 py-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-line" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-line" />
+                  <span className="ml-2 text-xs text-text-muted">{shot.title}</span>
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={shot.src} alt={shot.alt} className="w-full" />
+                <figcaption className="px-4 py-3 text-sm text-text-muted">{shot.text}</figcaption>
+              </figure>
+            ))}
+          </div>
+
+          {/* App del socio */}
+          <div className="mt-6 flex flex-col items-center gap-8 rounded-2xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-8 sm:flex-row sm:p-10">
+            <div className="mx-auto w-[220px] shrink-0 sm:mx-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/screens/app-socios.svg" alt="App del socio de FIT System en el celular" className="w-full" />
+            </div>
+            <div className="max-w-lg text-center sm:text-left">
+              <h3 className="text-xl font-bold text-text">App del socio, incluida en tu licencia</h3>
+              <p className="mt-3 text-sm leading-relaxed text-text-muted">
+                Cada socio instala la app desde el navegador (sin descargas) y ve el estado de su cuota,
+                su QR de acceso, su rutina del día y las novedades. Puede pagar desde el celular y vos
+                lo ves reflejado al instante en la caja.
+              </p>
+              <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                {['Cuota y pagos', 'QR de acceso', 'Rutina personalizada', 'Novedades del gym'].map((item) => (
+                  <li key={item} className="flex items-center justify-center gap-2 text-sm text-text-muted sm:justify-start">
+                    <Icon name="check" size={16} className="text-success" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={PWA_URL}
+                className="mt-6 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+              >
+                <Icon name="mobile" size={18} />
+                Probar la app del socio
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -481,6 +568,7 @@ export default function LandingPage() {
             <div>
               <h4 className="text-sm font-semibold text-text">Producto</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-text-muted">
+                <li><a href="#producto" className="transition-colors hover:text-text">Vista general</a></li>
                 <li><a href="#modulos" className="transition-colors hover:text-text">Módulos</a></li>
                 <li><a href="#planes" className="transition-colors hover:text-text">Planes</a></li>
                 <li><a href="#descargas" className="transition-colors hover:text-text">Descargas</a></li>

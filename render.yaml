@@ -77,6 +77,10 @@ services:
       # URL pública de la API del gimnasio. Se incrusta en el build (NEXT_PUBLIC_*).
       - key: NEXT_PUBLIC_API_URL
         sync: false
+      # URL pública de la app de socios (PWA), para el enlace "Probar la app del
+      # socio" de la portada. Ej: https://fitsystem-socios.onrender.com
+      - key: NEXT_PUBLIC_SOCIOS_URL
+        sync: false
 
   # ---------------------------------------------------------------------------
   # App del socio (PWA instalable) - export web de Expo.

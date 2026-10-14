@@ -1,0 +1,30 @@
+# Dependencias y artefactos de build (se reconstruyen en la imagen)
+**/node_modules
+**/.next
+**/dist
+**/build
+**/out
+**/.turbo
+**/.expo
+**/coverage
+apps/desktop/release
+apps/desktop/build-resources
+apps/api/prisma/dev.db*
+apps/api/prisma/*.db
+apps/licensador/data
+
+# Control de versiones y backups
+.git
+.gitignore
+.github
+backups
+updates
+
+# Variables de entorno (se inyectan en runtime, nunca en la imagen)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Ruido
+**/*.log
+.DS_Store

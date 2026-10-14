@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/icon';
 
 const LINKS = [
+  { href: '#producto', label: 'Producto' },
   { href: '#modulos', label: 'Módulos' },
   { href: '#planes', label: 'Planes' },
   { href: '#descargas', label: 'Descargas' },

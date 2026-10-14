@@ -81,6 +81,15 @@ if (PRIVATE_KEY) {
     console.log('AVISO: LICENSE_SECRET también definido — se usa solo para aceptar claves HMAC.');
   }
 }
+// La clave pública debe cargarse TAL CUAL en LICENSE_PUBLIC_KEY de la API para
+// que verifique las claves/certificados que emite este Licensador. Se imprime en
+// el arranque para poder copiarla (o compararla) sin margen de error.
+if (PUBLIC_KEY) {
+  const pubB64 = Buffer.from(JSON.stringify(PUBLIC_KEY)).toString('base64');
+  const fp = crypto.createHash('sha256').update(pubB64).digest('hex').slice(0, 16);
+  console.log('LICENSE_PUBLIC_KEY (para la API):', pubB64);
+  console.log('Huella de la clave pública:', fp);
+}
 // Si hay clave Ed25519 (pública o derivada de la privada), se usa SOLO Ed25519.
 // Aceptar HMAC en paralelo debilitaría el sistema (un secreto filtrado permitiría
 // forjar claves). HMAC queda como alternativa únicamente si no hay Ed25519.

@@ -1,0 +1,92 @@
+# FIT System - despliegue self-hosted (postgres + api + web + licensador).
+# Uso:
+#   cp .env.example .env      # y editá los valores
+#   docker compose up -d --build
+#
+# La app de socios (PWA) es un sitio estático: se construye aparte con
+#   pnpm --filter @fitsystem/mobile build      (salida en apps/mobile/dist)
+# y se sirve con cualquier servidor estático (nginx, caddy, Netlify, etc.).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fitsystem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fitsystem}
+      POSTGRES_DB: fitsystem
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitsystem -d fitsystem"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fitsystem:${POSTGRES_PASSWORD:-fitsystem}@db:5432/fitsystem
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:?definí JWT_SECRET en .env (mín. 32 caracteres)}
+      SETTINGS_ENC_KEY: ${SETTINGS_ENC_KEY:-}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3001}
+      SOCIOS_URL: ${SOCIOS_URL:-}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      LICENSE_SERVER: ${LICENSE_SERVER:-http://licensador:3000}
+      LICENSE_TRIAL_DAYS: ${LICENSE_TRIAL_DAYS:-7}
+      LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY:-}
+      LICENSE_SECRET: ${LICENSE_SECRET:-}
+      LICENSE_PRIVATE_KEY: ${LICENSE_PRIVATE_KEY:-}
+      PROVIDER_BACKUP_TOKEN: ${PROVIDER_BACKUP_TOKEN:-}
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_URL:-http://localhost:3001}
+        NEXT_PUBLIC_SOCIOS_URL: ${SOCIOS_URL:-}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+  licensador:
+    build:
+      context: ./apps/licensador
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      TRUST_PROXY: "1"
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:?definí ADMIN_PASS en .env (mín. 8 caracteres)}
+      # Firma: definí LICENSE_PRIVATE_KEY (Ed25519, preferido) o LICENSE_SECRET.
+      LICENSE_PRIVATE_KEY: ${LICENSE_PRIVATE_KEY:-}
+      LICENSE_SECRET: ${LICENSE_SECRET:-}
+      # Respaldo remoto del estado en Postgres (la API lo persiste).
+      BACKUP_URL: ${BACKUP_URL:-http://api:3001}
+      BACKUP_TOKEN: ${PROVIDER_BACKUP_TOKEN:-}
+    volumes:
+      - licensador-data:/app/data
+    ports:
+      - "3100:3000"
+
+volumes:
+  pgdata:
+  licensador-data:

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="880" viewBox="0 0 440 880" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <rect width="440" height="880" fill="#0b1120"/>
+  <rect x="24" y="24" width="392" height="832" rx="44" fill="#111827" stroke="#1e293b" stroke-width="2"/>
+  <rect x="176" y="38" width="88" height="10" rx="5" fill="#1f2937"/>
+  <g>
+    <text x="52" y="92" font-size="13" fill="#94a3b8">Buen día</text>
+    <text x="52" y="120" font-size="24" font-weight="700" fill="#e2e8f0">Hola, Sofía 👋</text>
+    <circle cx="388" cy="98" r="20" fill="#2563eb"/>
+    <text x="388" y="104" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">SR</text>
+  </g>
+  <g>
+    <rect x="52" y="150" width="336" height="168" rx="22" fill="#2563eb"/>
+    <rect x="52" y="150" width="336" height="168" rx="22" fill="none" stroke="#3b82f6"/>
+    <text x="76" y="190" font-size="13" fill="#dbeafe">Tu cuota</text>
+    <text x="388" y="190" text-anchor="end" font-size="12" font-weight="700" fill="#dcfce7">● AL DÍA</text>
+    <rect x="76" y="206" width="96" height="24" rx="12" fill="#ffffff" opacity="0.18"/>
+    <text x="88" y="223" font-size="12" fill="#ffffff">Mensual Pro</text>
+    <text x="76" y="266" font-size="13" fill="#dbeafe">Vence el 12/11/2026</text>
+    <text x="388" y="268" text-anchor="end" font-size="16" font-weight="700" fill="#ffffff">$42.000</text>
+    <rect x="76" y="284" width="150" height="26" rx="10" fill="#ffffff"/>
+    <text x="151" y="302" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Pagar cuota</text>
+  </g>
+
+  <g>
+    <rect x="52" y="348" width="336" height="128" rx="18" fill="#0b1120" stroke="#1e293b"/>
+    <text x="76" y="384" font-size="14" font-weight="600" fill="#e2e8f0">Acceso al gimnasio</text>
+    <text x="76" y="406" font-size="12" fill="#94a3b8">Mostrá este código en recepción</text>
+    <rect x="76" y="420" width="44" height="44" rx="6" fill="#e2e8f0"/>
+    <g fill="#0b1120">
+      <rect x="80" y="424" width="10" height="10"/>
+      <rect x="96" y="424" width="10" height="10"/>
+      <rect x="80" y="440" width="10" height="10"/>
+      <rect x="106" y="440" width="10" height="10"/>
+      <rect x="96" y="450" width="10" height="10"/>
+    </g>
+    <text x="136" y="440" font-size="13" fill="#e2e8f0">Tu QR personal</text>
+    <text x="136" y="458" font-size="11" fill="#64748b">Válido para hoy</text>
+  </g>
+
+  <g>
+    <text x="52" y="518" font-size="16" font-weight="700" fill="#e2e8f0">Mi rutina de hoy</text>
+    <text x="388" y="518" text-anchor="end" font-size="12" fill="#3b82f6">Ver todo</text>
+    <rect x="52" y="532" width="336" height="60" rx="14" fill="#111827" stroke="#1e293b"/>
+    <rect x="66" y="546" width="32" height="32" rx="10" fill="#2563eb" opacity="0.18"/>
+    <text x="82" y="567" text-anchor="middle" font-size="14" fill="#3b82f6">1</text>
+    <text x="112" y="560" font-size="14" fill="#e2e8f0">Pecho y tríceps</text>
+    <text x="112" y="578" font-size="11" fill="#64748b">6 ejercicios · 45 min</text>
+    <rect x="330" y="550" width="44" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="352" y="567" text-anchor="middle" font-size="11" fill="#22c55e">Hecho</text>
+
+    <rect x="52" y="602" width="336" height="60" rx="14" fill="#111827" stroke="#1e293b"/>
+    <rect x="66" y="616" width="32" height="32" rx="10" fill="#1f2937"/>
+    <text x="82" y="637" text-anchor="middle" font-size="14" fill="#94a3b8">2</text>
+    <text x="112" y="630" font-size="14" fill="#e2e8f0">Cardio 30'</text>
+    <text x="112" y="648" font-size="12" fill="#64748b">Cinta + bici</text>
+    <rect x="330" y="620" width="44" height="24" rx="12" fill="#1f2937"/>
+    <text x="352" y="637" text-anchor="middle" font-size="11" fill="#94a3b8">Hecho</text>
+  </g>
+
+  <g>
+    <text x="52" y="694" font-size="16" font-weight="700" fill="#e2e8f0">Novedades</text>
+    <rect x="52" y="708" width="336" height="62" rx="14" fill="#111827" stroke="#1e293b"/>
+    <rect x="66" y="718" width="42" height="42" rx="10" fill="#0ea5e9" opacity="0.16"/>
+    <text x="87" y="744" text-anchor="middle" font-size="16" fill="#0ea5e9">★</text>
+    <text x="122" y="734" font-size="14" fill="#e2e8f0">Nueva sala de musculación</text>
+    <text x="122" y="752" font-size="11" fill="#64748b">Ya disponible en la sede Centro.</text>
+  </g>
+
+  <g>
+    <rect x="40" y="790" width="360" height="48" rx="16" fill="#0b1120" stroke="#1e293b"/>
+    <text x="94" y="820" text-anchor="middle" font-size="12" font-weight="600" fill="#3b82f6">Inicio</text>
+    <text x="176" y="820" text-anchor="middle" font-size="12" fill="#64748b">Rutina</text>
+    <text x="258" y="820" text-anchor="middle" font-size="12" fill="#64748b">Clases</text>
+    <text x="340" y="820" text-anchor="middle" font-size="12" fill="#64748b">Perfil</text>
+  </g>
+</svg>

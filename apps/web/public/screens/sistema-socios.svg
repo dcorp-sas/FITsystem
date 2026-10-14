@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <rect width="1280" height="800" fill="#0b1120"/>
+  <rect x="0" y="0" width="230" height="800" fill="#111827"/>
+  <line x1="230" y1="0" x2="230" y2="800" stroke="#1e293b"/>
+  <g>
+    <rect x="20" y="22" width="34" height="34" rx="10" fill="#2563eb"/>
+    <text x="37" y="45" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">F</text>
+    <text x="66" y="45" font-size="17" font-weight="700" fill="#e2e8f0">FIT System</text>
+  </g>
+  <g font-size="14" fill="#94a3b8">
+    <text x="46" y="111">Panel</text>
+    <circle cx="31" cy="106" r="4" fill="#334155"/>
+    <rect x="16" y="132" width="198" height="36" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="46" y="155" fill="#3b82f6" font-weight="600">Socios</text>
+    <circle cx="31" cy="150" r="4" fill="#3b82f6"/>
+    <text x="46" y="199">Membresías</text>
+    <circle cx="31" cy="194" r="4" fill="#334155"/>
+    <text x="46" y="243">Cobros</text>
+    <circle cx="31" cy="238" r="4" fill="#334155"/>
+    <text x="46" y="287">Caja diaria</text>
+    <circle cx="31" cy="282" r="4" fill="#334155"/>
+    <text x="46" y="331">Asistencia</text>
+    <circle cx="31" cy="326" r="4" fill="#334155"/>
+    <text x="46" y="375">Clases</text>
+    <circle cx="31" cy="370" r="4" fill="#334155"/>
+    <text x="46" y="419">Tienda</text>
+    <circle cx="31" cy="414" r="4" fill="#334155"/>
+    <text x="46" y="463">Reportes</text>
+    <circle cx="31" cy="458" r="4" fill="#334155"/>
+  </g>
+  <text x="262" y="70" font-size="24" font-weight="700" fill="#e2e8f0">Socios</text>
+  <text x="262" y="94" font-size="13" fill="#94a3b8">1.284 socios · 1.188 activos · 41 deudores</text>
+  <g>
+    <rect x="1006" y="58" width="120" height="40" rx="10" fill="#111827" stroke="#1e293b"/>
+    <text x="1066" y="83" text-anchor="middle" font-size="13" fill="#94a3b8">Importar</text>
+    <rect x="1136" y="58" width="110" height="40" rx="10" fill="#2563eb"/>
+    <text x="1191" y="83" text-anchor="middle" font-size="13" font-weight="600" fill="#ffffff">+ Nuevo socio</text>
+  </g>
+  <g>
+    <rect x="262" y="118" width="984" height="44" rx="10" fill="#111827" stroke="#1e293b"/>
+    <text x="284" y="145" font-size="13" fill="#64748b">Buscar por nombre, DNI o teléfono...</text>
+    <rect x="980" y="126" width="120" height="28" rx="8" fill="#1f2937"/>
+    <text x="1040" y="145" text-anchor="middle" font-size="12" fill="#94a3b8">Todos</text>
+    <rect x="1108" y="126" width="124" height="28" rx="8" fill="#1f2937"/>
+    <text x="1170" y="145" text-anchor="middle" font-size="12" fill="#94a3b8">Al día</text>
+  </g>
+  <g>
+    <rect x="262" y="182" width="984" height="52" rx="12" fill="#111827" stroke="#1e293b"/>
+    <text x="288" y="205" font-size="12" fill="#64748b">SOCIO</text>
+    <text x="640" y="205" font-size="12" fill="#64748b">PLAN</text>
+    <text x="840" y="205" font-size="12" fill="#64748b">VENCE</text>
+    <text x="1000" y="205" font-size="12" fill="#64748b">ESTADO</text>
+    <text x="1160" y="205" font-size="12" fill="#64748b">CAJA</text>
+
+    <circle cx="292" cy="222" r="16" fill="#1f2937" transform="translate(0,-4)"/>
+    <text x="292" y="219" text-anchor="middle" font-size="12" fill="#e2e8f0">SR</text>
+    <text x="322" y="219" font-size="14" fill="#e2e8f0">Sofía Ramírez</text>
+    <text x="322" y="234" font-size="11" fill="#64748b">DNI 36.204.118</text>
+    <text x="640" y="224" font-size="13" fill="#94a3b8">Mensual Pro</text>
+    <text x="840" y="224" font-size="13" fill="#94a3b8">12/11/2026</text>
+    <rect x="1000" y="212" width="78" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="1039" y="228" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+    <rect x="1150" y="212" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="228" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+
+    <circle cx="292" cy="286" r="16" fill="#1f2937"/>
+    <text x="292" y="291" text-anchor="middle" font-size="12" fill="#e2e8f0">JO</text>
+    <text x="322" y="291" font-size="14" fill="#e2e8f0">Julián Ortega</text>
+    <text x="322" y="306" font-size="11" fill="#64748b">DNI 33.870.552</text>
+    <text x="640" y="296" font-size="13" fill="#94a3b8">Pase libre</text>
+    <text x="840" y="296" font-size="13" fill="#94a3b8">02/01/2027</text>
+    <rect x="1000" y="284" width="78" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="1039" y="300" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+    <rect x="1150" y="284" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="300" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+
+    <circle cx="292" cy="352" r="16" fill="#1f2937"/>
+    <text x="292" y="357" text-anchor="middle" font-size="12" fill="#e2e8f0">CN</text>
+    <text x="322" y="357" font-size="14" fill="#e2e8f0">Carla Núñez</text>
+    <text x="322" y="372" font-size="11" fill="#64748b">DNI 38.115.904</text>
+    <text x="640" y="362" font-size="13" fill="#94a3b8">Mensual Básico</text>
+    <text x="840" y="362" font-size="13" fill="#94a3b8">28/10/2026</text>
+    <rect x="1000" y="350" width="78" height="24" rx="12" fill="#f59e0b" opacity="0.16"/>
+    <text x="1039" y="366" text-anchor="middle" font-size="11" fill="#f59e0b">Deuda</text>
+    <rect x="1150" y="350" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="366" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+
+    <circle cx="292" cy="418" r="16" fill="#1f2937"/>
+    <text x="292" y="423" text-anchor="middle" font-size="12" fill="#e2e8f0">MP</text>
+    <text x="322" y="423" font-size="14" fill="#e2e8f0">Martín Peralta</text>
+    <text x="322" y="438" font-size="11" fill="#64748b">DNI 31.442.760</text>
+    <text x="640" y="422" font-size="13" fill="#94a3b8">Trimestral</text>
+    <text x="840" y="422" font-size="13" fill="#94a3b8">20/12/2026</text>
+    <rect x="1000" y="410" width="78" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="1039" y="426" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+    <rect x="1150" y="410" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="426" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+  </g>
+  <g>
+    <circle cx="292" cy="486" r="16" fill="#1f2937"/>
+    <text x="292" y="491" text-anchor="middle" font-size="12" fill="#e2e8f0">LG</text>
+    <text x="322" y="491" font-size="14" fill="#e2e8f0">Lucía Gómez</text>
+    <text x="322" y="506" font-size="11" fill="#64748b">DNI 40.220.771</text>
+    <text x="640" y="496" font-size="13" fill="#94a3b8">Mensual Pro</text>
+    <text x="840" y="496" font-size="13" fill="#94a3b8">15/11/2026</text>
+    <rect x="1000" y="484" width="78" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="1039" y="500" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+    <rect x="1150" y="484" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="500" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+  </g>
+  <g>
+    <rect x="262" y="560" width="984" height="1" fill="#1e293b"/>
+  </g>
+  <g>
+    <circle cx="292" cy="616" r="16" fill="#1f2937"/>
+    <text x="292" y="621" text-anchor="middle" font-size="12" fill="#e2e8f0">MB</text>
+    <text x="322" y="621" font-size="14" fill="#e2e8f0">Martín Bravo</text>
+    <text x="322" y="636" font-size="11" fill="#64748b">DNI 35.552.010</text>
+    <text x="640" y="626" font-size="13" fill="#94a3b8">Mensual Básico</text>
+    <text x="840" y="626" font-size="13" fill="#94a3b8">30/11/2026</text>
+    <rect x="1000" y="614" width="78" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="1039" y="630" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+    <rect x="1150" y="614" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="630" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+  </g>
+  <g>
+    <circle cx="292" cy="686" r="16" fill="#1f2937"/>
+    <text x="292" y="691" text-anchor="middle" font-size="12" fill="#e2e8f0">PD</text>
+    <text x="322" y="691" font-size="14" fill="#e2e8f0">Paula Díaz</text>
+    <text x="322" y="706" font-size="11" fill="#64748b">DNI 37.901.233</text>
+    <text x="640" y="696" font-size="13" fill="#94a3b8">Pase libre</text>
+    <text x="840" y="696" font-size="13" fill="#94a3b8">22/02/2027</text>
+    <rect x="1000" y="684" width="78" height="24" rx="12" fill="#22c55e" opacity="0.16"/>
+    <text x="1039" y="700" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+    <rect x="1150" y="684" width="84" height="24" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="1192" y="700" text-anchor="middle" font-size="11" fill="#3b82f6">Cobrar</text>
+  </g>
+</svg>

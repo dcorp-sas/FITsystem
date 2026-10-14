@@ -3,6 +3,15 @@ import { env } from '../env.js';
 import { HttpError } from '../lib/http.js';
 import { issue, verifyKey, verifyCert, type Verifier } from '@fitsystem/license';
 import type { License } from '@prisma/client';
+import crypto from 'node:crypto';
+
+/**
+ * Huella de la clave publica de licencias configurada (para comparar con la que
+ * imprime el Licensador al arrancar). Si no coincide, las claves no validaran.
+ */
+export function licensePublicKeyFingerprint(): string {
+  return crypto.createHash('sha256').update(String(env.LICENSE_PUBLIC_KEY)).digest('hex').slice(0, 16);
+}
 
 export const LICENSE_PLANS = {
   TRIAL: { seats: 10, days: env.LICENSE_TRIAL_DAYS },

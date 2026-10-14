@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <rect width="1280" height="800" fill="#0b1120"/>
+  <rect x="0" y="0" width="230" height="800" fill="#111827"/>
+  <line x1="230" y1="0" x2="230" y2="800" stroke="#1e293b" stroke-width="1"/>
+  <g>
+    <rect x="20" y="22" width="34" height="34" rx="10" fill="#2563eb"/>
+    <text x="37" y="45" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">F</text>
+    <text x="66" y="45" font-size="17" font-weight="700" fill="#e2e8f0">FIT System</text>
+  </g>
+  <g font-size="14" fill="#94a3b8">
+    <rect x="16" y="88" width="198" height="36" rx="8" fill="#2563eb" opacity="0.16"/>
+    <text x="46" y="111" fill="#3b82f6" font-weight="600">Panel</text>
+    <circle cx="31" cy="106" r="4" fill="#3b82f6"/>
+    <text x="46" y="155">Socios</text>
+    <circle cx="31" cy="150" r="4" fill="#334155"/>
+    <text x="46" y="199">Membresías</text>
+    <circle cx="31" cy="194" r="4" fill="#334155"/>
+    <text x="46" y="243">Cobros</text>
+    <circle cx="31" cy="238" r="4" fill="#334155"/>
+    <text x="46" y="287">Caja diaria</text>
+    <circle cx="31" cy="282" r="4" fill="#334155"/>
+    <text x="46" y="331">Asistencia</text>
+    <circle cx="31" cy="326" r="4" fill="#334155"/>
+    <text x="46" y="375">Clases</text>
+    <circle cx="31" cy="370" r="4" fill="#334155"/>
+    <text x="46" y="419">Tienda</text>
+    <circle cx="31" cy="414" r="4" fill="#334155"/>
+    <text x="46" y="463">Reportes</text>
+    <circle cx="31" cy="458" r="4" fill="#334155"/>
+  </g>
+  <g>
+    <rect x="262" y="26" width="300" height="42" rx="10" fill="#111827" stroke="#1e293b"/>
+    <text x="282" y="52" font-size="13" fill="#64748b">Buscar socio, DNI o comprobante...</text>
+    <circle cx="1216" cy="47" r="18" fill="#1f2937"/>
+    <text x="1216" y="52" text-anchor="middle" font-size="12" fill="#e2e8f0">JM</text>
+    <text x="1180" y="52" text-anchor="end" font-size="13" fill="#e2e8f0">Matías</text>
+  </g>
+  <text x="262" y="118" font-size="24" font-weight="700" fill="#e2e8f0">Panel general</text>
+  <text x="262" y="142" font-size="13" fill="#94a3b8">Resumen de hoy · Sucursal Centro</text>
+  <g>
+    <rect x="262" y="164" width="232" height="104" rx="14" fill="#111827" stroke="#1e293b"/>
+    <text x="286" y="196" font-size="13" fill="#94a3b8">Socios activos</text>
+    <text x="286" y="230" font-size="30" font-weight="700" fill="#e2e8f0">1.284</text>
+    <text x="286" y="252" font-size="12" fill="#22c55e">+38 este mes</text>
+
+    <rect x="510" y="164" width="232" height="104" rx="14" fill="#111827" stroke="#1e293b"/>
+    <text x="534" y="196" font-size="13" fill="#94a3b8">Ingresos del mes</text>
+    <text x="534" y="230" font-size="30" font-weight="700" fill="#e2e8f0">$4.820.000</text>
+    <text x="534" y="252" font-size="12" fill="#22c55e">+12% vs. anterior</text>
+
+    <rect x="758" y="164" width="232" height="104" rx="14" fill="#111827" stroke="#1e293b"/>
+    <text x="782" y="196" font-size="13" fill="#94a3b8">Cuotas por vencer</text>
+    <text x="782" y="230" font-size="30" font-weight="700" fill="#e2e8f0">96</text>
+    <text x="782" y="252" font-size="12" fill="#f59e0b">Avisos enviados</text>
+
+    <rect x="1006" y="164" width="240" height="104" rx="14" fill="#111827" stroke="#1e293b"/>
+    <text x="1030" y="196" font-size="13" fill="#94a3b8">Asistencias hoy</text>
+    <text x="1030" y="230" font-size="30" font-weight="700" fill="#e2e8f0">312</text>
+    <text x="1030" y="252" font-size="12" fill="#3b82f6">Pico 19:00 hs</text>
+  </g>
+  <g>
+    <rect x="262" y="292" width="600" height="300" rx="14" fill="#111827" stroke="#1e293b"/>
+    <text x="286" y="326" font-size="15" font-weight="600" fill="#e2e8f0">Ingresos por mes</text>
+    <text x="1150" y="326" text-anchor="end" font-size="12" fill="#94a3b8">2026</text>
+    <g fill="#2563eb">
+      <rect x="306" y="368" width="46" height="128" rx="6" opacity="0.55"/>
+      <rect x="382" y="336" width="46" height="156" rx="6" opacity="0.7"/>
+      <rect x="458" y="352" width="46" height="140" rx="6" opacity="0.55"/>
+      <rect x="534" y="316" width="46" height="176" rx="6" opacity="0.7"/>
+      <rect x="610" y="298" width="46" height="194" rx="6" opacity="0.85"/>
+      <rect x="686" y="330" width="46" height="162" rx="6" opacity="0.7"/>
+      <rect x="762" y="276" width="46" height="216" rx="6"/>
+      <rect x="838" y="308" width="46" height="184" rx="6" opacity="0.8"/>
+      <rect x="914" y="262" width="46" height="230" rx="6"/>
+      <rect x="990" y="288" width="46" height="204" rx="6" opacity="0.85"/>
+      <rect x="1066" y="240" width="46" height="252" rx="6"/>
+      <rect x="1142" y="266" width="46" height="226" rx="6" opacity="0.9"/>
+    </g>
+    <line x1="286" y1="492" x2="1226" y2="492" stroke="#1e293b" stroke-width="1"/>
+  </g>
+  <g>
+    <rect x="262" y="500" width="984" height="272" rx="14" fill="#111827" stroke="#1e293b"/>
+    <text x="286" y="532" font-size="16" font-weight="600" fill="#e2e8f0">Últimos ingresos (check-in)</text>
+    <line x1="262" y1="556" x2="1246" y2="556" stroke="#1e293b"/>
+    <text x="286" y="584" font-size="12" fill="#94a3b8">Socio</text>
+    <text x="620" y="584" font-size="12" fill="#94a3b8">Membresía</text>
+    <text x="880" y="584" font-size="12" fill="#94a3b8">Ingreso</text>
+    <text x="1100" y="584" font-size="12" fill="#94a3b8">Estado</text>
+
+    <text x="286" y="626" font-size="14" fill="#e2e8f0">Sofía Ramírez</text>
+    <text x="626" y="626" font-size="13" fill="#94a3b8">Mensual Pro</text>
+    <text x="1100" y="626" font-size="13" fill="#e2e8f0">08:42</text>
+    <rect x="1156" y="612" width="66" height="22" rx="11" fill="#22c55e" opacity="0.16"/>
+    <text x="1189" y="627" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+
+    <text x="286" y="672" font-size="14" fill="#e2e8f0">Julián Ortega</text>
+    <text x="626" y="672" font-size="13" fill="#94a3b8">Pase libre</text>
+    <text x="1100" y="672" font-size="13" fill="#e2e8f0">08:55</text>
+    <rect x="1156" y="658" width="66" height="22" rx="11" fill="#22c55e" opacity="0.16"/>
+    <text x="1189" y="673" text-anchor="middle" font-size="11" fill="#22c55e">Al día</text>
+
+    <text x="286" y="718" font-size="14" fill="#e2e8f0">Carla Núñez</text>
+    <text x="626" y="718" font-size="13" fill="#94a3b8">Mensual Básico</text>
+    <text x="1100" y="718" font-size="13" fill="#e2e8f0">09:10</text>
+    <rect x="1156" y="704" width="66" height="22" rx="11" fill="#f59e0b" opacity="0.16"/>
+    <text x="1189" y="719" text-anchor="middle" font-size="11" fill="#f59e0b">Deuda</text>
+  </g>
+</svg>
