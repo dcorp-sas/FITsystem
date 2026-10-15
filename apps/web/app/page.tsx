@@ -5,7 +5,7 @@ import { Icon, type IconName } from '@/components/icon';
 export const metadata: Metadata = {
   title: 'FIT System — Software de gestión para gimnasios',
   description:
-    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio que funciona sin internet, con app móvil para tus socios. Multi-sucursal.',
+    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio que funciona sin internet, con app móvil para tus socios.',
 };
 
 const CONTACT_EMAIL = 'contacto@fitsystem.app';
@@ -19,7 +19,7 @@ const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
   { value: '100%', label: 'Funciona sin internet' },
-  { value: '∞', label: 'Sucursales y socios' },
+  { value: '∞', label: 'Socios y cuotas' },
   { value: '24/7', label: 'App para tus socios' },
 ];
 
@@ -32,7 +32,7 @@ const MODULES: { icon: IconName; title: string; text: string }[] = [
   { icon: 'classes', title: 'Clases y turnos', text: 'Grilla de clases, cupos, reservas, listas de espera e instructores asignados.' },
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
   { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, en tiempo real.' },
-  { icon: 'branches', title: 'Multi-sucursal', text: 'Administrá todas tus sedes desde un mismo sistema, con datos separados.' },
+  { icon: 'branches', title: 'Sedes y cajas', text: 'Organizá la operación por sede o caja dentro del sistema, con reportes comparativos por sede.' },
   { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas directo a la app del socio.' },
   { icon: 'news', title: 'Novedades', text: 'Publicá novedades, promos y avisos que tus socios ven en la app del socio.' },
   { icon: 'mobile', title: 'App del socio', text: 'Cada socio ve su cuota, paga su membresía y consulta su rutina y las novedades desde el celular.' },
@@ -72,7 +72,7 @@ const PLANS = [
     price: '$499.000',
     period: '12 meses · ARS',
     popular: true,
-    features: ['Hasta 500 socios con app', 'Todos los módulos', 'App del socio incluida', 'Multi-sucursal', 'Soporte prioritario'],
+    features: ['Hasta 500 socios con app', 'Todos los módulos', 'App del socio incluida', 'Reportes por sede', 'Soporte prioritario'],
     cta: 'Solicitar cotización',
     href: '#contacto',
   },
@@ -82,7 +82,7 @@ const PLANS = [
     price: '$899.000',
     period: '12 meses · ARS',
     popular: false,
-    features: ['Socios ilimitados con app', 'Multi-sucursal sin límite', 'Onboarding acompañado', 'Soporte dedicado'],
+    features: ['Socios ilimitados con app', 'Sedes y reportes avanzados', 'Onboarding acompañado', 'Soporte dedicado'],
     cta: 'Hablar con ventas',
     href: '#contacto',
   },
@@ -106,8 +106,8 @@ const FAQS = [
     a: 'La licencia se activa una sola vez con una clave (FIT-). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
   },
   {
-    q: '¿Puedo administrar más de un gimnasio o sucursal?',
-    a: 'Sí. FIT System es multi-sucursal: administrás todas tus sedes desde el mismo lugar, con datos separados y reportes por sede.',
+    q: '¿Puedo separar la operación por sede o caja?',
+    a: 'Sí. Podés organizar la operación por sede o caja dentro del sistema, con datos separados y reportes por sede.',
   },
   {
     q: '¿Qué medios de pago acepta?',
@@ -244,11 +244,11 @@ export default function LandingPage() {
               <h3 className="text-xl font-bold text-text">App del socio, incluida en tu licencia</h3>
               <p className="mt-3 text-sm leading-relaxed text-text-muted">
                 Cada socio instala la app desde el navegador (sin descargas) y ve el estado de su cuota,
-                su QR de acceso, su rutina del día y las novedades. Puede pagar desde el celular y vos
-                lo ves reflejado al instante en la caja.
+                su rutina del día y las novedades del gimnasio. Registra su ingreso escaneando el QR de
+                la entrada y puede iniciar el pago de su cuota desde el celular con MercadoPago.
               </p>
               <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-                {['Cuota y pagos', 'QR de acceso', 'Rutina personalizada', 'Novedades del gym'].map((item) => (
+                {['Cuota y pagos', 'Ingreso con QR', 'Rutina personalizada', 'Novedades del gym'].map((item) => (
                   <li key={item} className="flex items-center justify-center gap-2 text-sm text-text-muted sm:justify-start">
                     <Icon name="check" size={16} className="text-success" />
                     {item}

@@ -32,10 +32,13 @@ import routineRoutes from './routes/routines.js';
 import newsRoutes from './routes/news.js';
 import portalAdminRoutes from './routes/portal-admin.js';
 import providerRoutes from './routes/provider.js';
+import syncRoutes from './routes/sync.js';
+import cloudRoutes from './routes/cloud.js';
 import systemRoutes from './routes/system.js';
 import onboardingRoutes from './routes/onboarding.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
+import { startCloudSyncScheduler } from './services/cloud-sync.js';
 import { recordError } from './services/observability.js';
 import { licensePublicKeyFingerprint } from './services/license.js';
 
@@ -51,8 +54,33 @@ export async function buildServer() {
       ? []
       : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'];
 
+  // CORS: lista fija de orígenes configurados + (en modo red local) los orígenes
+  // privados de la LAN del gimnasio, para que las terminales encajen con la API
+  // del servidor. Nunca se refleja un origen arbitrario: solo redes privadas.
+  const allowedOrigins = new Set([...env.WEB_ORIGINS, ...devOrigins]);
+
+  const isPrivateLanOrigin = (origin: string): boolean => {
+    try {
+      const url = new URL(origin);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+      const host = url.hostname;
+      if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+      if (/^10\./.test(host)) return true;
+      if (/^192\.168\./.test(host)) return true;
+      if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   await app.register(cors, {
-    origin: [...env.WEB_ORIGINS, ...devOrigins],
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.has(origin)) return cb(null, true);
+      if (env.LAN_MODE && isPrivateLanOrigin(origin)) return cb(null, true);
+      return cb(null, false);
+    },
     credentials: true,
   });
 
@@ -81,6 +109,7 @@ export async function buildServer() {
       url.startsWith('/api/auth') ||
       url.startsWith('/api/license') ||
       url.startsWith('/api/portal') ||
+      url.startsWith('/api/sync') ||
       url.startsWith('/api/integrations/mercadopago/webhook') ||
       url.startsWith('/api/provider')
     ) {
@@ -132,6 +161,8 @@ export async function buildServer() {
       newsRoutes(api);
       portalAdminRoutes(api);
       providerRoutes(api);
+      syncRoutes(api);
+      cloudRoutes(api);
       systemRoutes(api);
       onboardingRoutes(api);
     },
@@ -184,6 +215,7 @@ async function start() {
     await app.listen({ port: env.API_PORT, host: env.API_HOST });
     console.log(`FIT System API escuchando en http://localhost:${env.API_PORT}`);
     startReminderScheduler();
+    startCloudSyncScheduler();
   } catch (error) {
     app.log.error(error);
     process.exit(1);

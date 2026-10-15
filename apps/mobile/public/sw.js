@@ -8,8 +8,8 @@
      conexión. No se cachean los endpoints de login/activación ni las respuestas
      de error. La caché de API se limpia al cerrar sesión (mensaje de la app). */
 
-const CACHE = 'fitsystem-socios-v1';
-const API_CACHE = 'fitsystem-socios-api-v1';
+const CACHE = 'fitsystem-socios-v2';
+const API_CACHE = 'fitsystem-socios-api-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

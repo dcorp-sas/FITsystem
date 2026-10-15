@@ -5,17 +5,42 @@ export interface UpdateEvent {
   message?: string;
 }
 
+export interface NetworkInfo {
+  mode: 'standalone' | 'server';
+  addresses: string[];
+  lanUrls: string[];
+  webPort: number;
+  apiPort: number;
+}
+
 export interface DesktopBridge {
   version?: string;
   checkUpdates?: () => Promise<unknown>;
   getUpdateState?: () => Promise<UpdateEvent | null>;
   downloadUpdate?: () => Promise<{ ok: boolean; error?: string }>;
   installUpdate?: () => Promise<{ ok: boolean; error?: string }>;
+  setBusy?: (busy: boolean) => Promise<unknown>;
   onUpdateEvent?: (listener: (payload: UpdateEvent) => void) => () => void;
+  getNetwork?: () => Promise<NetworkInfo>;
+  setNetwork?: (mode: 'standalone' | 'server') => Promise<{ ok: boolean; mode: 'standalone' | 'server' }>;
+  restartApp?: () => Promise<{ ok: boolean }>;
 }
 
 declare global {
   interface Window {
     fitsystem?: DesktopBridge;
+  }
+}
+
+/**
+ * Avisa al proceso de escritorio si hay una venta/cobro en curso, para que la
+ * actualización automática no reinicie la aplicación mientras se factura.
+ * No-op fuera del escritorio (panel web en la nube).
+ */
+export function reportSaleInProgress(busy: boolean) {
+  try {
+    void window.fitsystem?.setBusy?.(busy);
+  } catch {
+    /* ignore */
   }
 }

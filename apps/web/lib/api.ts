@@ -1,7 +1,22 @@
 'use client';
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
-export const API_URL = /\/api\/?$/.test(RAW_API_URL) ? RAW_API_URL.replace(/\/$/, '') : `${RAW_API_URL.replace(/\/$/, '')}/api`;
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// La API vive en el mismo host que sirve el panel, pero en el puerto 3001
+// (apiPort). Derivar el host de la página permite que tanto el equipo del
+// gimnasio (http://127.0.0.1:3000) como las terminales de la red local
+// (http://192.168.x.x:3000) apunten al servidor correcto. Si se define
+// NEXT_PUBLIC_API_URL, esa manda.
+function resolveApiUrl(): string {
+  let base = RAW_API_URL;
+  if (!base && typeof window !== 'undefined') {
+    base = `${window.location.protocol}//${window.location.hostname}:3001`;
+  }
+  if (!base) base = 'http://127.0.0.1:3001';
+  return /\/api\/?$/.test(base) ? base.replace(/\/$/, '') : `${base.replace(/\/$/, '')}/api`;
+}
+
+export const API_URL = resolveApiUrl();
 
 const TOKEN_KEY = 'fit_token';
 

@@ -16,7 +16,7 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
     setScanned(true);
     setBusy(true);
     try {
-      const res = await portal.checkin({ qr: data });
+      const res = await portal.checkin(data);
       setResult(res);
       Alert.alert(
         res.allowed ? 'Ingreso registrado' : 'No se pudo registrar',

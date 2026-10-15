@@ -31,6 +31,9 @@ let apiProcess: ChildProcess | null = null;
 let webProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let lastUpdateState: UpdateState | null = null;
+// El panel avisa (por IPC) si hay una venta/cobro en curso, para no reiniciar
+// la aplicación justo mientras se está facturando.
+let rendererBusy = false;
 // Pantalla de activación opcional (respaldo). En uso normal la licencia se
 // administra desde Configuración > Licencia y no se muestra al ingresar.
 let activationWindow: BrowserWindow | null = null;
@@ -194,6 +197,55 @@ function getApiSecret(): string {
     /* ignore */
   }
   return secret;
+}
+
+// ---------------------------------------------------------------------------
+// Red local (modo servidor / terminal)
+// ---------------------------------------------------------------------------
+
+type NetworkMode = 'standalone' | 'server';
+
+interface NetworkConfig {
+  mode: NetworkMode;
+}
+
+function networkFile(): string {
+  return path.join(app.getPath('userData'), 'network.json');
+}
+
+// 'standalone' (por defecto): todo en esta PC, API solo en loopback.
+// 'server': esta PC es el servidor del gimnasio; API y panel escuchan en la red
+// local y las demás PC entran desde el navegador (http://IP:3000).
+function readNetworkConfig(): NetworkConfig {
+  try {
+    const raw = fs.readFileSync(networkFile(), 'utf8');
+    const parsed = JSON.parse(raw) as Partial<NetworkConfig>;
+    if (parsed.mode === 'server') return { mode: 'server' };
+  } catch {
+    /* default */
+  }
+  return { mode: 'standalone' };
+}
+
+function writeNetworkConfig(config: NetworkConfig): void {
+  try {
+    fs.writeFileSync(networkFile(), JSON.stringify(config, null, 2), 'utf8');
+  } catch (err) {
+    log('No se pudo guardar la config de red:', (err as Error).message);
+  }
+}
+
+// Direcciones IPv4 no internas del equipo, para armar la URL que las terminales
+// deben abrir en el navegador.
+function getLanAddresses(): string[] {
+  const addresses: string[] = [];
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const info of interfaces[name] || []) {
+      if (info.family === 'IPv4' && !info.internal) addresses.push(info.address);
+    }
+  }
+  return addresses;
 }
 
 function apiJson(method: string, pathname: string, body?: unknown, timeoutMs = 15000): Promise<Record<string, any>> {
@@ -560,13 +612,35 @@ async function initAutoUpdater() {
       log('electron-updater no disponible: el modulo no expone autoUpdater');
       return;
     }
-    autoUpdater.autoDownload = false;
+    // Descarga e instalación automáticas en segundo plano: al detectar una
+    // versión nueva se descarga sola y, al terminar, se reinicia e instala sin
+    // pedir confirmación para no interrumpir el uso del sistema.
+    autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.on('checking-for-update', () => emitUpdate({ state: 'checking' }));
     autoUpdater.on('update-available', (info) => emitUpdate({ state: 'available', version: info.version }));
     autoUpdater.on('update-not-available', () => emitUpdate({ state: 'up-to-date' }));
     autoUpdater.on('download-progress', (p) => emitUpdate({ state: 'downloading', percent: Math.round(p.percent) }));
-    autoUpdater.on('update-downloaded', (info) => emitUpdate({ state: 'downloaded', version: info.version }));
+    autoUpdater.on('update-downloaded', (info) => {
+      emitUpdate({ state: 'downloaded', version: info.version });
+      // Instala en silencio y reabre la app tal cual estaba. Espera a que el
+      // panel no tenga una venta a medio hacer para no interrumpir un cobro.
+      const tryInstall = () => {
+        if (rendererBusy) {
+          log('Actualización lista; esperando a que termine la venta en curso.');
+          setTimeout(tryInstall, 20000);
+          return;
+        }
+        setTimeout(() => {
+          try {
+            autoUpdater.quitAndInstall(true, true);
+          } catch (err) {
+            log('No se pudo instalar la actualización automáticamente:', (err as Error).message);
+          }
+        }, 1500);
+      };
+      tryInstall();
+    });
     autoUpdater.on('error', (err) => emitUpdate({ state: 'error', message: String((err as Error)?.message || err) }));
     updater = autoUpdater;
     log('Auto-updater (electron-updater) inicializado.');
@@ -592,12 +666,52 @@ function registerUpdateIpc() {
     setImmediate(() => updater?.quitAndInstall());
     return { ok: true };
   });
+  // El panel avisa si hay una venta/cobro en curso, para no reiniciar la app
+  // (actualización automática) mientras se está facturando.
+  ipcMain.handle('app:busy', (_event, busy) => {
+    rendererBusy = Boolean(busy);
+    return { ok: true };
+  });
+}
+
+function registerNetworkIpc() {
+  ipcMain.handle('network:get', () => {
+    const config = readNetworkConfig();
+    const addresses = getLanAddresses();
+    return {
+      mode: config.mode,
+      addresses,
+      lanUrls: addresses.map((ip) => `http://${ip}:${WEB_PORT}/dashboard`),
+      webPort: WEB_PORT,
+      apiPort: API_PORT,
+    };
+  });
+
+  ipcMain.handle('network:set', (_event, mode: string) => {
+    const next: NetworkMode = mode === 'server' ? 'server' : 'standalone';
+    writeNetworkConfig({ mode: next });
+    log('Modo de red guardado:', next, '(requiere reiniciar)');
+    return { ok: true, mode: next };
+  });
+
+  // Aplica el cambio de modo reiniciando la aplicación (los servicios internos
+  // se levantan con el nuevo host al arrancar). Se detienen los procesos hijos
+  // antes de salir para liberar los puertos 3000/3001 y que el nuevo arranque no
+  // falle al bindear.
+  ipcMain.handle('network:restart', () => {
+    stopServices();
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 700);
+    return { ok: true };
+  });
 }
 
 const LICENSE_PUBLIC_KEY =
   'eyJjcnYiOiJFZDI1NTE5IiwieCI6IlpIVl9fakt2SUUwUUQ3ZTZiUG5hNjBEVFdhTS1VSnRGVVEwV1hveFFYV2ciLCJrdHkiOiJPS1AifQ==';
 
-function startApi(): ChildProcess {
+function startApi(bindHost: string, lanMode: boolean): ChildProcess {
   const apiDir = path.join(process.resourcesPath, 'api');
   const entry = path.join(apiDir, 'dist', 'index.js');
 
@@ -608,7 +722,8 @@ function startApi(): ChildProcess {
     ELECTRON_RUN_AS_NODE: '1',
     NODE_ENV: 'production',
     API_PORT: String(API_PORT),
-    API_HOST: '127.0.0.1',
+    API_HOST: bindHost,
+    LAN_MODE: lanMode ? '1' : '0',
     DATABASE_URL: toFileUrl(dbPath),
     WEB_ORIGIN: `http://127.0.0.1:${WEB_PORT}`,
     JWT_SECRET: getApiSecret(),
@@ -616,7 +731,7 @@ function startApi(): ChildProcess {
     LICENSE_PUBLIC_KEY: LICENSE_PUBLIC_KEY,
   };
 
-  log('Iniciando API en puerto', API_PORT);
+  log('Iniciando API en', `${bindHost}:${API_PORT}`, 'lan=', lanMode);
   const child = spawn(process.execPath, [entry], {
     env,
     cwd: apiDir,
@@ -628,7 +743,7 @@ function startApi(): ChildProcess {
   return child;
 }
 
-function startWeb(): ChildProcess {
+function startWeb(bindHost: string): ChildProcess {
   const webDir = path.join(process.resourcesPath, 'web');
   const nextBin = path.join(webDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 
@@ -639,10 +754,10 @@ function startWeb(): ChildProcess {
     PORT: String(WEB_PORT),
   };
 
-  log('Iniciando WEB en puerto', WEB_PORT);
+  log('Iniciando WEB en', `${bindHost}:${WEB_PORT}`);
   const child = spawn(
     process.execPath,
-    [nextBin, 'start', '-p', String(WEB_PORT), '-H', '127.0.0.1'],
+    [nextBin, 'start', '-p', String(WEB_PORT), '-H', bindHost],
     { env, cwd: webDir, stdio: ['ignore', 'pipe', 'pipe'] },
   );
   child.stdout?.on('data', (d) => log('WEB:', d.toString().trim()));
@@ -898,14 +1013,17 @@ app.whenReady().then(async () => {
   let servicesReady = false;
   try {
     if (app.isPackaged) {
-      apiProcess = startApi();
-      webProcess = startWeb();
+      const network = readNetworkConfig();
+      const lanMode = network.mode === 'server';
+      const bindHost = lanMode ? '0.0.0.0' : '127.0.0.1';
+      apiProcess = startApi(bindHost, lanMode);
+      webProcess = startWeb(bindHost);
       await Promise.all([
         waitForUrl(`http://127.0.0.1:${API_PORT}/health`),
         waitForUrl(`http://127.0.0.1:${WEB_PORT}/`),
       ]);
       servicesReady = true;
-      log('Servicios listos');
+      log('Servicios listos', lanMode ? `(red local: ${getLanAddresses().join(', ')})` : '');
     }
   } catch (err) {
     log('Fallo al arrancar servicios:', (err as Error).message);
@@ -917,6 +1035,7 @@ app.whenReady().then(async () => {
 
   registerLicenseIpc();
   registerUpdateIpc();
+  registerNetworkIpc();
 
   // La ventana se crea SIEMPRE primero: nunca debe quedar sin abrir por una
   // validación de licencia/red lenta o colgada. La licencia se consulta después.

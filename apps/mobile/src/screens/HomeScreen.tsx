@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
 import { Badge, Card, Muted, PrimaryButton, Subtitle } from '../components/ui';
-import { portal, ApiError, type Checkin, type MemberInfo, type OrgInfo, type Quota } from '../lib/api';
+import { portal, type Checkin, type MemberInfo, type OrgInfo, type Quota } from '../lib/api';
 
 function formatDate(value?: string | null) {
   if (!value) return '-';
@@ -16,33 +16,25 @@ function quotaColor(quota: Quota | null) {
   return colors.success;
 }
 
-export function HomeScreen({ org, member, initialQuota }: { org: OrgInfo; member: MemberInfo; initialQuota: Quota | null }) {
+export function HomeScreen({
+  org,
+  member,
+  initialQuota,
+  onGoToCheckin,
+}: {
+  org: OrgInfo;
+  member: MemberInfo;
+  initialQuota: Quota | null;
+  onGoToCheckin?: () => void;
+}) {
   const [quota, setQuota] = useState<Quota | null>(initialQuota);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [checking, setChecking] = useState(false);
 
   async function load() {
     const [me, chk] = await Promise.all([portal.me(), portal.checkins()]);
     setQuota(me.quota);
     setCheckins(chk.items);
-  }
-
-  async function onCheckin() {
-    setChecking(true);
-    try {
-      const res = await portal.checkin();
-      if (res.allowed) {
-        Alert.alert('Check-in registrado', `Bienvenido/a a ${org.name}.${res.plan ? ` Plan: ${res.plan}` : ''}`);
-        await load();
-      } else {
-        Alert.alert('No se pudo registrar', res.message ?? 'Tu membresia no permite el ingreso.');
-      }
-    } catch (error) {
-      Alert.alert('Error', error instanceof ApiError ? error.message : 'Intentá de nuevo.');
-    } finally {
-      setChecking(false);
-    }
   }
 
   useEffect(() => {
@@ -106,7 +98,14 @@ export function HomeScreen({ org, member, initialQuota }: { org: OrgInfo; member
         </Card>
       </View>
 
-      <PrimaryButton label="Hacer check-in" onPress={onCheckin} loading={checking} disabled={!quota || quota.isExpired} />
+      <PrimaryButton
+        label="Escanear QR para ingresar"
+        onPress={() => onGoToCheckin?.()}
+        disabled={!quota || quota.isExpired}
+      />
+      <Muted style={{ textAlign: 'center' }}>
+        El ingreso se registra escaneando el QR de la entrada del gimnasio con la cámara de la app.
+      </Muted>
 
       <Subtitle>Ultimos ingresos</Subtitle>
       <Card>

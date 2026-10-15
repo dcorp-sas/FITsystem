@@ -55,6 +55,19 @@ interface DeviceProfile {
   scannedAt: string;
 }
 
+interface AccessQrData {
+  enabled: boolean;
+  rotation: string;
+  size: number;
+  color: string;
+  title: string;
+  subtitle: string;
+  footer: string;
+  branchId: string;
+  payload: string;
+  image: string | null;
+}
+
 export default function AttendancePage() {
   const toast = useToast();
   const { branches, activeBranchId } = useAuth();
@@ -172,7 +185,9 @@ export default function AttendancePage() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <Card title="Registrar ingreso">
+          <AccessQrCard branchId={branchId} />
+
+          <Card title="Registrar ingreso" className="mt-5">
             <form onSubmit={(e) => { setResult(null); checkin(e); }} className="space-y-4">
               <Field label="Código de socio o escanear QR">
                 <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ej: SOC-0001" autoFocus />
@@ -336,5 +351,89 @@ export default function AttendancePage() {
         onDone={load}
       />
     </div>
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function AccessQrCard({ branchId }: { branchId: string }) {
+  const toast = useToast();
+  const [data, setData] = useState<AccessQrData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!branchId) return;
+    setLoading(true);
+    try {
+      const res = await http.get<AccessQrData>(`/attendance/access-qr?branchId=${encodeURIComponent(branchId)}`);
+      setData(res);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al generar el QR');
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function print() {
+    if (!data?.image) return;
+    const win = window.open('', '_blank', 'width=820,height=920');
+    if (!win) return;
+    win.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>QR de ingreso</title><style>` +
+        `body{font-family:system-ui,Arial,sans-serif;text-align:center;padding:48px;color:#0b1120}` +
+        `h1{font-size:28px;margin:0 0 10px}p{color:#475569;margin:6px 0;font-size:16px}` +
+        `img{width:380px;height:380px;margin:28px auto;display:block}` +
+        `.footer{margin-top:24px;font-size:14px;color:#64748b}</style></head><body>` +
+        `<h1>${escapeHtml(data.title)}</h1><p>${escapeHtml(data.subtitle)}</p>` +
+        `<img src="${data.image}" alt="QR" /><div class="footer">${escapeHtml(data.footer)}</div>` +
+        `<script>window.onload=function(){setTimeout(function(){window.print();},400);};</script>` +
+        `</body></html>`,
+    );
+    win.document.close();
+  }
+
+  const rotationLabel =
+    data?.rotation === 'DAILY' ? 'rota cada día' : data?.rotation === 'WEEKLY' ? 'rota cada semana' : 'fijo';
+
+  return (
+    <Card
+      title="QR de ingreso para socios"
+      action={
+        <Button variant="secondary" size="sm" onClick={load} loading={loading}>
+          <Icon name="activity" size={15} /> Actualizar
+        </Button>
+      }
+    >
+      <p className="text-sm text-text-muted">
+        Pegá este QR en la entrada. Los socios lo escanean con la app (pestaña “Ingreso”) y su ingreso queda registrado
+        al instante acá y en la app.
+      </p>
+      <div className="mt-4 flex flex-col items-center gap-3">
+        {data?.image ? (
+          <img src={data.image} alt="QR de ingreso" className="h-52 w-52 rounded-lg border border-line bg-white p-2" />
+        ) : (
+          <div className="flex h-52 w-52 items-center justify-center rounded-lg border border-dashed border-line px-4 text-center text-xs text-text-muted">
+            {loading ? 'Generando…' : data && !data.enabled ? 'El ingreso por QR está desactivado' : 'Sin QR generado'}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Badge color={data?.enabled ? 'green' : 'gray'}>{data?.enabled ? 'Activo' : 'Desactivado'}</Badge>
+          {data && <span className="text-xs text-text-muted">QR {rotationLabel}</span>}
+        </div>
+        <Button onClick={print} disabled={!data?.image} className="w-full">
+          <Icon name="activity" size={16} /> Imprimir QR
+        </Button>
+      </div>
+    </Card>
   );
 }

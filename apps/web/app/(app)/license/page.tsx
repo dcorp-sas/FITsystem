@@ -202,16 +202,19 @@ export default function LicensePage() {
       {isDesktop && (
         <Card title="Actualización del sistema" className="mt-5">
           <p className="mb-4 text-sm text-text-muted">
-            Detectá e instalá actualizaciones de FIT System sin salir de la app.
+            FIT System se actualiza solo: descarga en segundo plano y se reinicia e instala automáticamente apenas hay
+            una versión nueva.
           </p>
 
           {update?.state === 'checking' && <p className="mb-3 text-sm text-text-muted">Buscando actualizaciones…</p>}
           {update?.state === 'up-to-date' && <p className="mb-3 text-sm text-success">Estás en la última versión.</p>}
           {update?.state === 'available' && (
             <div className="mb-3 rounded-lg border border-line bg-surface-alt p-3 text-sm">
-              <p className="font-medium">Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}.</p>
-              <Button className="mt-3" onClick={descargarActualizacion}>
-                <Icon name="import" size={16} /> Descargar actualización
+              <p className="font-medium">
+                Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}. Se está descargando sola.
+              </p>
+              <Button variant="secondary" className="mt-3" onClick={descargarActualizacion}>
+                <Icon name="import" size={16} /> Descargar ahora
               </Button>
             </div>
           )}
@@ -225,7 +228,7 @@ export default function LicensePage() {
           )}
           {update?.state === 'downloaded' && (
             <div className="mb-3 rounded-lg border border-line bg-surface-alt p-3 text-sm">
-              <p className="font-medium">Actualización lista para instalar.</p>
+              <p className="font-medium">Actualización lista. Reiniciando e instalando automáticamente…</p>
               <Button className="mt-3" onClick={instalarActualizacion}>
                 <Icon name="check" size={16} /> Reiniciar e instalar
               </Button>

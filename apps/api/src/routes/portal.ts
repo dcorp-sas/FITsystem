@@ -486,23 +486,27 @@ export function portalRoutes(app: FastifyInstance) {
       const input = validate(portalCheckinSchema, request.body ?? {});
       const { organizationId, memberId } = req.portalAccount;
 
-      // Ingreso escaneando el QR fijo del gimnasio con la cámara de la app.
-      // El QR no identifica al socio (eso lo hace la sesión), solo valida que
-      // el socio esté físicamente en el gimnasio.
-      let method = input.method;
-      let branchId = input.branchId;
-      if (input.qr) {
-        const enabled = (await getRawSetting(organizationId, 'ATTENDANCE', 'ACCESS_QR_ENABLED')) !== 'false';
-        if (!enabled) {
-          return ok(reply, { allowed: false, reason: 'QR_DESHABILITADO', message: 'El ingreso por QR no está habilitado' }, 200);
-        }
-        const parsed = parseAccessQr(input.qr);
-        if (!parsed.ok || parsed.data.orgId !== organizationId) {
-          return ok(reply, { allowed: false, reason: 'QR_INVALIDO', message: 'El QR no es válido' }, 200);
-        }
-        method = 'QR';
-        branchId = parsed.data.branchId;
+      // El ingreso SOLO se registra escaneando el QR fijo del gimnasio con la
+      // cámara de la app. El QR no identifica al socio (eso lo hace la sesión),
+      // solo valida que esté físicamente en el gimnasio; así no se puede hacer
+      // check-in desde cualquier lado.
+      if (!input.qr) {
+        return ok(
+          reply,
+          { allowed: false, reason: 'REQUIERE_QR', message: 'Escaneá el QR de la entrada para registrar tu ingreso' },
+          200,
+        );
       }
+      const enabled = (await getRawSetting(organizationId, 'ATTENDANCE', 'ACCESS_QR_ENABLED')) !== 'false';
+      if (!enabled) {
+        return ok(reply, { allowed: false, reason: 'QR_DESHABILITADO', message: 'El ingreso por QR no está habilitado' }, 200);
+      }
+      const parsed = parseAccessQr(input.qr);
+      if (!parsed.ok || parsed.data.orgId !== organizationId) {
+        return ok(reply, { allowed: false, reason: 'QR_INVALIDO', message: 'El QR no es válido' }, 200);
+      }
+      const method = 'QR';
+      const branchId = parsed.data.branchId;
 
       const member = await prisma.member.findFirst({ where: { id: memberId, organizationId } });
       if (!member) throw new HttpError(404, 'Socio no encontrado');

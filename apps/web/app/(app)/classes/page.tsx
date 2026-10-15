@@ -16,10 +16,18 @@ import {
   PageHeader,
   Select,
   Spinner,
+  StatusBadge,
   Table,
   Textarea,
 } from '@/components/ui';
 import { Icon } from '@/components/icon';
+
+interface ReservationWithMember {
+  id: string;
+  status: string;
+  createdAt: string;
+  member: { id: string; firstName: string; lastName: string; memberCode: string; phone: string | null } | null;
+}
 
 export default function ClassesPage() {
   const toast = useToast();
@@ -34,6 +42,28 @@ export default function ClassesPage() {
   const [classOpen, setClassOpen] = useState(false);
   const [editing, setEditing] = useState<GymClass | null>(null);
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [rosterSession, setRosterSession] = useState<ClassSession | null>(null);
+  const [roster, setRoster] = useState<ReservationWithMember[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+
+  const openRoster = useCallback(
+    async (session: ClassSession) => {
+      setRosterSession(session);
+      setRosterOpen(true);
+      setRosterLoading(true);
+      setRoster([]);
+      try {
+        const res = await http.get<ReservationWithMember[]>(`/sessions/${session.id}/reservations`);
+        setRoster(res);
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : 'Error al cargar inscriptos');
+      } finally {
+        setRosterLoading(false);
+      }
+    },
+    [toast],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -158,9 +188,20 @@ export default function ClassesPage() {
                   <td className="px-4 py-3 text-text-muted">{formatDateTime(s.startAt)}</td>
                   <td className="px-4 py-3 text-text-muted">{s._count?.reservations ?? 0} / {s.capacity}</td>
                   <td className="px-4 py-3 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)}>
-                      <Icon name="trash" size={15} />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openRoster(s)}
+                        title="Ver inscriptos"
+                        aria-label="Ver inscriptos"
+                      >
+                        <Icon name="users" size={15} />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)}>
+                        <Icon name="trash" size={15} />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -171,6 +212,44 @@ export default function ClassesPage() {
 
       <ClassModal open={classOpen} onClose={() => setClassOpen(false)} gymClass={editing} branchId={branchId} instructors={instructors} onSaved={load} />
       <SessionModal open={sessionOpen} onClose={() => setSessionOpen(false)} classes={classes} instructors={instructors} onSaved={load} />
+
+      <Modal
+        open={rosterOpen}
+        onClose={() => setRosterOpen(false)}
+        title={rosterSession ? `Inscriptos · ${rosterSession.gymClass?.name ?? 'Clase'}` : 'Inscriptos'}
+        footer={
+          <Button variant="ghost" onClick={() => setRosterOpen(false)}>
+            Cerrar
+          </Button>
+        }
+      >
+        {rosterLoading ? (
+          <div className="flex justify-center py-10 text-text-muted">
+            <Spinner className="h-5 w-5" />
+          </div>
+        ) : roster.length === 0 ? (
+          <p className="py-6 text-center text-sm text-text-muted">Todavía no hay inscriptos.</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-text-muted">
+              {rosterSession ? `${formatDateTime(rosterSession.startAt)} · ` : ''}
+              {roster.filter((r) => r.status === 'RESERVED').length} confirmados de {rosterSession?.capacity ?? 0}
+            </p>
+            <Table head={['Socio', 'Código', 'Teléfono', 'Estado']}>
+              {roster.map((r) => (
+                <tr key={r.id}>
+                  <td className="px-3 py-2 text-text">{r.member ? `${r.member.firstName} ${r.member.lastName}` : '—'}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-text-muted">{r.member?.memberCode ?? '—'}</td>
+                  <td className="px-3 py-2 text-text-muted">{r.member?.phone ?? '—'}</td>
+                  <td className="px-3 py-2">
+                    <StatusBadge status={r.status} />
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

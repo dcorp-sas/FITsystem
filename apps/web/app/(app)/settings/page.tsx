@@ -5,6 +5,7 @@ import { http, ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
 import type { Organization } from '@/lib/types';
+import type { NetworkInfo } from '@/lib/desktop';
 import {
   Badge,
   Button,
@@ -49,7 +50,7 @@ interface IntegrationStatus {
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
 
-type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face';
+type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face' | 'cloud' | 'network';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -60,6 +61,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'email', label: 'Email (SMTP)' },
   { key: 'print', label: 'Impresión' },
   { key: 'face', label: 'Reconocimiento facial' },
+  { key: 'cloud', label: 'Nube' },
+  { key: 'network', label: 'Red local' },
 ];
 
 export default function SettingsPage() {
@@ -124,8 +127,9 @@ export default function SettingsPage() {
               values={settings.ATTENDANCE ?? {}}
               intro={
                 <p className="text-xs text-text-muted">
-                  Generá un QR fijo, imprimilo y pegalo en la puerta. Tus socios lo escanean con la cámara de la app
-                  del socio y el ingreso se registra solo, sin pasar por recepción.
+                  Configurá el ingreso por QR. El <strong className="text-text">QR para imprimir</strong> está en{' '}
+                  <strong className="text-text">Acceso y asistencia</strong>. Tus socios lo escanean con la cámara de la
+                  app del socio y el ingreso se registra solo, sin pasar por recepción.
                 </p>
               }
               fields={[
@@ -175,7 +179,6 @@ export default function SettingsPage() {
               onSaved={load}
               extra={
                 <div className="space-y-5">
-                  <AccessQrCard config={settings.ATTENDANCE ?? {}} />
                   <MethodsCard config={settings.ATTENDANCE ?? {}} />
                 </div>
               }
@@ -421,6 +424,9 @@ export default function SettingsPage() {
               extra={<FaceInfoCard />}
             />
           )}
+
+          {tab === 'cloud' && <CloudCard />}
+          {tab === 'network' && <NetworkCard />}
         </>
       )}
     </div>
@@ -517,6 +523,298 @@ function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSav
           </Button>
         </div>
       </form>
+    </Card>
+  );
+}
+
+interface CloudStatus {
+  connected: boolean;
+  url: string | null;
+  lastSyncAt: string | null;
+  lastError: string | null;
+}
+
+function NetworkCard() {
+  const toast = useToast();
+  const [info, setInfo] = useState<NetworkInfo | null>(null);
+  const [supported, setSupported] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const bridge = typeof window !== 'undefined' ? window.fitsystem : undefined;
+    if (!bridge?.getNetwork) {
+      setSupported(false);
+      setLoading(false);
+      return;
+    }
+    bridge
+      .getNetwork()
+      .then((data) => setInfo(data))
+      .catch(() => setSupported(false))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function applyMode(mode: 'standalone' | 'server') {
+    const bridge = typeof window !== 'undefined' ? window.fitsystem : undefined;
+    if (!bridge?.setNetwork || !bridge?.restartApp) return;
+    setSaving(true);
+    try {
+      await bridge.setNetwork(mode);
+      setInfo((prev) => (prev ? { ...prev, mode } : prev));
+      toast.success('Modo guardado. Reiniciando para aplicar…');
+      await bridge.restartApp();
+    } catch {
+      toast.error('No se pudo cambiar el modo de red');
+      setSaving(false);
+    }
+  }
+
+  if (!supported) {
+    return (
+      <Card title="Red local" className="max-w-2xl">
+        <p className="text-sm text-text-muted">
+          Esta opción está disponible solo en la aplicación de escritorio de FIT System.
+        </p>
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20 text-text-muted">
+        <Spinner className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  const isServer = info?.mode === 'server';
+
+  return (
+    <Card title="Red local (varias PC en el gimnasio)" className="max-w-2xl">
+      <p className="text-sm text-text-muted">
+        Podés usar FIT System en varias computadoras del mismo local. Una PC es el servidor (guarda los
+        datos) y las demás entran desde el navegador apuntando a su dirección de red. Todas ven y cargan
+        sobre la misma información.
+      </p>
+
+      <div className="mt-4 space-y-3">
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4">
+          <input
+            type="radio"
+            name="netmode"
+            className="mt-1"
+            checked={!isServer}
+            disabled={saving}
+            onChange={() => applyMode('standalone')}
+          />
+          <span>
+            <span className="block text-sm font-medium text-text">Esta PC sola (por defecto)</span>
+            <span className="mt-0.5 block text-xs text-text-muted">
+              El sistema funciona únicamente en esta computadora. No se abre a la red.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4">
+          <input
+            type="radio"
+            name="netmode"
+            className="mt-1"
+            checked={isServer}
+            disabled={saving}
+            onChange={() => applyMode('server')}
+          />
+          <span>
+            <span className="block text-sm font-medium text-text">
+              Esta PC es el servidor (varias PC en la red)
+            </span>
+            <span className="mt-0.5 block text-xs text-text-muted">
+              Las demás PC abren el panel desde el navegador con la dirección de abajo e ingresan con su
+              usuario y contraseña.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {isServer && (
+        <div className="mt-4 rounded-lg border border-line bg-surface-alt/60 p-4">
+          <div className="text-xs font-medium text-text-muted">Dirección para las demás PC</div>
+          {info?.lanUrls.length ? (
+            <ul className="mt-2 space-y-1">
+              {info.lanUrls.map((url) => (
+                <li key={url} className="font-mono text-sm text-primary-light">
+                  {url}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-text-muted">
+              No se detectó una dirección de red. Verificá que esta PC esté conectada a la red del gimnasio.
+            </p>
+          )}
+          <p className="mt-3 text-xs text-text-muted">
+            Abrí esa dirección en la PC de recepción. Si Windows lo pide, permití el acceso a FIT System en
+            el firewall para las redes privadas.
+          </p>
+        </div>
+      )}
+
+      <p className="mt-4 text-xs text-text-muted">
+        Cambiar el modo reinicia la aplicación. La impresión local desde terminales de red se configura por
+        equipo.
+      </p>
+    </Card>
+  );
+}
+
+function CloudCard() {
+  const toast = useToast();
+  const { organization } = useAuth();
+  const [status, setStatus] = useState<CloudStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [form, setForm] = useState({ url: '', organizationName: '', slug: '', key: '' });
+
+  const load = useCallback(async () => {
+    try {
+      const s = await http.get<CloudStatus>('/cloud/status');
+      setStatus(s);
+      if (s.url) setForm((f) => ({ ...f, url: s.url ?? '' }));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al leer el estado');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (organization?.name) {
+      setForm((f) => (f.organizationName ? f : { ...f, organizationName: organization.name }));
+    }
+  }, [organization]);
+
+  async function connect() {
+    setBusy('connect');
+    try {
+      await http.post('/cloud/connect', {
+        url: form.url,
+        organizationName: form.organizationName || organization?.name || 'Mi gimnasio',
+        ...(form.slug ? { slug: form.slug } : {}),
+        ...(form.key ? { key: form.key } : {}),
+      });
+      toast.success('Conectado. Los socios ya pueden ingresar desde la app.');
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo conectar');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function syncNow() {
+    setBusy('sync');
+    try {
+      await http.post('/cloud/sync', {});
+      toast.success('Sincronizado');
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al sincronizar');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function disconnect() {
+    setBusy('disconnect');
+    try {
+      await http.post('/cloud/disconnect', {});
+      toast.success('Desconectado');
+      await load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20 text-text-muted">
+        <Spinner className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  return (
+    <Card title="Nube (app del socio)" className="max-w-2xl">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge color={status?.connected ? 'green' : 'gray'}>{status?.connected ? 'Conectado' : 'Sin conectar'}</Badge>
+        {status?.lastSyncAt && (
+          <span className="text-xs text-text-muted">
+            Última sincronización: {new Date(status.lastSyncAt).toLocaleString()}
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-sm text-text-muted">
+        Conectá este sistema con la nube para que la app del socio vea los mismos socios, cuotas y credenciales. El
+        sistema sigue funcionando sin internet; cuando hay conexión, se sincroniza solo.
+      </p>
+      {status?.lastError && <p className="mt-2 text-xs text-red-400">Último error: {status.lastError}</p>}
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Dirección de la nube" className="sm:col-span-2">
+          <Input
+            placeholder="https://fitsystem-api.onrender.com"
+            value={form.url}
+            onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+          />
+        </Field>
+        <Field label="Nombre del gimnasio">
+          <Input
+            value={form.organizationName}
+            onChange={(e) => setForm((f) => ({ ...f, organizationName: e.target.value }))}
+          />
+        </Field>
+        <Field label="Clave corta (opcional)">
+          <Input
+            placeholder="mi-gimnasio"
+            value={form.slug}
+            onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+          />
+        </Field>
+        <Field label="Clave de sincronización existente (opcional)" className="sm:col-span-2">
+          <Input
+            type="password"
+            placeholder="sk_..."
+            value={form.key}
+            onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
+          />
+        </Field>
+      </div>
+      <p className="mt-2 text-xs text-text-muted">
+        Completá la clave existente solo si vas a reconectar un gimnasio que ya está dado de alta en la nube.
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={connect} loading={busy === 'connect'}>
+          {status?.connected ? 'Reconectar' : 'Conectar a la nube'}
+        </Button>
+        {status?.connected && (
+          <Button variant="secondary" onClick={syncNow} loading={busy === 'sync'}>
+            Sincronizar ahora
+          </Button>
+        )}
+        {status?.connected && (
+          <Button variant="secondary" onClick={disconnect} loading={busy === 'disconnect'}>
+            Desconectar
+          </Button>
+        )}
+      </div>
     </Card>
   );
 }
@@ -988,33 +1286,6 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
   );
 }
 
-interface AccessQrData {
-  enabled: boolean;
-  branchId: string;
-  payload: string;
-  image: string | null;
-  title: string;
-  subtitle: string;
-  footer: string;
-  size: number;
-  color: string;
-  rotation: string;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function rotationLabel(rotation: string) {
-  if (rotation === 'DAILY') return 'cambia todos los días';
-  if (rotation === 'WEEKLY') return 'cambia cada semana';
-  return 'fijo';
-}
-
 const CHECKIN_METHODS: { key: string; label: string; hint: string }[] = [
   { key: 'QR', label: 'QR', hint: 'Lector de pistola o cámara, y el QR fijo que escanea la app del socio' },
   { key: 'CARD', label: 'Tarjeta', hint: 'Credencial RFID / banda magnética (lector HID/Serial/NFC)' },
@@ -1083,81 +1354,6 @@ function MethodsCard({ config }: { config: Record<string, string> }) {
           Guardar medios de ingreso
         </Button>
       </div>
-    </Card>
-  );
-}
-
-function AccessQrCard({ config }: { config: Record<string, string> }) {
-  const toast = useToast();
-  const { branches, activeBranchId } = useAuth();
-  const [data, setData] = useState<AccessQrData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const branchId = activeBranchId || branches[0]?.id || '';
-  const configKey = JSON.stringify(config);
-
-  const load = useCallback(async () => {
-    if (!branchId) return;
-    setLoading(true);
-    try {
-      const res = await http.get<AccessQrData>(`/attendance/access-qr?branchId=${encodeURIComponent(branchId)}`);
-      setData(res);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Error al generar el QR');
-    } finally {
-      setLoading(false);
-    }
-  }, [branchId, toast]);
-
-  useEffect(() => {
-    load();
-  }, [load, configKey]);
-
-  function print() {
-    if (!data?.image) return;
-    const win = window.open('', '_blank', 'width=820,height=920');
-    if (!win) return;
-    win.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"><title>QR de ingreso</title><style>` +
-        `body{font-family:system-ui,Arial,sans-serif;text-align:center;padding:48px;color:#0b1120}` +
-        `h1{font-size:28px;margin:0 0 10px}p{color:#475569;margin:6px 0;font-size:16px}` +
-        `img{width:380px;height:380px;margin:28px auto;display:block}` +
-        `.footer{margin-top:24px;font-size:14px;color:#64748b}</style></head><body>` +
-        `<h1>${escapeHtml(data.title)}</h1><p>${escapeHtml(data.subtitle)}</p>` +
-        `<img src="${data.image}" alt="QR" /><div class="footer">${escapeHtml(data.footer)}</div>` +
-        `<script>window.onload=function(){setTimeout(function(){window.print();},400);};</script>` +
-        `</body></html>`,
-    );
-    win.document.close();
-  }
-
-  return (
-    <Card title="QR fijo de ingreso">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge color={data?.enabled ? 'green' : 'gray'}>{data?.enabled ? 'Activo' : 'Desactivado'}</Badge>
-        {data && <span className="text-xs text-text-muted">QR {rotationLabel(data.rotation)}</span>}
-      </div>
-      <div className="mt-4 flex flex-col items-center gap-3">
-        {data?.image ? (
-          <img src={data.image} alt="QR fijo de ingreso" className="h-56 w-56 rounded-lg border border-line bg-white p-2" />
-        ) : (
-          <div className="flex h-56 w-56 items-center justify-center rounded-lg border border-dashed border-line px-4 text-center text-xs text-text-muted">
-            {loading ? 'Generando…' : data && !data.enabled ? 'El ingreso por QR está desactivado' : 'Sin QR generado'}
-          </div>
-        )}
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button variant="secondary" onClick={load} loading={loading}>
-            Actualizar
-          </Button>
-          <Button onClick={print} disabled={!data?.image}>
-            Imprimir
-          </Button>
-        </div>
-      </div>
-      <p className="mt-3 text-xs text-text-muted">
-        Imprimilo grande y pegalo en la entrada. Los socios lo escanean con la cámara de la app y el ingreso queda
-        registrado al instante, sin pasar por recepción.
-      </p>
     </Card>
   );
 }

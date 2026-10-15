@@ -4,6 +4,7 @@ import { memberSchema, memberImportSchema, faceEnrollSchema } from '@fitsystem/v
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { autoProvisionPortalAccount, syncPortalAccount } from '../services/portal-account.js';
+import { scheduleCloudSync } from '../services/cloud-sync.js';
 import { signMemberQr } from '../lib/member-qr.js';
 import { sendCredentials } from '../services/onboarding.js';
 import { addDays, churnRiskScore, daysBetween, fullName, memberCode } from '@fitsystem/utils';
@@ -268,6 +269,7 @@ export function memberRoutes(app: FastifyInstance) {
         emailSent = sent.ok;
       }
 
+      scheduleCloudSync();
       return ok(reply, { ...member, portal, emailSent }, 201);
     } catch (error) {
       return fail(reply, error);
@@ -388,6 +390,7 @@ export function memberRoutes(app: FastifyInstance) {
         });
 
         await logActivity(req, 'IMPORT', 'MEMBER', batch.id, undefined, { success, errors: errors.length });
+        scheduleCloudSync();
         return ok(reply, { total: rows.length - 1, success, errors, batchId: batch.id, accounts }, 201);
       } catch (error) {
         return fail(reply, error);
@@ -429,6 +432,7 @@ export function memberRoutes(app: FastifyInstance) {
 
       await logActivity(req, 'UPDATE', 'MEMBER', id, existing, member);
       const portal = await syncPortalAccount({ organizationId: req.user.organizationId, member });
+      scheduleCloudSync();
       return ok(reply, { ...member, portal });
     } catch (error) {
       return fail(reply, error);
@@ -445,6 +449,7 @@ export function memberRoutes(app: FastifyInstance) {
       if (!existing) throw new HttpError(404, 'Socio no encontrado');
       await prisma.member.update({ where: { id }, data: { status: 'INACTIVE' } });
       await logActivity(req, 'DELETE', 'MEMBER', id);
+      scheduleCloudSync();
       return ok(reply, { deleted: true });
     } catch (error) {
       return fail(reply, error);

@@ -68,7 +68,9 @@ export async function bootstrapToken(): Promise<string | null> {
 
 export function setToken(value: string | null) {
   token = value;
-  if (!value) clearOfflineCache();
+  // Siempre vacía la caché de datos al cambiar de sesión (login o logout), para
+  // que la app nunca muestre una cuota/plan viejo guardado sin conexión.
+  clearOfflineCache();
   void persistToken(value);
 }
 
@@ -306,10 +308,10 @@ export const portal = {
   checkins: () => request<{ items: Checkin[] }>('/api/portal/checkins'),
   classes: () => request<{ items: PortalClass[] }>('/api/portal/classes'),
 
-  checkin: (opts: { branchId?: string; qr?: string } = {}) =>
+  checkin: (qr: string) =>
     request<CheckinResult>('/api/portal/checkin', {
       method: 'POST',
-      body: { method: opts.qr ? 'QR' : 'MANUAL', branchId: opts.branchId, qr: opts.qr },
+      body: { qr },
     }),
 
   reserve: (sessionId: string) =>

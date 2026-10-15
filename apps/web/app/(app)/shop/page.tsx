@@ -6,6 +6,7 @@ import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
 import { formatMoney, formatDateTime } from '@fitsystem/utils';
 import { PAYMENT_METHOD_LABELS } from '@/lib/labels';
+import { reportSaleInProgress } from '@/lib/desktop';
 import type { Member, Product, Sale } from '@/lib/types';
 import {
   Button,
@@ -64,6 +65,12 @@ export default function ShopPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Avisa al escritorio si hay una venta a medio hacer (carrito con ítems o
+  // cobro procesando), para que la actualización automática no reinicie.
+  useEffect(() => {
+    reportSaleInProgress(Boolean(checking || cart.length));
+  }, [checking, cart]);
 
   const filtered = useMemo(
     () => products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku ?? '').toLowerCase().includes(search.toLowerCase())),

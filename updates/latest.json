@@ -1,6 +1,6 @@
 {
-  "version": "0.3.3",
+  "version": "0.3.4",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "App de socios con ingreso solo por DNI y contraseña. Configuración más simple (WhatsApp, email e impresión) y reconocimiento facial con cámara funcionando.",
+  "notes": "LAN multi-equipo: modo servidor, login por red, CORS para LAN y red local configurable. Ajuste de web/landing y guard de actualización durante ventas.",
   "mandatory": false
 }

@@ -122,7 +122,7 @@ export default function App() {
       )}
 
       <View style={styles.content}>
-        {tab === 'home' && <HomeScreen org={session.organization} member={session.member} initialQuota={session.quota} />}
+        {tab === 'home' && <HomeScreen org={session.organization} member={session.member} initialQuota={session.quota} onGoToCheckin={() => setTab('checkin')} />}
         {tab === 'checkin' && <ScanScreen onDone={() => setTab('home')} />}
         {tab === 'classes' && <ClassesScreen />}
         {tab === 'news' && <NewsScreen />}

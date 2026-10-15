@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { Sidebar } from '@/components/sidebar';
 import { LicenseBanner } from '@/components/license-banner';
 import { UpdateBanner } from '@/components/update-banner';
+import { LoginScreen } from '@/components/login-screen';
 import { Spinner } from '@/components/ui';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -20,16 +21,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-6 text-center">
-        <div className="max-w-md space-y-2">
-          <h1 className="text-lg font-semibold text-text">Panel no disponible</h1>
-          <p className="text-sm text-text-muted">
-            El panel del gimnasio se administra desde la aplicación de escritorio de FIT System.
-          </p>
-        </div>
-      </div>
-    );
+    return <LoginScreen />;
   }
 
   return (

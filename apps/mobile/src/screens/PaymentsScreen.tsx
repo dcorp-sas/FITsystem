@@ -19,7 +19,7 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [intents, setIntents] = useState<PaymentIntent[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [busy, setBusy] = useState<'mp' | 'transfer' | null>(null);
+  const [busy, setBusy] = useState<'mp' | null>(null);
 
   async function load() {
     const res = await portal.payments();
@@ -40,25 +40,6 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
       } else {
         Alert.alert('MercadoPago', 'Se genero la intencion de pago. El gimnasio aun no tiene configurado MercadoPago online; acercate a recepcion.');
       }
-      await load();
-    } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo iniciar el pago');
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function payWithTransfer() {
-    setBusy('transfer');
-    try {
-      const res = await portal.createIntent('TRANSFER');
-      const alias = res.transfer?.alias;
-      Alert.alert(
-        'Pago por transferencia',
-        alias
-          ? `Transferi ${money(res.transfer!.amount)} al alias: ${alias}\n\nLuego subi el comprobante en tu gimnasio.`
-          : 'Se genero la intencion de pago. Consulta el alias de transferencia en recepcion.',
-      );
       await load();
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo iniciar el pago');
@@ -95,7 +76,6 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
         </Text>
         <View style={styles.actions}>
           <PrimaryButton label="Pagar con MercadoPago" onPress={payWithMp} loading={busy === 'mp'} />
-          <PrimaryButton label="Transferencia" variant="ghost" onPress={payWithTransfer} loading={busy === 'transfer'} />
         </View>
       </Card>
 

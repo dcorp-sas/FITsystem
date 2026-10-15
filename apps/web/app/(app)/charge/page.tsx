@@ -6,6 +6,7 @@ import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
 import { formatMoney } from '@fitsystem/utils';
 import { PAYMENT_CONCEPT_LABELS } from '@/lib/labels';
+import { reportSaleInProgress } from '@/lib/desktop';
 import type { Member } from '@/lib/types';
 import {
   Button,
@@ -84,6 +85,13 @@ export default function ChargePage() {
       .then((res) => setArca(res.arca))
       .catch(() => undefined);
   }, []);
+
+  // Avisa al escritorio si hay una venta/cobro en curso, para que la
+  // actualización automática no reinicie la app mientras se factura.
+  useEffect(() => {
+    reportSaleInProgress(Boolean(busy || pointOrder || qrOrder));
+    return () => reportSaleInProgress(false);
+  }, [busy, pointOrder, qrOrder]);
 
   useEffect(() => {
     if (prefillDone.current) return;

@@ -26,6 +26,10 @@ export const env = {
   API_PORT: Number(process.env.API_PORT || 3001),
   // Por defecto solo loopback (escritorio). En la nube se define API_HOST=0.0.0.0.
   API_HOST: process.env.API_HOST || '127.0.0.1',
+  // Modo red local (escritorio en modo servidor): permite que otras PC de la
+  // misma red accedan a la API y al panel. Implica CORS dinámico para orígenes
+  // privados y el ingreso sin credenciales queda limitado a la propia máquina.
+  LAN_MODE: process.env.LAN_MODE === '1',
   WEB_ORIGIN: process.env.WEB_ORIGIN || 'http://localhost:3000',
   // Lista de orígenes permitidos por CORS. WEB_ORIGIN admite varios separados por
   // coma (ej. panel web + PWA de socios). Se agregan los orígenes locales de dev.
