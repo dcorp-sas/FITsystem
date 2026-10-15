@@ -14,6 +14,7 @@ const TRIAL_DAYS = 15;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
 const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://fitsystem-socios.onrender.com';
+const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
@@ -88,6 +89,8 @@ const PLANS = [
 ];
 
 const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses' };
+
+const MP_KIT = { price: '$50.000', period: 'pago único' };
 
 const FAQS = [
   {
@@ -397,6 +400,64 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Kit MercadoPago */}
+      <section id="cobros" className="scroll-mt-20 py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-8 overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-6 sm:p-10 lg:grid-cols-2">
+            <figure className="overflow-hidden rounded-2xl border border-line bg-base shadow-xl shadow-black/30">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/screens/mp-kit.svg"
+                alt="Kit MercadoPago: terminal Point y QR para cobrar en el mostrador"
+                className="w-full"
+              />
+            </figure>
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary-light">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary-light" />
+                Cobros presenciales · Equipo adicional
+              </span>
+              <h2 className="mt-4 text-2xl font-bold tracking-tight text-text sm:text-3xl">
+                Sumá el kit de terminal POS y QR de MercadoPago
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-text-muted">
+                Cobrá en el mostrador con la terminal Point (tarjetas) y el QR de MercadoPago
+                (transferencias y billetera). Los pagos se acreditan solos en la caja del gimnasio,
+                sin cargar nada a mano.
+              </p>
+              <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                {[
+                  'Terminal Point para tarjetas',
+                  'QR de MercadoPago',
+                  'Acreditación automática en caja',
+                  'Comprobante en un clic',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-text-muted">
+                    <Icon name="check" size={16} className="text-success" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-xl border border-line bg-base/60 px-5 py-4 sm:flex-row sm:items-center">
+                <div>
+                  <div className="text-2xl font-bold text-text">{MP_KIT.price}</div>
+                  <div className="text-xs text-text-muted">Se solicita adicionalmente · {MP_KIT.period}</div>
+                </div>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Solicito el Kit MercadoPago (Terminal POS + QR)')}`}
+                  className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+                >
+                  <Icon name="plus" size={16} /> Solicitar el kit
+                </a>
+              </div>
+              <p className="mt-3 text-xs text-text-muted">
+                Se combina con cualquier plan. El equipo se envía y se vincula a tu cuenta de MercadoPago.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Descargas */}
       <section id="descargas" className="scroll-mt-20 border-y border-line bg-surface/40 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -424,7 +485,7 @@ export default function LandingPage() {
                 title: 'App del socio',
                 text: 'Se instala desde el navegador (PWA). Cada socio ve su cuota, rutinas, novedades y paga desde el celular.',
                 cta: 'Instalar app del socio',
-                href: PWA_URL,
+                href: PWA_INSTALL_URL,
                 note: 'Sin descargas: abrila y "Agregar a pantalla de inicio"',
               },
               {

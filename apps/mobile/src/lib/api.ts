@@ -306,8 +306,11 @@ export const portal = {
   checkins: () => request<{ items: Checkin[] }>('/api/portal/checkins'),
   classes: () => request<{ items: PortalClass[] }>('/api/portal/classes'),
 
-  checkin: (branchId?: string) =>
-    request<CheckinResult>('/api/portal/checkin', { method: 'POST', body: { method: 'MANUAL', branchId } }),
+  checkin: (opts: { branchId?: string; qr?: string } = {}) =>
+    request<CheckinResult>('/api/portal/checkin', {
+      method: 'POST',
+      body: { method: opts.qr ? 'QR' : 'MANUAL', branchId: opts.branchId, qr: opts.qr },
+    }),
 
   reserve: (sessionId: string) =>
     request<{ waitlisted: boolean; already?: boolean }>(`/api/portal/classes/${sessionId}/reserve`, { method: 'POST' }),

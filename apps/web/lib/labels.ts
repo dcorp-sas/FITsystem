@@ -78,8 +78,9 @@ export const ATTENDANCE_METHOD_LABELS: Record<string, string> = {
   QR: 'QR',
   MANUAL: 'Manual',
   FINGERPRINT: 'Huella',
-  FACE: 'Rostro',
+  FACE: 'Reconocimiento facial',
   CARD: 'Tarjeta',
+  TURNSTILE: 'Molinete',
 };
 
 export const EQUIPMENT_STATUS_LABELS: Record<string, string> = {

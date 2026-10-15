@@ -7,7 +7,52 @@ import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 import { getRawSetting } from '../services/settings.js';
 import { matchFace, parseThreshold } from '../services/face.js';
 import { getDeviceProfile, saveDeviceProfile, enabledMethods } from '../services/devices.js';
-import { parseMemberQr } from '../lib/member-qr.js';
+import { parseMemberQr, signAccessQr, type AccessRotation } from '../lib/member-qr.js';
+
+const ACCESS_ROTATIONS: AccessRotation[] = ['NEVER', 'DAILY', 'WEEKLY'];
+
+async function loadAccessQrConfig(orgId: string, branchId: string) {
+  const [enabledRaw, rotationRaw, title, subtitle, footer, sizeRaw, color] = await Promise.all([
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_ENABLED'),
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_ROTATION'),
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_TITLE'),
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_SUBTITLE'),
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_FOOTER'),
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_SIZE'),
+    getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_QR_COLOR'),
+  ]);
+  const rotation = ACCESS_ROTATIONS.includes(rotationRaw as AccessRotation) ? (rotationRaw as AccessRotation) : 'NEVER';
+  const size = Math.min(2048, Math.max(128, Number(sizeRaw) || 512));
+  return {
+    enabled: enabledRaw !== 'false',
+    rotation,
+    size,
+    color: color || '#0b1120',
+    title: title || 'Ingreso al gimnasio',
+    subtitle: subtitle || 'Escaneá este código con la app de socios para registrar tu ingreso',
+    footer: footer || '',
+    branchId,
+  };
+}
+
+// Medios de check-in que el gimnasio puede habilitar desde Configuración.
+export const CHECKIN_METHODS = ['QR', 'CARD', 'FACE', 'FINGERPRINT', 'TURNSTILE', 'MANUAL'] as const;
+const DEFAULT_ACCESS_METHODS = ['QR', 'CARD', 'FACE', 'FINGERPRINT', 'TURNSTILE', 'MANUAL'] as const;
+
+/**
+ * Medios de ingreso habilitados para la organización. Se configura en
+ * Configuración → Ingreso (clave ACCESS_METHODS). Si no hay configuracion se
+ * habilitan todos. MANUAL siempre queda disponible como respaldo.
+ */
+export async function loadAccessMethods(orgId: string): Promise<string[]> {
+  const raw = await getRawSetting(orgId, 'ATTENDANCE', 'ACCESS_METHODS');
+  const configured = (raw ?? '')
+    .split(',')
+    .map((m) => m.trim().toUpperCase())
+    .filter((m): m is (typeof CHECKIN_METHODS)[number] => (CHECKIN_METHODS as readonly string[]).includes(m));
+  const list = configured.length ? configured : [...DEFAULT_ACCESS_METHODS];
+  return [...new Set([...list, 'MANUAL'])];
+}
 
 async function findActiveMembership(orgId: string, memberId: string) {
   return prisma.membership.findFirst({
@@ -231,6 +276,46 @@ export function attendanceRoutes(app: FastifyInstance) {
         },
         outcome.kind === 'ok' ? 201 : 200,
       );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // QR fijo de ingreso: un único QR (por sede) que se imprime y se pega en la
+  // puerta. El socio lo escanea con la app y su ingreso se registra solo.
+  app.get('/attendance/access-qr', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const query = request.query as { branchId?: string };
+      const orgId = req.user.organizationId;
+      const branchId = query.branchId || req.user.branchId;
+      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+
+      const config = await loadAccessQrConfig(orgId, branchId);
+      const payload = signAccessQr(orgId, branchId, config.rotation);
+
+      let image: string | null = null;
+      if (config.enabled) {
+        const { default: QRCode } = await import('qrcode');
+        image = await QRCode.toDataURL(payload, {
+          width: config.size,
+          margin: 1,
+          color: { dark: config.color, light: '#ffffff' },
+        });
+      }
+
+      return ok(reply, { ...config, payload, image });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Medios de ingreso habilitados (QR, tarjeta, rostro, huella, molinete...)
+  app.get('/attendance/methods', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const methods = await loadAccessMethods(req.user.organizationId);
+      return ok(reply, { methods });
     } catch (error) {
       return fail(reply, error);
     }

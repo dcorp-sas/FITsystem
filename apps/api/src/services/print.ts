@@ -28,7 +28,6 @@ export interface PrintResult {
   ok: boolean;
   error?: string;
   via?: 'server' | 'point';
-  dryRun?: boolean;
 }
 
 /**
@@ -109,14 +108,14 @@ export async function printViaPoint(orgId: string, ticket: Ticket, deviceIdOverr
   if (!pointToken(mp)) return { ok: false, error: 'MercadoPago no configurado', via: 'point' };
   const deviceId =
     deviceIdOverride || (await getRawSetting(orgId, 'PRINT', 'POINT_DEVICE_ID')) || mp.point.deviceId;
-  if (!deviceId && !mp.dryRun) return { ok: false, error: 'Sin terminal Point configurada', via: 'point' };
+  if (!deviceId) return { ok: false, error: 'Sin terminal Point configurada', via: 'point' };
   const result = await printOnPoint(mp, {
-    deviceId: deviceId || 'SIMULADO',
+    deviceId,
     content: ticketToText(ticket),
     externalReference: `print-${Date.now()}`,
     idempotencyKey: crypto.randomUUID(),
   });
-  return { ok: result.ok, error: result.error, via: 'point', dryRun: result.dryRun };
+  return { ok: result.ok, error: result.error, via: 'point' };
 }
 
 /**
@@ -128,7 +127,7 @@ export async function printTicketAuto(orgId: string, ticket: Ticket): Promise<Pr
   if (cfg.destination === 'point') return printViaPoint(orgId, ticket);
   if (cfg.destination === 'both') {
     const [server, point] = await Promise.all([printTicket(orgId, ticket), printViaPoint(orgId, ticket)]);
-    if (server.ok || point.ok) return { ok: true, via: server.ok ? 'server' : 'point', dryRun: point.dryRun };
+    if (server.ok || point.ok) return { ok: true, via: server.ok ? 'server' : 'point' };
     return { ok: false, error: server.error || point.error };
   }
   return printTicket(orgId, ticket);

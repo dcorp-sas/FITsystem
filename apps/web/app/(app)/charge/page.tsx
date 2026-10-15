@@ -8,7 +8,6 @@ import { formatMoney } from '@fitsystem/utils';
 import { PAYMENT_CONCEPT_LABELS } from '@/lib/labels';
 import type { Member } from '@/lib/types';
 import {
-  Badge,
   Button,
   Card,
   Field,
@@ -26,9 +25,6 @@ interface PointOrder {
   paymentId: string;
   intentId: string | null;
   deviceId: string | null;
-  instructions: string;
-  dryRun: boolean;
-  real: boolean;
 }
 
 interface QrOrder {
@@ -36,22 +32,18 @@ interface QrOrder {
   image: string;
   checkoutUrl: string | null;
   payload: string;
-  dryRun: boolean;
-  real: boolean;
 }
 
 interface InvoiceResult {
   invoiceNumber: string;
   type: string;
   cae?: string | null;
-  simulated?: boolean;
   mode?: string;
   puntoVenta?: number;
 }
 
 interface ArcaStatus {
   enabled: boolean;
-  simulate: boolean;
   mode: string;
   cbteLabel: string;
   configured: boolean;
@@ -372,7 +364,7 @@ export default function ChargePage() {
                   hint={
                     arca.mode === 'real'
                       ? `Comprobante ${arca.cbteLabel}`
-                      : `Modo simulación (${arca.cbteLabel}) — sin validez fiscal`
+                      : 'Sin certificado válido: revisá la configuración de ARCA'
                   }
                   className="sm:col-span-2"
                 >
@@ -416,11 +408,7 @@ export default function ChargePage() {
         <Card title="Cobrar en terminal Point">
           <div className="flex flex-col items-center gap-4 py-6 text-center">
             <div className="text-3xl font-bold text-text">{formatMoney(amountNum, currency)}</div>
-            {pointOrder.real ? (
-              <div className="text-sm text-text-muted">Esperando confirmación en la terminal… ({pollState || 'pendiente'})</div>
-            ) : (
-              <Badge color="yellow">Modo simulación — {pointOrder.instructions}</Badge>
-            )}
+            <div className="text-sm text-text-muted">Esperando confirmación en la terminal… ({pollState || 'pendiente'})</div>
             <div className="flex flex-wrap justify-center gap-2">
               <Button loading={busy} onClick={confirmOrder}>
                 <Icon name="check" size={16} /> Confirmar cobro recibido
@@ -436,7 +424,6 @@ export default function ChargePage() {
       {stage === 'qr' && qrOrder && (
         <Card title="Cobrar con QR MercadoPago">
           <div className="flex flex-col items-center gap-4 py-4">
-            {qrOrder.dryRun && <Badge color="yellow">Modo simulación — QR no cobrable</Badge>}
             {qrOrder.checkoutUrl && (
               <a
                 href={qrOrder.checkoutUrl}
@@ -450,7 +437,7 @@ export default function ChargePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrOrder.image} alt="QR MercadoPago" className="h-64 w-64 rounded-xl border border-line bg-white p-2" />
             <div className="text-2xl font-bold text-text">{formatMoney(amountNum, currency)}</div>
-            {!qrOrder.dryRun && <div className="text-xs text-text-muted">Esperando pago… ({pollState || 'pendiente'})</div>}
+            <div className="text-xs text-text-muted">Esperando pago… ({pollState || 'pendiente'})</div>
             <div className="flex flex-wrap justify-center gap-2">
               <Button loading={busy} onClick={confirmOrder}>
                 <Icon name="check" size={16} /> Marcar como cobrado
@@ -481,7 +468,7 @@ export default function ChargePage() {
                   {invoice.type} {invoice.invoiceNumber}
                 </div>
                 <div className="mt-1 text-xs text-text-muted">
-                  {invoice.simulated ? 'Simulado (sin CAE)' : invoice.cae ? `CAE ${invoice.cae}` : 'Emitido'}
+                  {invoice.cae ? `CAE ${invoice.cae}` : 'Emitido'}
                 </div>
               </div>
             )}

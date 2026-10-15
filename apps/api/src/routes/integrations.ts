@@ -12,9 +12,7 @@ import { getSmtpConfig } from '../services/email.js';
 import {
   getArcaConfig,
   arcaEmitir,
-  arcaSimular,
   arcaEmitirNotaCredito,
-  arcaSimularNotaCredito,
   arcaTest,
   arcaDummy,
   resolveCbteTipo,
@@ -40,17 +38,6 @@ function verifyMpSignature(secret: string, header: string | undefined, requestId
   const a = Buffer.from(expected);
   const b = Buffer.from(v1);
   return a.length === b.length && timingSafeEqual(a, b);
-}
-
-async function nextSequence(orgId: string, category: string, key: string): Promise<number> {
-  const current = await getRawSetting(orgId, category, key);
-  const next = Number(current || '0') + 1;
-  await prisma.setting.upsert({
-    where: { organizationId_category_key: { organizationId: orgId, category, key } },
-    create: { organizationId: orgId, category, key, value: String(next) },
-    update: { value: String(next) },
-  });
-  return next;
 }
 
 /**
@@ -197,7 +184,6 @@ export function integrationRoutes(app: FastifyInstance) {
       return ok(reply, {
         mercadopago: {
           configured: Boolean(mp.ACCESS_TOKEN || mp.PUBLIC_KEY || mp.POINT_ACCESS_TOKEN || mp.QR_ACCESS_TOKEN || mp.STATIC_QR_PAYLOAD),
-          dryRun: mp.DRY_RUN !== 'false',
           accessTokenMasked: mp.ACCESS_TOKEN || mp.POINT_ACCESS_TOKEN || mp.QR_ACCESS_TOKEN ? '****' : '',
           publicKey: mp.PUBLIC_KEY ?? mp.POINT_PUBLIC_KEY ?? '',
           hasStaticQr: Boolean(mp.STATIC_QR_PAYLOAD),
@@ -212,8 +198,8 @@ export function integrationRoutes(app: FastifyInstance) {
         arca: {
           configured: Boolean(arcaCfg.cuit && arcaCfg.ptoVta),
           enabled: arcaCfg.enabled,
-          simulate: arcaCfg.simulate,
-          mode: arcaCfg.hasCert && arcaCfg.hasKey && !arcaCfg.simulate ? 'real' : 'mock',
+          simulate: false,
+          mode: arcaCfg.hasCert && arcaCfg.hasKey ? 'real' : 'mock',
           cuit: arcaCfg.cuit,
           puntoVenta: arcaCfg.ptoVta,
           environment: arcaCfg.entorno === 'produccion' ? 'PRODUCCION' : 'HOMOLOGACION',
@@ -269,7 +255,6 @@ export function integrationRoutes(app: FastifyInstance) {
         }
       }
       return ok(reply, {
-        dryRun: cfg.dryRun,
         publicKey: cfg.publicKey,
         pointEnabled: cfg.pointEnabled,
         hasAccessToken: Boolean(cfg.accessToken),
@@ -372,36 +357,37 @@ export function integrationRoutes(app: FastifyInstance) {
       let providerId = orderId;
       let checkoutUrl: string | null = null;
 
-      // Si hay Access Token (y no estamos en modo simulacion), creamos una preferencia real en MercadoPago.
+      // Sin credenciales no se genera una orden: no se simula el cobro.
       const mpCfg = await getMpConfig(orgId);
-      const accessToken = mpCfg.dryRun ? '' : mpCfg.qr.accessToken;
-      if (accessToken) {
-        try {
-          const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              items: [{ title: input.description, quantity: 1, unit_price: input.amount, currency_id: 'ARS' }],
-              external_reference: input.externalReference ?? orderId,
-              ...(env.PUBLIC_URL
-                ? {
-                    notification_url: `${env.PUBLIC_URL}/api/integrations/mercadopago/webhook`,
-                    back_urls: { success: `${env.WEB_ORIGIN}/payments`, failure: `${env.WEB_ORIGIN}/payments`, pending: `${env.WEB_ORIGIN}/payments` },
-                    auto_return: 'approved',
-                  }
-                : {}),
-            }),
-          });
-          if (res.ok) {
-            const data = (await res.json()) as { id?: string; init_point?: string; sandbox_init_point?: string };
-            checkoutUrl = data.init_point ?? data.sandbox_init_point ?? null;
-            providerId = data.id ?? orderId;
-            if (checkoutUrl) payload = checkoutUrl;
-          }
-        } catch {
-          // Sin conexion o token invalido: se usa el QR local simulado.
-        }
+      const accessToken = mpCfg.qr.accessToken || mpCfg.accessToken;
+      if (!accessToken) {
+        throw new HttpError(400, 'MercadoPago no configurado: cargá el Access Token para generar el QR');
       }
+
+      const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ title: input.description, quantity: 1, unit_price: input.amount, currency_id: 'ARS' }],
+          external_reference: input.externalReference ?? orderId,
+          ...(env.PUBLIC_URL
+            ? {
+                notification_url: `${env.PUBLIC_URL}/api/integrations/mercadopago/webhook`,
+                back_urls: { success: `${env.WEB_ORIGIN}/payments`, failure: `${env.WEB_ORIGIN}/payments`, pending: `${env.WEB_ORIGIN}/payments` },
+                auto_return: 'approved',
+              }
+            : {}),
+        }),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new HttpError(502, `MercadoPago rechazó la orden (HTTP ${res.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`);
+      }
+      const data = (await res.json()) as { id?: string; init_point?: string; sandbox_init_point?: string };
+      checkoutUrl = data.init_point ?? data.sandbox_init_point ?? null;
+      providerId = data.id ?? orderId;
+      if (!checkoutUrl) throw new HttpError(502, 'MercadoPago no devolvió un link de pago');
+      payload = checkoutUrl;
 
       const image = await QRCode.toDataURL(payload, { width: 512, margin: 1 });
 
@@ -418,13 +404,13 @@ export function integrationRoutes(app: FastifyInstance) {
           reference: orderId,
           providerId,
           providerStatus: 'pending',
-          providerData: JSON.stringify({ description: input.description, externalReference: input.externalReference, checkoutUrl, real: Boolean(checkoutUrl), dryRun: mpCfg.dryRun }),
+          providerData: JSON.stringify({ description: input.description, externalReference: input.externalReference, checkoutUrl, real: true }),
           receivedById: req.user.id,
           notes: `QR de cobro: ${input.description}`,
         },
       });
-      await logActivity(req, 'CREATE', 'MP_QR_ORDER', payment.id, undefined, { orderId, amount: input.amount, real: Boolean(checkoutUrl) });
-      return ok(reply, { orderId, payload, image, paymentId: payment.id, checkoutUrl, status: 'PENDING', dryRun: mpCfg.dryRun, real: Boolean(checkoutUrl) }, 201);
+      await logActivity(req, 'CREATE', 'MP_QR_ORDER', payment.id, undefined, { orderId, amount: input.amount, real: true });
+      return ok(reply, { orderId, payload, image, paymentId: payment.id, checkoutUrl, status: 'PENDING', real: true }, 201);
     } catch (error) {
       return fail(reply, error);
     }
@@ -441,32 +427,30 @@ export function integrationRoutes(app: FastifyInstance) {
 
       const mpCfg = await getMpConfig(orgId);
       const deviceId = input.deviceId || mpCfg.point.deviceId || '';
+      if (!mpCfg.point.accessToken && !mpCfg.qr.accessToken && !mpCfg.accessToken) {
+        throw new HttpError(400, 'MercadoPago no configurado');
+      }
+      if (!deviceId) throw new HttpError(400, 'Sin terminal Point configurada');
       const orderId = `PT-${Date.now().toString(36).toUpperCase()}`;
 
-      let intentId: string | null = null;
-      let providerData: Record<string, unknown> = { deviceId, description: input.description, externalReference: input.externalReference, dryRun: mpCfg.dryRun };
-
-      if (mpCfg.dryRun || (mpCfg.point.accessToken && deviceId)) {
-        try {
-          const result = await createPointIntent(mpCfg, {
-            amount: input.amount,
-            description: input.description,
-            externalReference: input.externalReference ?? orderId,
-            deviceId,
-            idempotencyKey: orderId,
-          });
-          intentId = result.id;
-          providerData = {
-            ...providerData,
-            intentId,
-            state: result.state,
-            ...(result.error ? { error: result.error } : {}),
-            ...(result.dryRun ? { simulated: true } : {}),
-          };
-        } catch (err) {
-          providerData = { ...providerData, error: (err as Error).message };
-        }
+      const result = await createPointIntent(mpCfg, {
+        amount: input.amount,
+        description: input.description,
+        externalReference: input.externalReference ?? orderId,
+        deviceId,
+        idempotencyKey: orderId,
+      });
+      if (result.error || !result.id) {
+        throw new HttpError(502, result.error || 'MercadoPago no creó la intención de cobro');
       }
+      const intentId = result.id;
+      const providerData: Record<string, unknown> = {
+        deviceId,
+        description: input.description,
+        externalReference: input.externalReference,
+        intentId,
+        state: result.state,
+      };
 
       const payment = await prisma.payment.create({
         data: {
@@ -486,25 +470,8 @@ export function integrationRoutes(app: FastifyInstance) {
           notes: `Cobro en POINT ${deviceId || '(sin terminal)'}: ${input.description}`,
         },
       });
-      await logActivity(req, 'CREATE', 'MP_POINT_ORDER', payment.id, undefined, { orderId, deviceId, amount: input.amount, real: Boolean(intentId) });
-      return ok(
-        reply,
-        {
-          orderId,
-          deviceId: deviceId || null,
-          paymentId: payment.id,
-          status: 'PENDING',
-          real: Boolean(intentId),
-          dryRun: mpCfg.dryRun,
-          intentId,
-          instructions: mpCfg.dryRun
-            ? `Modo simulado: no se envió nada a MercadoPago ($${input.amount.toFixed(2)})`
-            : deviceId
-              ? `Cobrar $${input.amount.toFixed(2)} en la terminal ${deviceId}`
-              : 'Configura el ID de la terminal Point en Ajustes > MercadoPago',
-        },
-        201,
-      );
+      await logActivity(req, 'CREATE', 'MP_POINT_ORDER', payment.id, undefined, { orderId, deviceId, amount: input.amount, real: true });
+      return ok(reply, { orderId, deviceId, paymentId: payment.id, status: 'PENDING', intentId, state: result.state }, 201);
     } catch (error) {
       return fail(reply, error);
     }
@@ -671,29 +638,14 @@ export function integrationRoutes(app: FastifyInstance) {
       const net = payment.amount - iva;
       const cbteTipo = resolveCbteTipo(cfg, input.invoiceType);
       const tipoLabel = CBTE_LABEL[cbteTipo] ?? String(cbteTipo);
-      const isReal = cfg.hasCert && cfg.hasKey && !cfg.simulate;
-
-      let result;
-      if (isReal) {
-        result = await arcaEmitir(orgId, {
-          invoiceType: input.invoiceType,
-          total: payment.amount,
-          neto: net,
-          iva,
-          customerTaxId: input.customerTaxId || payment.member?.documentNumber || undefined,
-          branchId: payment.branchId,
-        });
-      } else {
-        const seq = await nextSequence(orgId, 'ARCA', `SEQ_${input.invoiceType ?? 'C'}`);
-        result = arcaSimular(cfg, seq, {
-          invoiceType: input.invoiceType,
-          total: payment.amount,
-          neto: net,
-          iva,
-          customerTaxId: input.customerTaxId || payment.member?.documentNumber || undefined,
-          branchId: payment.branchId,
-        });
-      }
+      const result = await arcaEmitir(orgId, {
+        invoiceType: input.invoiceType,
+        total: payment.amount,
+        neto: net,
+        iva,
+        customerTaxId: input.customerTaxId || payment.member?.documentNumber || undefined,
+        branchId: payment.branchId,
+      });
 
       const fullNumber = `${String(result.ptoVta).padStart(5, '0')}-${String(result.numero).padStart(8, '0')}`;
       const cae = result.simulated ? null : result.cae;
@@ -792,7 +744,6 @@ export function integrationRoutes(app: FastifyInstance) {
       const net = payment.amount - iva;
       const ncTipo = resolveCreditNoteTipo(cfg, input.invoiceType);
       const ncLabel = CBTE_LABEL[ncTipo] ?? String(ncTipo);
-      const isReal = cfg.hasCert && cfg.hasKey && !cfg.simulate;
       const assoc = { tipo: originalCbteTipo, ptoVta: originalPtoVta, nro: originalNro, fecha: fechaYmd };
       const emitOpts = {
         invoiceType: input.invoiceType,
@@ -804,13 +755,7 @@ export function integrationRoutes(app: FastifyInstance) {
         assoc,
       };
 
-      let result;
-      if (isReal) {
-        result = await arcaEmitirNotaCredito(orgId, emitOpts);
-      } else {
-        const seq = await nextSequence(orgId, 'ARCA', `SEQ_NC_${input.invoiceType ?? 'C'}`);
-        result = arcaSimularNotaCredito(cfg, seq, emitOpts);
-      }
+      const result = await arcaEmitirNotaCredito(orgId, emitOpts);
 
       const ncNumber = `${String(result.ptoVta).padStart(5, '0')}-${String(result.numero).padStart(8, '0')}`;
       providerData.arca = {
@@ -1023,7 +968,7 @@ export function integrationRoutes(app: FastifyInstance) {
         date: payment.paidAt ?? payment.createdAt,
       }), (request.body as { deviceId?: string } | undefined)?.deviceId);
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir en la terminal Point');
-      return ok(reply, { ok: true, dryRun: result.dryRun });
+      return ok(reply, { ok: true });
     } catch (error) {
       return fail(reply, error);
     }
@@ -1046,7 +991,7 @@ export function integrationRoutes(app: FastifyInstance) {
         footer: 'Impreso por la terminal Point',
       });
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir en la terminal Point');
-      return ok(reply, { ok: true, dryRun: result.dryRun });
+      return ok(reply, { ok: true });
     } catch (error) {
       return fail(reply, error);
     }

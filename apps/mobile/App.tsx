@@ -10,11 +10,14 @@ import { NewsScreen } from './src/screens/NewsScreen';
 import { RoutinesScreen } from './src/screens/RoutinesScreen';
 import { PaymentsScreen } from './src/screens/PaymentsScreen';
 import { ClassesScreen } from './src/screens/ClassesScreen';
+import { ScanScreen } from './src/screens/ScanScreen';
+import { InstallPrompt } from './src/components/install-prompt';
 
-type Tab = 'home' | 'classes' | 'news' | 'routines' | 'payments';
+type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'home', label: 'Inicio' },
+  { key: 'checkin', label: 'Ingreso' },
   { key: 'classes', label: 'Clases' },
   { key: 'news', label: 'Novedades' },
   { key: 'routines', label: 'Rutinas' },
@@ -85,6 +88,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar style="light" />
+        <InstallPrompt />
         <LoginScreen onLogged={setSession} />
       </SafeAreaView>
     );
@@ -93,6 +97,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
+      <InstallPrompt />
       <View style={styles.header}>
         <View>
           <Text style={styles.brand}>FIT System</Text>
@@ -118,6 +123,7 @@ export default function App() {
 
       <View style={styles.content}>
         {tab === 'home' && <HomeScreen org={session.organization} member={session.member} initialQuota={session.quota} />}
+        {tab === 'checkin' && <ScanScreen onDone={() => setTab('home')} />}
         {tab === 'classes' && <ClassesScreen />}
         {tab === 'news' && <NewsScreen />}
         {tab === 'routines' && <RoutinesScreen />}

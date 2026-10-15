@@ -16,6 +16,7 @@ import { validate, ok, fail, HttpError, type PortalAuthedRequest } from '../lib/
 import { env } from '../env.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { getRawSetting } from '../services/settings.js';
+import { parseAccessQr } from '../lib/member-qr.js';
 import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
 
 interface PortalJwt {
@@ -485,6 +486,24 @@ export function portalRoutes(app: FastifyInstance) {
       const input = validate(portalCheckinSchema, request.body ?? {});
       const { organizationId, memberId } = req.portalAccount;
 
+      // Ingreso escaneando el QR fijo del gimnasio con la cámara de la app.
+      // El QR no identifica al socio (eso lo hace la sesión), solo valida que
+      // el socio esté físicamente en el gimnasio.
+      let method = input.method;
+      let branchId = input.branchId;
+      if (input.qr) {
+        const enabled = (await getRawSetting(organizationId, 'ATTENDANCE', 'ACCESS_QR_ENABLED')) !== 'false';
+        if (!enabled) {
+          return ok(reply, { allowed: false, reason: 'QR_DESHABILITADO', message: 'El ingreso por QR no está habilitado' }, 200);
+        }
+        const parsed = parseAccessQr(input.qr);
+        if (!parsed.ok || parsed.data.orgId !== organizationId) {
+          return ok(reply, { allowed: false, reason: 'QR_INVALIDO', message: 'El QR no es válido' }, 200);
+        }
+        method = 'QR';
+        branchId = parsed.data.branchId;
+      }
+
       const member = await prisma.member.findFirst({ where: { id: memberId, organizationId } });
       if (!member) throw new HttpError(404, 'Socio no encontrado');
 
@@ -499,14 +518,14 @@ export function portalRoutes(app: FastifyInstance) {
       });
       if (!membership) return ok(reply, { allowed: false, reason: 'SIN_MEMBRESIA', message: 'Sin membresia activa' });
 
-      const branchId = input.branchId || member.branchId;
+      const finalBranchId = branchId || member.branchId;
       const attendance = await prisma.attendance.create({
         data: {
           organizationId,
-          branchId,
+          branchId: finalBranchId,
           memberId,
           membershipId: membership.id,
-          method: input.method,
+          method,
           status: 'ALLOWED',
           checkedInAt: new Date(),
         },
@@ -527,7 +546,7 @@ export function portalRoutes(app: FastifyInstance) {
           membershipEndDate: membership.endDate,
           attendanceId: attendance.id,
           checkedInAt: attendance.checkedInAt,
-          branchId,
+          branchId: finalBranchId,
         },
         201,
       );

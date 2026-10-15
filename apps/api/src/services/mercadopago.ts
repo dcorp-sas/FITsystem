@@ -5,11 +5,10 @@ const TERMINAL_TTL_MS = 60_000;
 
 /**
  * Configuracion de MercadoPago por organizacion (al estilo antojos-caseros):
- * credenciales separadas para Point (POS) y QR, modo simulacion por defecto y
+ * credenciales separadas para Point (POS) y QR, sin simulacion: sin token se devuelve error y
  * un token general de respaldo para no romper instalaciones existentes.
  */
 export interface MpConfig {
-  dryRun: boolean;
   accessToken: string;
   publicKey: string;
   pointEnabled: boolean;
@@ -26,12 +25,7 @@ export async function getMpConfig(orgId: string): Promise<MpConfig> {
   const publicKey = (await s('PUBLIC_KEY')) || '';
   const pointAccessToken = (await s('POINT_ACCESS_TOKEN')) || general;
   const qrAccessToken = (await s('QR_ACCESS_TOKEN')) || general;
-  const hasAnyToken = Boolean(general || pointAccessToken || qrAccessToken);
-  const requestedReal = (await s('DRY_RUN')) === 'false';
   return {
-    // Nunca se opera contra MercadoPago sin credenciales: aunque DRY_RUN=false,
-    // sin token se fuerza la simulacion (regla pedida por el usuario).
-    dryRun: requestedReal ? !hasAnyToken : true,
     accessToken: general,
     publicKey,
     pointEnabled: (await s('POINT_ENABLED')) === 'true',
@@ -153,7 +147,6 @@ export interface PointIntentResult {
   id: string | null;
   state: string | null;
   error?: string;
-  dryRun?: boolean;
 }
 
 /** Crea una intencion de cobro en una terminal Point. */
@@ -162,7 +155,6 @@ export async function createPointIntent(
   params: { amount: number; description: string; externalReference: string; deviceId: string; idempotencyKey: string },
 ): Promise<PointIntentResult> {
   const token = cfg.point.accessToken || cfg.qr.accessToken || cfg.accessToken;
-  if (cfg.dryRun) return { id: null, state: 'SIMULADO', dryRun: true };
   if (!token || !params.deviceId) return { id: null, state: null, error: 'Sin Access Token o terminal' };
   const data = (await mpFetch(token, `/point/integration-api/devices/${params.deviceId}/payment-intents`, {
     method: 'POST',
@@ -208,7 +200,6 @@ export async function cancelPointIntent(cfg: MpConfig, deviceId: string, intentI
 
 export interface PointPrintResult {
   ok: boolean;
-  dryRun?: boolean;
   error?: string;
 }
 
@@ -222,7 +213,6 @@ export async function printOnPoint(
   params: { deviceId: string; content: string; externalReference: string; idempotencyKey: string },
 ): Promise<PointPrintResult> {
   const token = cfg.point.accessToken || cfg.qr.accessToken || cfg.accessToken;
-  if (cfg.dryRun) return { ok: true, dryRun: true };
   if (!token) return { ok: false, error: 'Sin Access Token de MercadoPago' };
   if (!params.deviceId) return { ok: false, error: 'Sin terminal Point configurada' };
   try {

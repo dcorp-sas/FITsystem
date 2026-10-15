@@ -930,6 +930,28 @@ app.whenReady().then(async () => {
       // panel queda inaccesible; solo se muestra la pantalla de activación.
       if (info && !info.isUsable) {
         await showActivationInMain(info);
+      } else if (
+        info?.isUsable &&
+        info.daysLeft !== null &&
+        info.daysLeft <= (info.plan === 'TRIAL' ? 3 : 15)
+      ) {
+        // Recordatorio proactivo: se solicita la renovación antes del
+        // vencimiento, sin bloquear el uso del sistema (prueba: 3 días; plan: 15).
+        const trial = info.plan === 'TRIAL';
+        const { response } = await dialog.showMessageBox({
+          type: 'warning',
+          title: 'FIT System',
+          message: trial
+            ? `Tu prueba gratuita vence en ${info.daysLeft} día(s).`
+            : `Tu licencia ${info.plan} vence en ${info.daysLeft} día(s).`,
+          detail: 'Renová tu licencia para no interrumpir el servicio del gimnasio.',
+          buttons: ['Renovar ahora', 'Más tarde'],
+          defaultId: 0,
+          cancelId: 1,
+        });
+        if (response === 0) {
+          await createActivationWindow();
+        }
       }
     } catch (err) {
       log('No se pudo validar la licencia:', (err as Error).message);

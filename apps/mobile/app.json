@@ -12,10 +12,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.fitsystem.socios"
+      "bundleIdentifier": "app.fitsystem.socios",
+      "infoPlist": {
+        "NSCameraUsageDescription": "FIT System usa la cámara para escanear el QR de ingreso al gimnasio."
+      }
     },
     "android": {
       "package": "app.fitsystem.socios",
+      "permissions": ["android.permission.CAMERA"],
       "adaptiveIcon": {
         "backgroundColor": "#0b1120",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -34,7 +38,13 @@
     },
     "plugins": [
       "expo-notifications",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permití que FIT System use la cámara para escanear el QR de ingreso al gimnasio."
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "http://10.0.2.2:3001"

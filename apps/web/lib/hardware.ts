@@ -104,6 +104,15 @@ export async function detectHardware(): Promise<HardwareScan> {
     detail: 'Los lectores QR de pistola funcionan como teclado',
   });
 
+  devices.push({
+    kind: 'TURNSTILE',
+    label: 'Molinete / barrera de acceso',
+    method: 'TURNSTILE',
+    available: false,
+    source: 'Controlador',
+    detail: 'Se habilita al conectar el controlador del molinete (relé/red)',
+  });
+
   return {
     platform: `${navigator.platform || 'equipo'} · ${navigator.userAgent.slice(0, 80)}`,
     devices,

@@ -44,26 +44,35 @@ export function LicenseBanner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!status || status.info.isUsable || dismissed) return null;
+  if (!status || dismissed) return null;
 
-  const expired = status.info.status === 'EXPIRED' || (status.info.daysLeft ?? 1) < 0;
+  const { info } = status;
+  const expired = !info.isUsable || info.status === 'EXPIRED' || (info.daysLeft ?? 1) < 0;
+  const trial = info.plan === 'TRIAL';
+  // Recordatorio proactivo de renovación (la prueba avisa más cerca del final).
+  const renewWindow = trial ? 3 : 15;
+  const nearExpiry = !expired && info.daysLeft !== null && info.daysLeft <= renewWindow;
+  if (!expired && !nearExpiry) return null;
+
+  const title = expired
+    ? 'Tu licencia venció'
+    : `Tu licencia ${trial ? 'de prueba' : info.plan} vence en ${info.daysLeft} día(s)`;
+
+  const detail = expired
+    ? 'Renovala para desbloquear las operaciones del sistema.'
+    : 'Renová ahora para no interrumpir el servicio del gimnasio.';
 
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
       <span>
-        {expired
-          ? 'Tu licencia venció. Las operaciones de escritura están bloqueadas.'
-          : `Tu licencia ${status.info.plan} está inactiva. Activá una clave para seguir operando.`}
-        {status.info.daysLeft !== null && status.info.daysLeft >= 0 && status.info.daysLeft <= 5 && (
-          <> Quedan {status.info.daysLeft} días de prueba.</>
-        )}
+        <span className="font-semibold">{title}.</span> {detail}
       </span>
       <div className="flex items-center gap-3">
         <a
           href="/license"
           className="rounded-lg bg-amber-400 px-3 py-1.5 font-semibold text-amber-950 hover:bg-amber-300"
         >
-          Activar licencia
+          {expired ? 'Activar licencia' : 'Renovar licencia'}
         </a>
         <button type="button" onClick={() => setDismissed(true)} className="text-amber-300/80 hover:text-amber-200">
           Ocultar

@@ -21,7 +21,6 @@ type SettingsMap = Record<string, Record<string, string>>;
 interface IntegrationStatus {
   mercadopago: {
     configured: boolean;
-    dryRun: boolean;
     accessTokenMasked: string;
     publicKey: string;
     hasStaticQr: boolean;
@@ -36,7 +35,6 @@ interface IntegrationStatus {
   arca: {
     configured: boolean;
     enabled: boolean;
-    simulate: boolean;
     mode: string;
     cuit: string;
     puntoVenta: number;
@@ -51,10 +49,11 @@ interface IntegrationStatus {
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
 
-type Tab = 'general' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face';
+type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
+  { key: 'attendance', label: 'Ingreso (QR fijo)' },
   { key: 'cobros', label: 'Cobros (MercadoPago)' },
   { key: 'arca', label: 'ARCA (Facturación)' },
   { key: 'whatsapp', label: 'WhatsApp' },
@@ -118,21 +117,77 @@ export default function SettingsPage() {
         <>
           {tab === 'general' && <GeneralForm initial={organization} onSaved={load} />}
 
+          {tab === 'attendance' && (
+            <CategoryForm
+              title="Ingreso por QR fijo"
+              category="ATTENDANCE"
+              values={settings.ATTENDANCE ?? {}}
+              intro={
+                <p className="text-xs text-text-muted">
+                  Generá un QR fijo, imprimilo y pegalo en la puerta. Tus socios lo escanean con la cámara de la app
+                  del socio y el ingreso se registra solo, sin pasar por recepción.
+                </p>
+              }
+              fields={[
+                {
+                  key: 'ACCESS_QR_ENABLED',
+                  label: 'Ingreso por QR habilitado',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí' },
+                    { value: 'false', label: 'No' },
+                  ],
+                },
+                {
+                  key: 'ACCESS_QR_ROTATION',
+                  label: 'Formato / rotación del QR',
+                  type: 'select',
+                  options: [
+                    { value: 'NEVER', label: 'Fijo (nunca cambia) — recomendado' },
+                    { value: 'DAILY', label: 'Cambia todos los días' },
+                    { value: 'WEEKLY', label: 'Cambia cada semana' },
+                  ],
+                  help: 'Si rotás el QR, tenés que volver a imprimir y reemplazar el cartel cuando cambia.',
+                },
+                { key: 'ACCESS_QR_TITLE', label: 'Título del cartel', placeholder: 'Ingreso al gimnasio' },
+                {
+                  key: 'ACCESS_QR_SUBTITLE',
+                  label: 'Texto principal',
+                  placeholder: 'Escaneá este código con la app de socios para registrar tu ingreso',
+                  type: 'textarea',
+                },
+                { key: 'ACCESS_QR_FOOTER', label: 'Texto al pie (opcional)', placeholder: 'Ej: Gimnasio Central · Av. Siempre Viva 123' },
+                {
+                  key: 'ACCESS_QR_COLOR',
+                  label: 'Color del QR (hex)',
+                  placeholder: '#0b1120',
+                  advanced: true,
+                  help: 'Se recomienda un color oscuro sobre fondo blanco para que la cámara lo lea bien.',
+                },
+                {
+                  key: 'ACCESS_QR_SIZE',
+                  label: 'Tamaño del QR en píxeles',
+                  placeholder: '512',
+                  advanced: true,
+                  help: 'Entre 128 y 2048. 512 alcanza para imprimir en tamaño carta/A4.',
+                },
+              ]}
+              onSaved={load}
+              extra={
+                <div className="space-y-5">
+                  <AccessQrCard config={settings.ATTENDANCE ?? {}} />
+                  <MethodsCard config={settings.ATTENDANCE ?? {}} />
+                </div>
+              }
+            />
+          )}
+
           {tab === 'cobros' && (
             <CategoryForm
               title="MercadoPago"
               category="MERCADOPAGO"
               values={settings.MERCADOPAGO ?? {}}
               fields={[
-                {
-                  key: 'DRY_RUN',
-                  label: 'Modo simulación (no cobra de verdad)',
-                  type: 'select',
-                  options: [
-                    { value: 'true', label: 'Sí (simulado)' },
-                    { value: 'false', label: 'No (real)' },
-                  ],
-                },
                 { key: 'ACCESS_TOKEN', label: 'Access Token general (secreto)', type: 'password', secret: true, placeholder: 'APP_USR-...' },
                 { key: 'PUBLIC_KEY', label: 'Public Key general', placeholder: 'APP_USR-...' },
                 { key: 'POINT_PUBLIC_KEY', label: 'Point: Public Key' },
@@ -188,15 +243,6 @@ export default function SettingsPage() {
                   options: [
                     { value: 'true', label: 'Sí' },
                     { value: 'false', label: 'No' },
-                  ],
-                },
-                {
-                  key: 'SIMULATE',
-                  label: 'Modo simulación (CAE de prueba)',
-                  type: 'select',
-                  options: [
-                    { value: 'true', label: 'Sí (no contacta AFIP)' },
-                    { value: 'false', label: 'No (emite real)' },
                   ],
                 },
                 { key: 'CUIT', label: 'CUIT del emisor' },
@@ -623,7 +669,6 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
   const [result, setResult] = useState<ArcaTestResponse | null>(null);
   const arca = status?.arca;
   const mode = arca?.mode ?? 'mock';
-  const simulate = arca?.simulate ?? true;
 
   async function test() {
     setBusy(true);
@@ -641,8 +686,7 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
   return (
     <Card title="Estado de facturación">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge color={mode === 'real' ? 'green' : 'gray'}>{mode === 'real' ? 'CAE real' : 'Simulado / interno'}</Badge>
-        {simulate && <Badge color="yellow">Simulación activa</Badge>}
+        <Badge color={mode === 'real' ? 'green' : 'gray'}>{mode === 'real' ? 'CAE real' : 'Sin configurar'}</Badge>
         {arca?.cbteLabel && <Badge color="blue">{arca.cbteLabel}</Badge>}
         {arca?.environment && <span className="text-xs text-text-muted">{arca.environment}</span>}
       </div>
@@ -653,10 +697,8 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
       )}
       <p className="mt-3 text-sm text-text-muted">
         {mode === 'real'
-          ? 'Se emiten comprobantes reales contra ARCA (WSAA/WSFE), sin simulación.'
-          : simulate
-            ? 'Modo simulación: los comprobantes generan un CAE de prueba y no contactan a AFIP.'
-            : 'Sin certificado válido: los comprobantes usan numeración interna. Cargá certificado y clave para emitir CAE reales.'}
+          ? 'Se emiten comprobantes reales contra ARCA (WSAA/WSFE).'
+          : 'Sin certificado válido no se puede facturar. Cargá el certificado y la clave privada para emitir CAE reales.'}
       </p>
       <Button onClick={test} disabled={busy} className="mt-4">
         {busy ? 'Probando...' : 'Probar conexión ARCA'}
@@ -815,16 +857,14 @@ function MpCard({ status }: { status: IntegrationStatus | null }) {
   return (
     <Card title="Estado de cobros">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge color={mp?.dryRun ? 'yellow' : 'green'}>{mp?.dryRun ? 'Simulación activa' : 'Cobros reales'}</Badge>
+        <Badge color="green">Cobros reales</Badge>
         <Badge color={mp?.hasPointToken || mp?.hasQrToken || mp?.accessTokenMasked ? 'green' : 'gray'}>
           {mp?.hasPointToken || mp?.hasQrToken || mp?.accessTokenMasked ? 'Credenciales cargadas' : 'Sin credenciales'}
         </Badge>
         {mp?.pointDeviceId && <span className="text-xs text-text-muted">Point: {mp.pointDeviceId}</span>}
       </div>
       <p className="mt-3 text-sm text-text-muted">
-        {mp?.dryRun
-          ? 'Con el modo simulación activo no se envían cobros a MercadoPago: sirve para probar el circuito.'
-          : 'Los cobros se envían a MercadoPago con las credenciales configuradas.'}
+        Los cobros se envían a MercadoPago con las credenciales configuradas.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button onClick={test} loading={busy}>
@@ -944,6 +984,180 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
           Generar QR
         </Button>
       </div>
+    </Card>
+  );
+}
+
+interface AccessQrData {
+  enabled: boolean;
+  branchId: string;
+  payload: string;
+  image: string | null;
+  title: string;
+  subtitle: string;
+  footer: string;
+  size: number;
+  color: string;
+  rotation: string;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function rotationLabel(rotation: string) {
+  if (rotation === 'DAILY') return 'cambia todos los días';
+  if (rotation === 'WEEKLY') return 'cambia cada semana';
+  return 'fijo';
+}
+
+const CHECKIN_METHODS: { key: string; label: string; hint: string }[] = [
+  { key: 'QR', label: 'QR', hint: 'Lector de pistola o cámara, y el QR fijo que escanea la app del socio' },
+  { key: 'CARD', label: 'Tarjeta', hint: 'Credencial RFID / banda magnética (lector HID/Serial/NFC)' },
+  { key: 'FACE', label: 'Reconocimiento facial', hint: 'Cámara del equipo con detección de rostro' },
+  { key: 'FINGERPRINT', label: 'Huella', hint: 'Lector de huellas / Windows Hello (WebAuthn)' },
+  { key: 'TURNSTILE', label: 'Molinete', hint: 'Barrera o molinete controlado por el sistema' },
+];
+
+function MethodsCard({ config }: { config: Record<string, string> }) {
+  const toast = useToast();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const configKey = config.ACCESS_METHODS ?? '';
+
+  useEffect(() => {
+    const raw = configKey
+      .split(',')
+      .map((m) => m.trim().toUpperCase())
+      .filter((m) => CHECKIN_METHODS.some((x) => x.key === m));
+    setSelected(raw.length ? raw : CHECKIN_METHODS.map((m) => m.key));
+  }, [configKey]);
+
+  function toggle(key: string) {
+    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const value = [...new Set([...selected, 'MANUAL'])].join(',');
+      await http.put('/settings/ATTENDANCE', { category: 'ATTENDANCE', values: { ACCESS_METHODS: value } });
+      toast.success('Medios de ingreso guardados');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card title="Medios de ingreso (check-in)">
+      <p className="text-xs text-text-muted">
+        Elegí con qué medios pueden registrar su ingreso tus socios. El método manual siempre queda disponible como respaldo.
+      </p>
+      <div className="mt-4 space-y-2">
+        {CHECKIN_METHODS.map((m) => (
+          <label
+            key={m.key}
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface-alt/40 p-3"
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-primary"
+              checked={selected.includes(m.key)}
+              onChange={() => toggle(m.key)}
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-text">{m.label}</span>
+              <span className="block text-[11px] text-text-muted">{m.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-4">
+        <Button onClick={save} loading={saving}>
+          Guardar medios de ingreso
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function AccessQrCard({ config }: { config: Record<string, string> }) {
+  const toast = useToast();
+  const { branches, activeBranchId } = useAuth();
+  const [data, setData] = useState<AccessQrData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const branchId = activeBranchId || branches[0]?.id || '';
+  const configKey = JSON.stringify(config);
+
+  const load = useCallback(async () => {
+    if (!branchId) return;
+    setLoading(true);
+    try {
+      const res = await http.get<AccessQrData>(`/attendance/access-qr?branchId=${encodeURIComponent(branchId)}`);
+      setData(res);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al generar el QR');
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load, configKey]);
+
+  function print() {
+    if (!data?.image) return;
+    const win = window.open('', '_blank', 'width=820,height=920');
+    if (!win) return;
+    win.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>QR de ingreso</title><style>` +
+        `body{font-family:system-ui,Arial,sans-serif;text-align:center;padding:48px;color:#0b1120}` +
+        `h1{font-size:28px;margin:0 0 10px}p{color:#475569;margin:6px 0;font-size:16px}` +
+        `img{width:380px;height:380px;margin:28px auto;display:block}` +
+        `.footer{margin-top:24px;font-size:14px;color:#64748b}</style></head><body>` +
+        `<h1>${escapeHtml(data.title)}</h1><p>${escapeHtml(data.subtitle)}</p>` +
+        `<img src="${data.image}" alt="QR" /><div class="footer">${escapeHtml(data.footer)}</div>` +
+        `<script>window.onload=function(){setTimeout(function(){window.print();},400);};</script>` +
+        `</body></html>`,
+    );
+    win.document.close();
+  }
+
+  return (
+    <Card title="QR fijo de ingreso">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge color={data?.enabled ? 'green' : 'gray'}>{data?.enabled ? 'Activo' : 'Desactivado'}</Badge>
+        {data && <span className="text-xs text-text-muted">QR {rotationLabel(data.rotation)}</span>}
+      </div>
+      <div className="mt-4 flex flex-col items-center gap-3">
+        {data?.image ? (
+          <img src={data.image} alt="QR fijo de ingreso" className="h-56 w-56 rounded-lg border border-line bg-white p-2" />
+        ) : (
+          <div className="flex h-56 w-56 items-center justify-center rounded-lg border border-dashed border-line px-4 text-center text-xs text-text-muted">
+            {loading ? 'Generando…' : data && !data.enabled ? 'El ingreso por QR está desactivado' : 'Sin QR generado'}
+          </div>
+        )}
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button variant="secondary" onClick={load} loading={loading}>
+            Actualizar
+          </Button>
+          <Button onClick={print} disabled={!data?.image}>
+            Imprimir
+          </Button>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-text-muted">
+        Imprimilo grande y pegalo en la entrada. Los socios lo escanean con la cámara de la app y el ingreso queda
+        registrado al instante, sin pasar por recepción.
+      </p>
     </Card>
   );
 }

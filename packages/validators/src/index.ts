@@ -79,7 +79,7 @@ export const userSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const settingsUpsertSchema = z.object({
-  category: z.enum(['GENERAL', 'MERCADOPAGO', 'ARCA', 'WHATSAPP', 'SMTP', 'PUSH', 'PRINT', 'FACE']),
+  category: z.enum(['GENERAL', 'MERCADOPAGO', 'ARCA', 'WHATSAPP', 'SMTP', 'PUSH', 'PRINT', 'FACE', 'ATTENDANCE']),
   values: z.record(z.string(), z.string()),
 });
 
@@ -290,7 +290,7 @@ export const attendanceCheckinSchema = z.object({
   branchId: cuid,
   memberId: z.string().optional(),
   qr: z.string().optional(),
-  method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD']).default('MANUAL'),
+  method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD', 'TURNSTILE']).default('MANUAL'),
 });
 
 export const hardwareDeviceSchema = z.object({
@@ -301,7 +301,7 @@ export const hardwareDeviceSchema = z.object({
       z.object({
         kind: z.enum(['FINGERPRINT', 'CARD', 'QR', 'FACE', 'TURNSTILE']),
         label: z.string().min(1).max(120),
-        method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD']),
+        method: z.enum(['QR', 'MANUAL', 'FINGERPRINT', 'FACE', 'CARD', 'TURNSTILE']),
         available: z.boolean(),
         source: z.string().max(60).optional(),
         detail: optionalString,
@@ -576,6 +576,8 @@ export const portalProofSchema = z.object({
 export const portalCheckinSchema = z.object({
   branchId: optionalString,
   method: z.enum(['QR', 'MANUAL', 'FACE', 'CARD']).default('MANUAL'),
+  // Payload del QR fijo del gimnasio que el socio escanea con la app.
+  qr: optionalString,
 });
 
 export const portalReserveSchema = z.object({

@@ -65,6 +65,7 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState('');
   const [method, setMethod] = useState('MANUAL');
+  const [methods, setMethods] = useState<string[]>(Object.keys(ATTENDANCE_METHOD_LABELS));
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
@@ -97,8 +98,9 @@ export default function AttendancePage() {
   const loadDevices = useCallback(async () => {
     if (!branchId) return;
     try {
-      const res = await http.get<{ profile: DeviceProfile | null }>('/attendance/devices', { branchId });
+      const res = await http.get<{ profile: DeviceProfile | null; methods?: string[] }>('/attendance/devices', { branchId });
       setDevices(res.profile);
+      if (res.methods?.length) setMethods(res.methods);
     } catch {
       /* sin hardware cargado */
     }
@@ -177,9 +179,9 @@ export default function AttendancePage() {
               </Field>
               <Field label="Método">
                 <Select value={method} onChange={(e) => setMethod(e.target.value)}>
-                  {Object.entries(ATTENDANCE_METHOD_LABELS).map(([k, v]) => (
+                  {methods.map((k) => (
                     <option key={k} value={k}>
-                      {v}
+                      {ATTENDANCE_METHOD_LABELS[k] ?? k}
                     </option>
                   ))}
                 </Select>

@@ -80,6 +80,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, organization, logout, branches, activeBranchId, setActiveBranchId } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const isAdmin = user ? user.role === 'OWNER' || user.role === 'ADMIN' : false;
 
   const content = (
@@ -110,36 +111,49 @@ export function Sidebar() {
         </div>
       )}
 
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {GROUPS.map((group) => {
           const items = group.items.filter((i) => !i.adminOnly || isAdmin);
           if (!items.length) return null;
+          const activeGroup = items.some((i) => pathname === i.href || pathname.startsWith(i.href + '/'));
+          const expanded = openGroups[group.title] ?? activeGroup;
           return (
             <div key={group.title}>
-              <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted/70">
+              <button
+                type="button"
+                onClick={() => setOpenGroups((prev) => ({ ...prev, [group.title]: !expanded }))}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted/70 transition-colors hover:text-text"
+              >
                 {group.title}
-              </div>
-              <div className="space-y-0.5">
-                {items.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                        active
-                          ? 'bg-primary/15 font-medium text-primary-light'
-                          : 'text-text-muted hover:bg-surface-alt hover:text-text',
-                      )}
-                    >
-                      <Icon name={item.icon} size={17} />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
+                <Icon
+                  name="chevron"
+                  size={14}
+                  className={'transition-transform ' + (expanded ? '' : '-rotate-90')}
+                />
+              </button>
+              {expanded && (
+                <div className="mt-1 space-y-0.5">
+                  {items.map((item) => {
+                    const active = pathname === item.href || pathname.startsWith(item.href + '/');
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                          active
+                            ? 'bg-primary/15 font-medium text-primary-light'
+                            : 'text-text-muted hover:bg-surface-alt hover:text-text',
+                        )}
+                      >
+                        <Icon name={item.icon} size={17} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}

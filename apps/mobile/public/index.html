@@ -40,6 +40,15 @@
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
     <script>
+      // Capturamos el prompt de instalación lo antes posible: en Chromium el
+      // evento puede dispararse antes de que React monte. Lo guardamos y
+      // avisamos a la app por un evento propio.
+      window.__deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        window.__deferredInstallPrompt = event;
+        window.dispatchEvent(new Event('fitsystem:install-available'));
+      });
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker
@@ -48,5 +57,6 @@
         });
       }
     </script>
+
   </body>
 </html>

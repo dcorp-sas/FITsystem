@@ -237,7 +237,8 @@ async function loadArcaConfig(orgId: string): Promise<ArcaConfig> {
   const rawPto = await getRawSetting(orgId, 'ARCA', 'PUNTO_VENTA');
   const rawEnv = ((await getRawSetting(orgId, 'ARCA', 'ENVIRONMENT')) || '').toLowerCase();
   const enabled = (await getRawSetting(orgId, 'ARCA', 'ENABLED')) === 'true';
-  const simulate = (await getRawSetting(orgId, 'ARCA', 'SIMULATE')) !== 'false';
+  // La facturación nunca se simula: si falta certificado/clave, se informa el error.
+  const simulate = false;
   const cbteTipo = Number(await getRawSetting(orgId, 'ARCA', 'CBTE_TIPO')) || 11;
   const concepto = Number(await getRawSetting(orgId, 'ARCA', 'CONCEPTO')) || 1;
   const condicionReceptor = String((await getRawSetting(orgId, 'ARCA', 'CONDICION_RECEPTOR')) ?? '5').trim();
@@ -305,7 +306,7 @@ async function loadArcaConfig(orgId: string): Promise<ArcaConfig> {
 
 export async function arcaMode(orgId: string): Promise<'real' | 'mock'> {
   const cfg = await getArcaConfig(orgId);
-  return cfg.hasCert && cfg.hasKey && !cfg.simulate ? 'real' : 'mock';
+  return cfg.hasCert && cfg.hasKey ? 'real' : 'mock';
 }
 
 /* ===================== SOAP ===================== */
@@ -354,7 +355,7 @@ async function getTA(orgId: string, force = false): Promise<TaCache> {
     if (cache && cache.token && Date.parse(cache.expiration) - 60000 > Date.now()) return cache;
   }
   const cfg = await getArcaConfig(orgId);
-  if (!cfg.hasCert || !cfg.hasKey) throw new Error('Sin certificado cargado (modo simulación)');
+  if (!cfg.hasCert || !cfg.hasKey) throw new Error('Sin certificado cargado: no se puede facturar');
   const x = new crypto.X509Certificate(cfg.certPem);
   const source = x.subject.split(/\r?\n/).join(', ');
   const iso = (d: Date) => d.toISOString();
@@ -502,28 +503,6 @@ export interface ArcaEmitOptions {
   assoc?: ArcaComprobanteAsoc;
 }
 
-/** Genera un comprobante SIMULADO (sin contactar a AFIP) para el modo prueba. */
-export function arcaSimular(cfg: ArcaConfig, numero: number, opts: ArcaEmitOptions): ArcaEmitResult {
-  const cbteTipo = resolveCbteTipo(cfg, opts.invoiceType);
-  const fecha = opts.fecha ?? new Date();
-  const docTipo = opts.customerTaxId ? 80 : 99;
-  const docNro = opts.customerTaxId ? Number(opts.customerTaxId.replace(/\D/g, '')) : 0;
-  const cae = Array.from({ length: 14 }, () => Math.floor(Math.random() * 10)).join('');
-  const venc = new Date(fecha.getTime() + 10 * 86400000);
-  return {
-    numero,
-    ptoVta: cfg.ptoVta,
-    tipo: CBTE_LABEL[cbteTipo] ?? String(cbteTipo),
-    cbteTipo,
-    cae,
-    venc: ddmmyyyy(venc),
-    qrUrl: afipQrUrl({ fecha: ymd(fecha), cuit: cfg.cuit, ptoVta: cfg.ptoVta, cbteTipo, nro: numero, importe: opts.total, tipoDocRec: docTipo, nroDocRec: docNro, cae }),
-    estado: 'SIMULADO',
-    simulated: true,
-    mode: 'mock',
-  };
-}
-
 async function feAutorizar(orgId: string, cfg: ArcaConfig, cbteTipo: number, opts: ArcaEmitOptions): Promise<ArcaEmitResult> {
   const ultimo = await feUltimo(orgId, cfg, cbteTipo);
   const nro = ultimo + 1;
@@ -581,34 +560,12 @@ async function feAutorizar(orgId: string, cfg: ArcaConfig, cbteTipo: number, opt
   };
 }
 
-/** Emite un comprobante real contra ARCA. Solo debe llamarse cuando el modo es real (sin simulacion y con certificado). */
+/** Emite un comprobante real contra ARCA. Requiere certificado, clave y CUIT; no simula. */
 export async function arcaEmitir(orgId: string, opts: ArcaEmitOptions): Promise<ArcaEmitResult> {
   const cfg = await getArcaConfig(orgId, opts.branchId);
   if (!cfg.hasCert || !cfg.hasKey) throw new Error('Sin certificado/clave cargados');
   if (!cfg.cuit) throw new Error('Sin CUIT cargado (Configuración → Facturación)');
   return feAutorizar(orgId, cfg, resolveCbteTipo(cfg, opts.invoiceType), opts);
-}
-
-/** Genera una NOTA DE CREDITO simulada (anulacion). */
-export function arcaSimularNotaCredito(cfg: ArcaConfig, numero: number, opts: ArcaEmitOptions): ArcaEmitResult {
-  const cbteTipo = resolveCreditNoteTipo(cfg, opts.invoiceType);
-  const fecha = opts.fecha ?? new Date();
-  const docTipo = opts.customerTaxId ? 80 : 99;
-  const docNro = opts.customerTaxId ? Number(opts.customerTaxId.replace(/\D/g, '')) : 0;
-  const cae = Array.from({ length: 14 }, () => Math.floor(Math.random() * 10)).join('');
-  const venc = new Date(fecha.getTime() + 10 * 86400000);
-  return {
-    numero,
-    ptoVta: cfg.ptoVta,
-    tipo: CBTE_LABEL[cbteTipo] ?? String(cbteTipo),
-    cbteTipo,
-    cae,
-    venc: ddmmyyyy(venc),
-    qrUrl: afipQrUrl({ fecha: ymd(fecha), cuit: cfg.cuit, ptoVta: cfg.ptoVta, cbteTipo, nro: numero, importe: opts.total, tipoDocRec: docTipo, nroDocRec: docNro, cae }),
-    estado: 'SIMULADO',
-    simulated: true,
-    mode: 'mock',
-  };
 }
 
 /** Emite una NOTA DE CREDITO real (asociada al comprobante original) contra ARCA. */
@@ -640,8 +597,8 @@ export async function arcaTest(orgId: string): Promise<ArcaTestResult> {
   const cfg = await getArcaConfig(orgId);
   const base: ArcaTestResult = {
     ok: true,
-    mode: cfg.hasCert && cfg.hasKey && !cfg.simulate ? 'real' : 'mock',
-    simulate: cfg.simulate,
+    mode: cfg.hasCert && cfg.hasKey ? 'real' : 'mock',
+    simulate: false,
     ambiente: cfg.entorno,
     detail: '',
     cuit: cfg.cuit || undefined,
@@ -653,10 +610,10 @@ export async function arcaTest(orgId: string): Promise<ArcaTestResult> {
 
   if (cfg.certError) return { ...base, ok: false, detail: `Error al leer el certificado: ${cfg.certError}` };
   if (!cfg.hasCert || !cfg.hasKey) {
-    return { ...base, detail: 'Sin certificado cargado: la facturación usa numeración interna / simulación.' };
+    return { ...base, ok: false, detail: 'Sin certificado cargado: no se puede facturar. Cargá el certificado y la clave privada.' };
   }
   if (!cfg.cuit) return { ...base, ok: false, detail: 'Falta el CUIT.' };
-  if (cfg.simulate) return { ...base, detail: 'Certificado presente. Simulación activada: no se contacta a AFIP.' };
+  if (!cfg.ptoVta) return { ...base, ok: false, detail: 'Falta el punto de venta.' };
 
   const dummy = await arcaDummy(orgId).catch(() => ({ mode: 'real' } as Record<string, string | null>));
   try {
@@ -676,7 +633,7 @@ export async function arcaTest(orgId: string): Promise<ArcaTestResult> {
 export async function arcaDummy(orgId: string): Promise<Record<string, string | null>> {
   const cfg = await getArcaConfig(orgId);
   if (!cfg.hasCert || !cfg.hasKey) {
-    return { mode: 'mock', detail: 'Modo simulado: FEDummy no aplica. Cargá certificado + clave.' };
+    return { mode: 'mock', detail: 'Sin certificado: FEDummy no aplica. Cargá certificado + clave.' };
   }
   const txt = await feSoap(orgId, cfg, 'FEDummy', '');
   return {

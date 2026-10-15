@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="150" cy="150" r="220" fill="#2563eb" opacity="0.18"/>
+  <circle cx="1060" cy="760" r="260" fill="#0ea5e9" opacity="0.14"/>
+
+  <text x="600" y="120" text-anchor="middle" font-size="46" font-weight="700" fill="#e2e8f0">Kit MercadoPago</text>
+  <text x="600" y="164" text-anchor="middle" font-size="24" fill="#94a3b8">Terminal Point + QR para cobrar en el mostrador</text>
+
+  <g>
+    <rect x="470" y="196" width="260" height="40" rx="20" fill="#2563eb" opacity="0.16" stroke="#3b82f6" stroke-opacity="0.5"/>
+    <text x="600" y="222" text-anchor="middle" font-size="16" font-weight="600" fill="#93c5fd">Cobros presenciales</text>
+  </g>
+
+  <g>
+    <rect x="110" y="300" width="400" height="470" rx="34" fill="#111827" stroke="#1e293b" stroke-width="2"/>
+    <rect x="150" y="350" width="320" height="170" rx="16" fill="#0b1120" stroke="#1e293b" stroke-width="2"/>
+    <text x="176" y="392" font-size="16" fill="#94a3b8">Cobro con tarjeta</text>
+    <text x="176" y="450" font-size="46" font-weight="700" fill="#e2e8f0">$ 12.500</text>
+    <circle cx="410" cy="430" r="30" fill="#2563eb"/>
+    <path d="M396 430h28M410 416v28" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+    <path d="M448 402a22 22 0 0 1 0 44" stroke="#3b82f6" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M456 388a36 36 0 0 1 0 72" stroke="#3b82f6" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.5"/>
+    <line x1="150" y1="556" x2="470" y2="556" stroke="#1e293b" stroke-width="2"/>
+    <g fill="#1e293b">
+      <rect x="158" y="586" width="92" height="52" rx="12"/>
+      <rect x="264" y="586" width="92" height="52" rx="12"/>
+      <rect x="370" y="586" width="92" height="52" rx="12"/>
+      <rect x="158" y="654" width="92" height="52" rx="12"/>
+      <rect x="264" y="654" width="92" height="52" rx="12"/>
+      <rect x="370" y="654" width="92" height="52" rx="12"/>
+      <rect x="158" y="722" width="92" height="52" rx="12"/>
+      <rect x="264" y="722" width="92" height="52" rx="12"/>
+      <rect x="370" y="722" width="92" height="52" rx="12"/>
+    </g>
+    <g fill="#64748b" font-size="20" font-weight="600" text-anchor="middle">
+      <text x="204" y="621">1</text>
+      <text x="310" y="621">2</text>
+      <text x="416" y="621">3</text>
+      <text x="204" y="689">4</text>
+      <text x="310" y="689">5</text>
+      <text x="416" y="689">6</text>
+      <text x="204" y="757">7</text>
+      <text x="310" y="757">8</text>
+      <text x="416" y="757">9</text>
+    </g>
+  </g>
+
+  <g>
+    <rect x="620" y="300" width="470" height="470" rx="34" fill="#111827" stroke="#1e293b" stroke-width="2"/>
+    <rect x="670" y="350" width="370" height="370" rx="24" fill="#ffffff"/>
+    <g fill="#0b1120">
+      <rect x="700" y="380" width="90" height="90" rx="12"/>
+      <rect x="720" y="400" width="50" height="50" rx="6" fill="#ffffff"/>
+      <rect x="735" y="415" width="20" height="20" fill="#0b1120"/>
+      <rect x="920" y="380" width="90" height="90" rx="12"/>
+      <rect x="940" y="400" width="50" height="50" rx="6" fill="#ffffff"/>
+      <rect x="955" y="415" width="20" height="20" fill="#0b1120"/>
+      <rect x="700" y="600" width="90" height="90" rx="12"/>
+      <rect x="720" y="620" width="50" height="50" rx="6" fill="#ffffff"/>
+      <rect x="735" y="635" width="20" height="20" fill="#0b1120"/>
+      <rect x="820" y="380" width="16" height="16"/>
+      <rect x="852" y="380" width="16" height="16"/>
+      <rect x="884" y="380" width="16" height="16"/>
+      <rect x="816" y="412" width="16" height="16"/>
+      <rect x="848" y="412" width="16" height="16"/>
+      <rect x="880" y="412" width="16" height="16"/>
+      <rect x="912" y="412" width="16" height="16"/>
+      <rect x="820" y="444" width="16" height="16"/>
+      <rect x="852" y="444" width="16" height="16"/>
+      <rect x="884" y="444" width="16" height="16"/>
+      <rect x="944" y="444" width="16" height="16"/>
+      <rect x="816" y="476" width="16" height="16"/>
+      <rect x="880" y="476" width="16" height="16"/>
+      <rect x="912" y="476" width="16" height="16"/>
+      <rect x="820" y="508" width="16" height="16"/>
+      <rect x="852" y="508" width="16" height="16"/>
+      <rect x="916" y="508" width="16" height="16"/>
+      <rect x="948" y="508" width="16" height="16"/>
+      <rect x="848" y="540" width="16" height="16"/>
+      <rect x="880" y="540" width="16" height="16"/>
+      <rect x="912" y="540" width="16" height="16"/>
+      <rect x="944" y="540" width="16" height="16"/>
+      <rect x="820" y="572" width="16" height="16"/>
+      <rect x="884" y="572" width="16" height="16"/>
+      <rect x="948" y="572" width="16" height="16"/>
+      <rect x="816" y="604" width="16" height="16"/>
+      <rect x="848" y="604" width="16" height="16"/>
+      <rect x="912" y="604" width="16" height="16"/>
+      <rect x="944" y="604" width="16" height="16"/>
+      <rect x="820" y="636" width="16" height="16"/>
+      <rect x="852" y="636" width="16" height="16"/>
+      <rect x="884" y="636" width="16" height="16"/>
+      <rect x="948" y="636" width="16" height="16"/>
+      <rect x="880" y="668" width="16" height="16"/>
+      <rect x="912" y="668" width="16" height="16"/>
+      <rect x="944" y="668" width="16" height="16"/>
+      <rect x="816" y="668" width="16" height="16"/>
+      <rect x="848" y="668" width="16" height="16"/>
+    </g>
+  </g>
+
+  <text x="600" y="840" text-anchor="middle" font-size="20" fill="#94a3b8">Cobrá con tarjeta, QR o link de pago. Acreditación automática en la caja.</text>
+</svg>

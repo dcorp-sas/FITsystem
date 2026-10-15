@@ -6,6 +6,7 @@ import {
   Text,
   View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { colors, spacing } from '../theme';
@@ -14,16 +15,16 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function Title({ children }: { children: ReactNode }) {
-  return <Text style={styles.title}>{children}</Text>;
+export function Title({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
+  return <Text style={[styles.title, style]}>{children}</Text>;
 }
 
-export function Subtitle({ children }: { children: ReactNode }) {
-  return <Text style={styles.subtitle}>{children}</Text>;
+export function Subtitle({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
+  return <Text style={[styles.subtitle, style]}>{children}</Text>;
 }
 
-export function Muted({ children }: { children: ReactNode }) {
-  return <Text style={styles.muted}>{children}</Text>;
+export function Muted({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
+  return <Text style={[styles.muted, style]}>{children}</Text>;
 }
 
 export function Badge({ text, color = colors.primary }: { text: string; color?: string }) {
