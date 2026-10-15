@@ -48,6 +48,8 @@ apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 # Esquema PostgreSQL generado (ver apps/api/scripts/pg-schema.mjs)
 apps/api/prisma/schema.postgres.prisma
+# Esquema SQLite generado en el build (ver apps/desktop/scripts/build-resources.mjs)
+apps/api/schema.sql
 
 # Backups locales de la base (ver scripts/pg-export.mjs)
 backups/
