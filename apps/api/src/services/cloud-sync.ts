@@ -70,14 +70,20 @@ async function buildPayload(orgId: string, memberIds?: string[]) {
     where: scopedMembers ? { organizationId: orgId, id: { in: memberIds } } : orgWhere,
   });
   const ids = members.map((m) => m.id);
-  const [memberships, portalAccounts, reservations, attendance] = ids.length
+  const [memberships, portalAccounts, reservations, attendance, payments, sales, cashSessions, cashMovements, stockMovements] = ids.length
     ? await Promise.all([
         prisma.membership.findMany({ where: { memberId: { in: ids } } }),
         prisma.portalAccount.findMany({ where: { memberId: { in: ids } } }),
         prisma.reservation.findMany({ where: { memberId: { in: ids }, session: { startAt: { gte: recent } } } }),
         prisma.attendance.findMany({ where: { memberId: { in: ids }, checkedInAt: { gte: recent } } }),
+        prisma.payment.findMany({ where: { memberId: { in: ids }, paidAt: { gte: recent } } }),
+        prisma.sale.findMany({ where: { memberId: { in: ids }, createdAt: { gte: recent } } }),
+        prisma.cashSession.findMany({ where: orgWhere }),
+        prisma.cashMovement.findMany({ where: { memberId: { in: ids }, createdAt: { gte: recent } } }),
+        prisma.stockMovement.findMany({ where: { organizationId: orgId, createdAt: { gte: recent } } }),
+    prisma.product.findMany({ where: orgWhere }),
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], [], [], [], [], [], []];
 
   return {
     organization: organization
@@ -101,6 +107,11 @@ async function buildPayload(orgId: string, memberIds?: string[]) {
     classSessions,
     reservations,
     attendance,
+    payments,
+    sales,
+    cashSessions,
+    cashMovements,
+    stockMovements,
   };
 }
 
@@ -279,3 +290,8 @@ export function startCloudSyncScheduler() {
   setTimeout(run, 15000);
   setInterval(run, 10 * 60 * 1000);
 }
+
+
+
+
+

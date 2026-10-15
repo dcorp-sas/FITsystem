@@ -53,6 +53,12 @@ const pushSchema = z.object({
   classSessions: z.array(row).max(5000).optional(),
   reservations: z.array(row).max(50000).optional(),
   attendance: z.array(row).max(50000).optional(),
+  payments: z.array(row).max(20000).optional(),
+  sales: z.array(row).max(20000).optional(),
+  cashSessions: z.array(row).max(5000).optional(),
+  cashMovements: z.array(row).max(20000).optional(),
+  stockMovements: z.array(row).max(20000).optional(),
+  products: z.array(row).max(5000).optional(),
 });
 
 function slugify(value: string): string {
@@ -132,7 +138,7 @@ export function syncRoutes(app: FastifyInstance) {
   // Empuja (upsert por id) las entidades indicadas. Idempotente: se puede repetir.
   app.post('/sync/push', async (request, reply) => {
     try {
-      const organizationId = await orgFromSyncKey(request);
+      const res = await orgFromSyncKey(request); const organizationId = typeof (res as any) === 'string' ? (res as any) : (res as any).orgId;
       const input = validate(pushSchema, request.body);
 
       if (input.organization) {
@@ -273,7 +279,7 @@ export function syncRoutes(app: FastifyInstance) {
   // nuevos; las reservas incluyen siempre las de sesiones futuras (cupo vivo).
   app.get('/sync/pull', async (request, reply) => {
     try {
-      const organizationId = await orgFromSyncKey(request);
+      const res = await orgFromSyncKey(request); const organizationId = typeof (res as any) === 'string' ? (res as any) : (res as any).orgId;
       const query = request.query as { since?: string };
       const since = query.since ? new Date(query.since) : new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
       const now = new Date();
@@ -313,3 +319,11 @@ export function syncRoutes(app: FastifyInstance) {
 }
 
 export default syncRoutes;
+
+
+
+
+
+
+
+
