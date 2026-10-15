@@ -108,10 +108,21 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
     };
     try {
       if (member) {
-        await http.put(`/members/${member.id}`, payload);
-        toast.success('Socio actualizado');
+        const updated = await http.put<{ id: string; email?: string | null; portal?: PortalInfo; emailSent?: boolean }>(`/members/${member.id}`, payload);
         onSaved();
-        onClose();
+        if (updated.portal?.created && updated.portal.password) {
+          setCreds({
+            memberId: member.id,
+            username: updated.portal.username,
+            password: updated.portal.password,
+            email: updated.email ?? null,
+            emailSent: Boolean(updated.emailSent),
+          });
+          toast.success('Socio actualizado');
+        } else {
+          toast.success('Socio actualizado');
+          onClose();
+        }
         return;
       }
 

@@ -80,3 +80,34 @@ export async function autoProvisionPortalAccount(params: {
 
   return { created: true, username, password };
 }
+
+/**
+ * Sincroniza la cuenta del portal del socio cuando se editan sus datos en el
+ * sistema principal (DNI, email). Si el socio nunca tuvo cuenta, la crea (con
+ * el mismo limite de asientos que el alta). Nunca reactiva una cuenta que el
+ * gimnasio deshabilito a proposito.
+ */
+export async function syncPortalAccount(params: {
+  organizationId: string;
+  member: { id: string; email: string | null; documentNumber: string | null; memberCode: string };
+}): Promise<ProvisionResult> {
+  const { organizationId, member } = params;
+  const existing = await prisma.portalAccount.findUnique({ where: { memberId: member.id } });
+
+  if (existing) {
+    await prisma.portalAccount.update({
+      where: { memberId: member.id },
+      data: {
+        ...(member.documentNumber ? { documentNumber: member.documentNumber } : {}),
+        ...(member.email ? { email: member.email } : {}),
+      },
+    });
+    return {
+      created: false,
+      reason: 'already',
+      username: existing.email || member.documentNumber || member.memberCode,
+    };
+  }
+
+  return autoProvisionPortalAccount({ organizationId, member });
+}

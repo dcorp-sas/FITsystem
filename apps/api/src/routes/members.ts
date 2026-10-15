@@ -3,7 +3,7 @@ import { prisma } from '../db.js';
 import { memberSchema, memberImportSchema, faceEnrollSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
-import { autoProvisionPortalAccount } from '../services/portal-account.js';
+import { autoProvisionPortalAccount, syncPortalAccount } from '../services/portal-account.js';
 import { signMemberQr } from '../lib/member-qr.js';
 import { sendCredentials } from '../services/onboarding.js';
 import { addDays, churnRiskScore, daysBetween, fullName, memberCode } from '@fitsystem/utils';
@@ -428,7 +428,8 @@ export function memberRoutes(app: FastifyInstance) {
       });
 
       await logActivity(req, 'UPDATE', 'MEMBER', id, existing, member);
-      return ok(reply, member);
+      const portal = await syncPortalAccount({ organizationId: req.user.organizationId, member });
+      return ok(reply, { ...member, portal });
     } catch (error) {
       return fail(reply, error);
     }
