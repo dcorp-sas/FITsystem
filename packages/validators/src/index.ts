@@ -8,6 +8,10 @@ export const cuid = z.string().min(1);
 export const optionalString = z.string().trim().optional().nullable();
 const dateInput = z.coerce.date();
 
+// Email permisivo: acepta cualquier dirección con "@" (gmail, hotmail, dominios
+// propios o internos). No exige punto en el dominio.
+export const looseEmail = z.string().trim().regex(/^[^\s@]+@[^\s@]+$/, 'Email inválido');
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -705,7 +709,7 @@ export type NotificationTemplateInput = z.infer<typeof notificationTemplateSchem
 
 export const contactSchema = z.object({
   name: z.string().trim().min(2, 'Ingresá tu nombre'),
-  email: z.string().trim().email('Email inválido'),
+  email: looseEmail,
   phone: z.string().trim().max(40).optional().nullable(),
   gymName: z.string().trim().max(120).optional().nullable(),
   message: z.string().trim().min(10, 'Contanos brevemente tu consulta').max(4000),
@@ -718,7 +722,7 @@ export const checkoutSchema = z.object({
   plan: z.enum(['BASIC', 'PRO', 'ENTERPRISE', 'SEAT_PACK', 'MP_KIT']),
   period: z.enum(['MONTHLY', 'ANNUAL']).optional(),
   buyerName: z.string().trim().min(2, 'Ingresá tu nombre'),
-  buyerEmail: z.string().trim().email('Email inválido'),
+  buyerEmail: looseEmail,
   buyerPhone: z.string().trim().max(40).optional().nullable(),
   gymName: z.string().trim().max(120).optional().nullable(),
 });
@@ -733,7 +737,7 @@ export const embeddedPaymentSchema = z.object({
   paymentMethodId: z.string().trim().min(1).max(60),
   installments: z.coerce.number().int().min(1).max(36),
   issuerId: z.string().trim().max(40).optional().nullable(),
-  payerEmail: z.string().trim().email('Email inválido'),
+  payerEmail: looseEmail,
   identificationType: z.string().trim().max(40).optional().nullable(),
   identificationNumber: z.string().trim().max(40).optional().nullable(),
 });
