@@ -12,6 +12,7 @@
     "@fitsystem/types": "workspace:*",
     "@fitsystem/ui": "workspace:*",
     "@fitsystem/utils": "workspace:*",
+    "@mercadopago/sdk-react": "^1.0.7",
     "next": "^15.1.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

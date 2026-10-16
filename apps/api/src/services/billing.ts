@@ -72,55 +72,56 @@ export function planDays(period: BillingPeriod): number {
 }
 
 export function isBillingConfigured(): boolean {
-  return Boolean(env.PLATFORM_MP_ACCESS_TOKEN);
+  return Boolean(env.PLATFORM_MP_ACCESS_TOKEN && env.PLATFORM_MP_PUBLIC_KEY);
 }
 
-export interface CheckoutResult {
+export function getPlatformPublicKey(): string {
+  return env.PLATFORM_MP_PUBLIC_KEY;
+}
+
+/** Nombre legible de un plan o producto del catálogo. */
+export function itemLabel(item: string): string {
+  if (isKnownProduct(item)) return PRODUCT_CATALOG[item].name;
+  if (isKnownPlan(item)) return PLAN_CATALOG[item].name;
+  return item;
+}
+
+export interface PurchaseDraft {
   ok: boolean;
-  initPoint?: string;
   purchaseId?: string;
   externalRef?: string;
+  amount?: number;
   error?: string;
 }
 
-interface MpPreference {
-  id?: string;
-  init_point?: string;
-  sandbox_init_point?: string;
-}
-
 /**
- * Crea una compra pendiente y una preferencia de MercadoPago Checkout Pro.
- * Devuelve el `init_point` para redirigir al comprador.
+ * Crea una compra pendiente (sin cobrar todavía). El pago se procesa luego con
+ * `payPurchase` usando el token de tarjeta que genera el checkout embebido.
  */
-export async function createCheckout(input: {
+export async function createPurchase(input: {
   plan: string;
   period?: BillingPeriod | null;
   buyerName: string;
   buyerEmail: string;
   buyerPhone?: string | null;
   gymName?: string | null;
-}): Promise<CheckoutResult> {
-  if (!isBillingConfigured()) return { ok: false, error: 'La pasarela de pago no está configurada' };
+}): Promise<PurchaseDraft> {
+  if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
 
   let amount: number;
   let seats: number;
   let periodStore: string;
-  let title: string;
 
   if (isKnownProduct(input.plan)) {
-    const product = PRODUCT_CATALOG[input.plan];
-    amount = product.amount;
-    seats = product.seats;
+    amount = PRODUCT_CATALOG[input.plan].amount;
+    seats = PRODUCT_CATALOG[input.plan].seats;
     periodStore = 'ONCE';
-    title = `FIT System · ${product.name}`;
   } else if (isKnownPlan(input.plan)) {
     const period: BillingPeriod = isKnownPeriod(input.period ?? '') ? (input.period as BillingPeriod) : 'ANNUAL';
     const plan = PLAN_CATALOG[input.plan];
     amount = plan[period === 'ANNUAL' ? 'annual' : 'monthly'];
     seats = plan.seats;
     periodStore = period;
-    title = `FIT System ${plan.name} · ${period === 'ANNUAL' ? 'anual' : 'mensual'}`;
   } else {
     return { ok: false, error: 'Producto inválido' };
   }
@@ -143,68 +144,106 @@ export async function createCheckout(input: {
     },
   });
 
-  const body: Record<string, unknown> = {
-    items: [
-      {
-        title,
-        quantity: 1,
-        currency_id: 'ARS',
-        unit_price: amount,
-      },
-    ],
-    payer: { name: input.buyerName, email: input.buyerEmail },
-    external_reference: externalRef,
-  };
-  if (env.PUBLIC_URL) body.notification_url = `${env.PUBLIC_URL}/api/billing/webhook`;
-  const base = env.WEB_ORIGIN.split(',')[0]?.trim();
-  if (base) {
-    body.back_urls = {
-      success: `${base}/pagar?estado=success&ref=${externalRef}`,
-      failure: `${base}/pagar?estado=failure&ref=${externalRef}`,
-      pending: `${base}/pagar?estado=pending&ref=${externalRef}`,
-    };
-    body.auto_return = 'approved';
-  }
+  return { ok: true, purchaseId: purchase.id, externalRef, amount };
+}
 
-  let data: MpPreference | null = null;
+export interface PayResult {
+  ok: boolean;
+  status?: string;
+  statusDetail?: string;
+  paymentId?: string;
+  error?: string;
+}
+
+interface MpPayment {
+  id?: number;
+  status?: string;
+  status_detail?: string;
+  message?: string;
+}
+
+/**
+ * Cobra una compra con tarjeta usando el `token` que generó el checkout embebido
+ * (Card Payment Brick). El importe se toma de la compra en la base (nunca del
+ * cliente). Si queda aprobado, cumple la compra (emite licencia / avisa).
+ */
+export async function payPurchase(input: {
+  externalRef: string;
+  token: string;
+  paymentMethodId: string;
+  installments: number;
+  issuerId?: string | null;
+  payerEmail: string;
+  identificationType?: string | null;
+  identificationNumber?: string | null;
+}): Promise<PayResult> {
+  if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
+
+  const purchase = await prisma.planPurchase.findUnique({ where: { externalRef: input.externalRef } });
+  if (!purchase) return { ok: false, error: 'No encontramos la compra' };
+  if (purchase.status === 'PAID') return { ok: false, error: 'Esta compra ya fue pagada' };
+
+  const body: Record<string, unknown> = {
+    transaction_amount: purchase.amount,
+    token: input.token,
+    description: itemLabel(purchase.plan),
+    installments: input.installments,
+    payment_method_id: input.paymentMethodId,
+    external_reference: purchase.externalRef,
+    payer: {
+      email: input.payerEmail,
+      ...(input.identificationType && input.identificationNumber
+        ? { identification: { type: input.identificationType, number: input.identificationNumber } }
+        : {}),
+    },
+  };
+  if (input.issuerId) body.issuer_id = Number(input.issuerId);
+  if (env.PUBLIC_URL) body.notification_url = `${env.PUBLIC_URL}/api/billing/webhook`;
+
   try {
-    const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    const res = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.PLATFORM_MP_ACCESS_TOKEN}`,
         'Content-Type': 'application/json',
+        'X-Idempotency-Key': purchase.externalRef,
       },
       body: JSON.stringify(body),
     });
+    const payment = (await res.json().catch(() => null)) as
+      | { id?: number; status?: string; status_detail?: string; message?: string }
+      | null;
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
       await prisma.planPurchase.update({
         where: { id: purchase.id },
-        data: { status: 'FAILED', notes: `MercadoPago HTTP ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}` },
+        data: {
+          providerStatus: payment?.status ?? 'rejected',
+          notes: `MercadoPago HTTP ${res.status}${payment?.message ? `: ${payment.message}` : ''}`.slice(0, 500),
+        },
       });
-      return { ok: false, error: `MercadoPago rechazó la compra (HTTP ${res.status})` };
+      return { ok: false, error: payment?.message || `MercadoPago rechazó el pago (HTTP ${res.status})` };
     }
-    data = (await res.json()) as MpPreference;
-  } catch (err) {
+
+    const paymentId = payment?.id != null ? String(payment.id) : null;
     await prisma.planPurchase.update({
       where: { id: purchase.id },
-      data: { status: 'FAILED', notes: `Error de red: ${(err as Error).message}` },
+      data: { providerPaymentId: paymentId, providerStatus: payment?.status ?? null },
     });
-    return { ok: false, error: 'No se pudo contactar a MercadoPago' };
+
+    if (payment?.status === 'approved') {
+      await fulfillPurchase(purchase.id);
+      return { ok: true, status: 'approved', statusDetail: payment.status_detail, paymentId: paymentId ?? undefined };
+    }
+
+    return {
+      ok: true,
+      status: payment?.status,
+      statusDetail: payment?.status_detail,
+      paymentId: paymentId ?? undefined,
+    };
+  } catch (err) {
+    return { ok: false, error: `No se pudo contactar a MercadoPago: ${(err as Error).message}` };
   }
-
-  const initPoint = data?.init_point ?? data?.sandbox_init_point ?? null;
-  if (!initPoint) {
-    await prisma.planPurchase.update({ where: { id: purchase.id }, data: { status: 'FAILED', notes: 'Sin init_point' } });
-    return { ok: false, error: 'MercadoPago no devolvió un link de pago' };
-  }
-
-  await prisma.planPurchase.update({
-    where: { id: purchase.id },
-    data: { providerId: data?.id ?? null, providerData: JSON.stringify({ initPoint }) },
-  });
-
-  return { ok: true, initPoint, purchaseId: purchase.id, externalRef };
 }
 
 /**

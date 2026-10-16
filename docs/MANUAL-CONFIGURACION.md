@@ -254,19 +254,17 @@ permiso para usarla.
 
 ## 9. Nube (app del socio)
 
-Conecta tu sistema con la nube para que la **app del socio** vea los mismos
-socios, cuotas y credenciales. El sistema **sigue funcionando sin internet** y se
-sincroniza solo cuando hay conexión.
+La nube viene **incluida y se conecta sola**: no hay nada que configurar. Cuando
+el sistema tiene internet, se registra automáticamente en la nube del proveedor y
+empuja los datos (socios, cuotas y credenciales) para que la **app del socio** vea
+lo mismo que el panel.
 
-| Campo | Qué poner |
-| --- | --- |
-| Dirección de la nube | La URL de la API en la nube (ej. `https://fitsystem-api.onrender.com`). Es la que provee quien te instaló el sistema. |
-| Nombre del gimnasio | El nombre que va a figurar en la nube. |
-| Clave corta (opcional) | Un identificador corto (ej. `mi-gimnasio`). |
-| Clave de sincronización existente | **Solo** si vas a reconectar un gimnasio ya dado de alta (te la da el proveedor). Si es la primera vez, dejala vacía. |
+El sistema **sigue funcionando sin internet** y sincroniza cuando la conexión
+vuelve. No hace falta conectar ni "sincronizar ahora": es automático.
 
-Después de **Conectar a la nube**, usá **Sincronizar ahora** para forzar una
-sincronización. El panel muestra la última sincronización y el último error.
+> Uso avanzado: la dirección de la nube se puede cambiar con la variable de
+> servidor `CLOUD_URL` (ver la sección 12). Dejá la de por defecto salvo que el
+> proveedor te indique otra.
 
 ---
 
@@ -315,6 +313,7 @@ gimnasio, archivo `.env`). En la app de escritorio muchas se generan solas.
 | `WEB_ORIGIN` | Orígenes permitidos (panel + app de socios), separados por coma. | Las URLs de tus servicios. |
 | `PUBLIC_URL` | URL pública de la API (webhook de MercadoPago). | La URL de tu API en la nube. |
 | `SOCIOS_URL` | URL de la app de socios (retorno de pago). | La URL de la PWA de socios. |
+| `CLOUD_URL` | Nube a la que el escritorio se conecta solo (app del socio). | `https://fitsystem-api.onrender.com` por defecto. |
 | `WHATSAPP_AUTH_DIR` | Carpeta donde se guarda la sesión de WhatsApp vinculada. | Por defecto, junto a la base de datos. |
 | `LICENSE_SERVER` | URL del Licensador. | La provee el proveedor. |
 | `LICENSE_PUBLIC_KEY` | Clave pública para verificar licencias. | Viene embebida. |
@@ -336,13 +335,17 @@ el panel: van como variables de entorno de la API (Render / `.env`).
 | --- | --- |
 | `PLATFORM_CONTACT_TO` | Correo que recibe el formulario de contacto de la landing. Por defecto `contacto.fitsystem@gmail.com`. |
 | `PLATFORM_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASS` / `_FROM` | SMTP propio del sitio para el contacto y el aviso de compra. Si falta el host, esos emails no salen (la compra igual se registra). |
-| `PLATFORM_MP_ACCESS_TOKEN` | **Access Token** de la cuenta de MercadoPago del proveedor (Checkout Pro). Se obtiene en el panel de MercadoPago del proveedor. |
+| `PLATFORM_MP_ACCESS_TOKEN` | **Access Token** de la cuenta de MercadoPago del proveedor. Se obtiene en el panel de MercadoPago del proveedor. |
+| `PLATFORM_MP_PUBLIC_KEY` | **Public Key** de la misma cuenta. Necesaria para mostrar el formulario de pago embebido (tarjeta) en la landing. |
 | `PLATFORM_MP_WEBHOOK_SECRET` | Clave del webhook `https://<tu-api>/api/billing/webhook`. |
 | `LICENSOR_ADMIN_USER` / `LICENSOR_ADMIN_PASS` | Usuario admin del Licensador, para emitir la clave de licencia automáticamente cuando se aprueba el pago. |
 
-Flujo de una compra: el visitante elige plan → **Pagar** → Checkout Pro de
-MercadoPago → al aprobarse, el webhook confirma el pago, se emite la **clave de
-licencia** y se envía por email al comprador.
+Flujo de una compra: el visitante elige plan → completa sus datos → paga **con
+tarjeta dentro de la misma página** (formulario embebido de MercadoPago, sin
+redirigir) → al aprobarse, el webhook confirma el pago, se emite la **clave de
+licencia** y se envía por email al comprador. Los complementos (pack de asientos,
+kit MercadoPago) se compran igual y quedan registrados para que el proveedor los
+dé de alta.
 
 > Las credenciales de MercadoPago de la tienda son de la **cuenta del proveedor**.
 > Son distintas de las que cada gimnasio carga en **Cobros (MercadoPago)** para

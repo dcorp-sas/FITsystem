@@ -725,3 +725,17 @@ export const checkoutSchema = z.object({
 
 export type ContactInput = z.infer<typeof contactSchema>;
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+/** Pago embebido: token de tarjeta generado por el Card Payment Brick. */
+export const embeddedPaymentSchema = z.object({
+  externalRef: z.string().trim().min(4).max(60),
+  token: z.string().trim().min(1),
+  paymentMethodId: z.string().trim().min(1).max(60),
+  installments: z.coerce.number().int().min(1).max(36),
+  issuerId: z.string().trim().max(40).optional().nullable(),
+  payerEmail: z.string().trim().email('Email inválido'),
+  identificationType: z.string().trim().max(40).optional().nullable(),
+  identificationNumber: z.string().trim().max(40).optional().nullable(),
+});
+
+export type EmbeddedPaymentInput = z.infer<typeof embeddedPaymentSchema>;

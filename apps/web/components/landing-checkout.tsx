@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
 import { Icon } from '@/components/icon';
 import type { IconName } from '@/components/icon';
 import { api, ApiError } from '@/lib/api';
@@ -20,35 +21,116 @@ export interface CheckoutTarget {
   /** Detalle debajo del título, ej. "Anual (2 meses gratis) · $750.000". */
   subtitle: string;
   amount: number;
-  /** Nota final del modal (según sea licencia o complemento). */
+  /** Nota final del checkout (según sea licencia o complemento). */
   note?: string;
 }
 
+interface CardFormData {
+  token: string;
+  issuer_id?: string;
+  payment_method_id: string;
+  transaction_amount: number;
+  installments: number;
+  payment_method_option_id?: string;
+  payer?: { email?: string; identification?: { type?: string; number?: string } };
+}
+
+interface PayResult {
+  status?: string;
+  statusDetail?: string;
+  paymentId?: string;
+}
+
+let mpInitialized = false;
+
 export function CheckoutModal({ target, onClose }: { target: CheckoutTarget; onClose: () => void }) {
+  const [step, setStep] = useState<'form' | 'pay' | 'result'>('form');
   const [form, setForm] = useState({ buyerName: '', buyerEmail: '', buyerPhone: '', gymName: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [externalRef, setExternalRef] = useState<string | null>(null);
+  const [amount, setAmount] = useState(target.amount);
+  const [result, setResult] = useState<{ status?: string; statusDetail?: string } | null>(null);
 
-  async function submit(e: React.FormEvent) {
+  // Trae la Public Key del proveedor (y si la pasarela está configurada).
+  useEffect(() => {
+    let active = true;
+    api<{ configured: boolean; publicKey: string }>('/billing/plans')
+      .then((data) => {
+        if (!active) return;
+        if (!data.configured || !data.publicKey) setUnavailable(true);
+        else setPublicKey(data.publicKey);
+      })
+      .catch(() => active && setUnavailable(true));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!publicKey) return;
+    if (!mpInitialized) {
+      initMercadoPago(publicKey, { locale: 'es-AR' });
+      mpInitialized = true;
+    }
+    setReady(true);
+  }, [publicKey]);
+
+  // Paso 1: datos del comprador -> registra la compra y pasa al pago.
+  async function startPayment(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const data = await api<{ initPoint: string }>('/billing/checkout', {
+      const data = await api<{ externalRef: string; amount: number }>('/billing/checkout', {
         method: 'POST',
         body: { plan: target.plan, period: target.period, ...form },
       });
-      window.location.href = data.initPoint;
+      setExternalRef(data.externalRef);
+      if (data.amount) setAmount(data.amount);
+      setLoading(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo iniciar la compra. Probá de nuevo.');
       setLoading(false);
     }
   }
 
+  // Paso 2: el Brick entrega el token; lo enviamos al backend para cobrar.
+  async function submitCard(formData: CardFormData): Promise<void> {
+    if (!externalRef) throw new Error('Compra no iniciada');
+    setError(null);
+    try {
+      const result = await api<{ status?: string; statusDetail?: string; paymentId?: string }>('/billing/pay', {
+        method: 'POST',
+        body: {
+          externalRef,
+          token: formData.token,
+          paymentMethodId: formData.payment_method_id,
+          installments: formData.installments,
+          issuerId: formData.issuer_id ?? null,
+          payerEmail: formData.payer?.email || form.buyerEmail,
+          identificationType: formData.payer?.identification?.type ?? null,
+          identificationNumber: formData.payer?.identification?.number ?? null,
+        },
+      });
+      setResult(result);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'No se pudo procesar el pago.';
+      setError(message);
+      throw err;
+    }
+  }
+
+  const approved = result?.status === 'approved';
+  const pending = result?.status === 'in_process' || result?.status === 'pending' || result?.status === 'authorized';
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -61,56 +143,106 @@ export function CheckoutModal({ target, onClose }: { target: CheckoutTarget; onC
           </button>
         </div>
 
-        <form onSubmit={submit} className="mt-5 space-y-3">
-          <input
-            required
-            placeholder="Tu nombre y apellido"
-            value={form.buyerName}
-            onChange={(e) => setForm({ ...form, buyerName: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={form.buyerEmail}
-            onChange={(e) => setForm({ ...form, buyerEmail: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-          <input
-            type="tel"
-            placeholder="Teléfono (opcional)"
-            value={form.buyerPhone}
-            onChange={(e) => setForm({ ...form, buyerPhone: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-          <input
-            placeholder="Nombre del gimnasio (opcional)"
-            value={form.gymName}
-            onChange={(e) => setForm({ ...form, gymName: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-
-          {error && <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
-          >
-            <Icon name="card" size={18} />
-            {loading ? 'Redirigiendo a MercadoPago…' : `Pagar ${ars.format(target.amount)}`}
-          </button>
-          <p className="text-center text-xs text-text-muted">
-            {target.note ?? 'Pago seguro con MercadoPago. Al aprobarse se emite tu clave de licencia y te llega por email.'}
+        {unavailable ? (
+          <p className="mt-5 rounded-lg border border-line bg-base px-4 py-6 text-center text-sm text-text-muted">
+            La pasarela de pago no está disponible en este momento. Escribinos y coordinamos tu compra.
           </p>
-        </form>
+        ) : result ? (
+          <div className="mt-5 space-y-3">
+            <p className={`text-base font-semibold ${approved ? 'text-success' : pending ? 'text-text' : 'text-danger'}`}>
+              {approved ? '¡Pago aprobado!' : pending ? 'Pago pendiente de confirmación' : 'El pago no se completó'}
+            </p>
+            <p className="text-sm text-text-muted">
+              {approved
+                ? target.note ??
+                  'Te enviamos la confirmación por email. Al aprobarse se emite tu clave de licencia.'
+                : pending
+                  ? 'MercadoPago está procesando el pago. Te avisamos por email cuando se acredite.'
+                  : 'No pudimos cobrar la tarjeta. Podés intentar con otra tarjeta o medio.'}
+            </p>
+            {!approved && !pending && (
+              <button
+                type="button"
+                onClick={() => {
+                  setResult(null);
+                  setError(null);
+                }}
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+              >
+                Reintentar el pago
+              </button>
+            )}
+          </div>
+        ) : !externalRef ? (
+          <form onSubmit={startPayment} className="mt-5 space-y-3">
+            <input
+              required
+              placeholder="Tu nombre y apellido"
+              value={form.buyerName}
+              onChange={(e) => setForm({ ...form, buyerName: e.target.value })}
+              className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            />
+            <input
+              type="email"
+              required
+              placeholder="Email"
+              value={form.buyerEmail}
+              onChange={(e) => setForm({ ...form, buyerEmail: e.target.value })}
+              className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            />
+            <input
+              type="tel"
+              placeholder="Teléfono (opcional)"
+              value={form.buyerPhone}
+              onChange={(e) => setForm({ ...form, buyerPhone: e.target.value })}
+              className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            />
+            <input
+              placeholder="Nombre del gimnasio (opcional)"
+              value={form.gymName}
+              onChange={(e) => setForm({ ...form, gymName: e.target.value })}
+              className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
+            />
+
+            {error && <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
+            >
+              <Icon name="card" size={18} />
+              {loading ? 'Preparando…' : `Continuar al pago · ${ars.format(target.amount)}`}
+            </button>
+            <p className="text-center text-xs text-text-muted">Pago seguro con MercadoPago. No guardamos los datos de tu tarjeta.</p>
+          </form>
+        ) : (
+          <div className="mt-5">
+            <p className="mb-3 text-center text-sm text-text-muted">Pagás {ars.format(amount)} con tarjeta</p>
+            {ready ? (
+              <CardPayment
+                initialization={{ amount, payer: { email: form.buyerEmail } }}
+                customization={{ paymentMethods: { maxInstallments: 12 } }}
+                locale="es-AR"
+                onSubmit={submitCard}
+              />
+            ) : (
+              <p className="py-8 text-center text-sm text-text-muted">Cargando el formulario de pago…</p>
+            )}
+            {error && (
+              <p className="mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
+            )}
+            <p className="mt-3 text-center text-xs text-text-muted">
+              {target.note ?? 'Pago seguro con MercadoPago. Al aprobarse se emite tu clave de licencia y te llega por email.'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/** Botón que abre el formulario de compra (Checkout Pro) para un plan o producto. */
+/** Botón que abre el checkout embebido (Card Payment Brick) para un plan o producto. */
 export function BuyButton({
   target,
   className,

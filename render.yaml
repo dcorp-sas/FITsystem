@@ -202,8 +202,11 @@ services:
         sync: false
       - key: PLATFORM_SMTP_FROM
         sync: false
-      # Access token de MercadoPago de la cuenta del PROVEEDOR (Checkout Pro).
+      # Access token de MercadoPago de la cuenta del PROVEEDOR (pago embebido).
       - key: PLATFORM_MP_ACCESS_TOKEN
+        sync: false
+      # Public Key de la cuenta del proveedor (checkout embebido en la web).
+      - key: PLATFORM_MP_PUBLIC_KEY
         sync: false
       # Secreto del webhook de MercadoPago del proveedor (opcional, recomendado).
       - key: PLATFORM_MP_WEBHOOK_SECRET

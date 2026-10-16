@@ -84,6 +84,11 @@ export const env = {
   // ID de instalación (solo en el producto de escritorio). Cuando está presente,
   // la licencia de la instalación se administra desde Configuración > Licencia.
   LICENSE_INSTALLATION_ID: process.env.LICENSE_INSTALLATION_ID || '',
+  // URL de la nube (API del proveedor) a la que se conecta el escritorio para
+  // que la app del socio vea los mismos datos. Es fija: la conexión es
+  // automática (se aprovisiona la clave de sincronización sola), sin pestaña de
+  // configuración en el panel.
+  CLOUD_URL: (process.env.CLOUD_URL || 'https://fitsystem-api.onrender.com').replace(/\/+$/, ''),
   // Token compartido con el Licensador para respaldar/restaurar su estado en
   // Postgres (su disco es efímero en el plan free). Si está vacío, el respaldo
   // remoto queda deshabilitado.
@@ -109,9 +114,11 @@ export const env = {
   PLATFORM_SMTP_USER: process.env.PLATFORM_SMTP_USER || '',
   PLATFORM_SMTP_PASS: process.env.PLATFORM_SMTP_PASS || '',
   PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT System <contacto.fitsystem@gmail.com>',
-  // Token de MercadoPago de la cuenta del PROVEEDOR (Checkout Pro del sitio).
+  // Token de MercadoPago de la cuenta del PROVEEDOR (pago embebido del sitio).
   // Sin esto, los botones de compra del sitio no pueden iniciar el pago.
   PLATFORM_MP_ACCESS_TOKEN: process.env.PLATFORM_MP_ACCESS_TOKEN || '',
+  // Public Key de la cuenta del proveedor (checkout embebido / Card Payment Brick).
+  PLATFORM_MP_PUBLIC_KEY: process.env.PLATFORM_MP_PUBLIC_KEY || '',
   // Secreto del webhook de MercadoPago de la cuenta del proveedor (opcional).
   // Si está definido, el webhook exige firma válida.
   PLATFORM_MP_WEBHOOK_SECRET: process.env.PLATFORM_MP_WEBHOOK_SECRET || '',

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { checkoutSchema } from '@fitsystem/validators';
+import { checkoutSchema, embeddedPaymentSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError } from '../lib/http.js';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
@@ -7,7 +7,8 @@ import {
   PLAN_CATALOG,
   PRODUCT_CATALOG,
   isBillingConfigured,
-  createCheckout,
+  createPurchase,
+  payPurchase,
   fulfillPurchase,
   verifyPlatformWebhookSignature,
 } from '../services/billing.js';
@@ -18,18 +19,31 @@ export function billingRoutes(app: FastifyInstance) {
     return ok(reply, {
       currency: 'ARS',
       configured: isBillingConfigured(),
+      publicKey: isBillingConfigured() ? env.PLATFORM_MP_PUBLIC_KEY : '',
       plans: Object.entries(PLAN_CATALOG).map(([tag, plan]) => ({ tag, ...plan })),
       products: Object.entries(PRODUCT_CATALOG).map(([tag, product]) => ({ tag, ...product })),
     });
   });
 
-  // Inicia una compra: crea la preferencia de MercadoPago y devuelve el link.
+  // Registra una compra pendiente. El pago (con tarjeta) se procesa en /billing/pay.
   app.post('/billing/checkout', async (request, reply) => {
     try {
       const input = validate(checkoutSchema, request.body);
-      const result = await createCheckout(input);
-      if (!result.ok || !result.initPoint) throw new HttpError(502, result.error || 'No se pudo iniciar la compra');
-      return ok(reply, { initPoint: result.initPoint, purchaseId: result.purchaseId, externalRef: result.externalRef });
+      const result = await createPurchase(input);
+      if (!result.ok || !result.externalRef) throw new HttpError(502, result.error || 'No se pudo registrar la compra');
+      return ok(reply, { externalRef: result.externalRef, amount: result.amount, purchaseId: result.purchaseId });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Procesa el pago embebido: recibe el token del Card Payment Brick y cobra.
+  app.post('/billing/pay', async (request, reply) => {
+    try {
+      const input = validate(embeddedPaymentSchema, request.body);
+      const result = await payPurchase(input);
+      if (!result.ok) throw new HttpError(402, result.error || 'No se pudo procesar el pago');
+      return ok(reply, { status: result.status, statusDetail: result.statusDetail, paymentId: result.paymentId });
     } catch (error) {
       return fail(reply, error);
     }

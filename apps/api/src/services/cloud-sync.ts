@@ -5,10 +5,12 @@ import { getRawSetting, upsertSettings } from './settings.js';
 /*
  * Sincronizacion del sistema local (escritorio) hacia la nube.
  *
- * El panel de escritorio sigue operando 100% offline con su base SQLite. Cuando
- * esta "conectado a la nube", empuja socios, cuentas del portal, planes,
- * membresias y sedes a la API en la nube para que la app del socio y el panel
- * web vean los mismos datos. La configuracion vive en settings CLOUD/*.
+ * El panel de escritorio sigue operando 100% offline con su base SQLite. La
+ * conexion a la nube es automatica: la URL es fija (env.CLOUD_URL) y la clave
+ * de sincronizacion se aprovisiona sola la primera vez. Cuando esta conectado,
+ * empuja socios, cuentas del portal, planes, membresias y sedes a la API en la
+ * nube para que la app del socio y el panel web vean los mismos datos.
+ * La configuracion de bajo nivel vive en settings CLOUD/*.
  */
 
 const CLOUD = 'CLOUD';
@@ -31,22 +33,74 @@ async function localOrgId(): Promise<string> {
 
 export async function getCloudConfig(): Promise<CloudConfig> {
   const orgId = await localOrgId();
-  const [url, key, lastSyncAt, lastPullAt, lastError] = await Promise.all([
+  const [urlSetting, key, lastSyncAt, lastPullAt, lastError] = await Promise.all([
     getRawSetting(orgId, CLOUD, 'SYNC_URL'),
     getRawSetting(orgId, CLOUD, 'SYNC_KEY'),
     getRawSetting(orgId, CLOUD, 'LAST_SYNC_AT'),
     getRawSetting(orgId, CLOUD, 'LAST_PULL_AT'),
     getRawSetting(orgId, CLOUD, 'LAST_ERROR'),
   ]);
+  const url = urlSetting || env.CLOUD_URL || null;
   return {
     orgId,
-    url: url || null,
+    url: url ? url.replace(/\/+$/, '') : null,
     key: key || null,
     lastSyncAt: lastSyncAt || null,
     lastPullAt: lastPullAt || null,
     lastError: lastError || null,
     connected: Boolean(url && key),
   };
+}
+
+/*
+ * Garantiza que el escritorio este conectado a la nube. La URL es fija
+ * (env.CLOUD_URL): si todavia no hay clave, la pide sola a /api/sync/connect y
+ * la guarda. No requiere intervencion del usuario (no hay pestana "Nube").
+ */
+export async function ensureCloudConnected(): Promise<boolean> {
+  const orgId = await localOrgId();
+  const base = (env.CLOUD_URL || '').replace(/\/+$/, '');
+  if (!base) return false;
+
+  const existingKey = await getRawSetting(orgId, CLOUD, 'SYNC_KEY');
+  if (existingKey) {
+    const currentUrl = await getRawSetting(orgId, CLOUD, 'SYNC_URL');
+    if (currentUrl !== base) await upsertSettings(orgId, CLOUD, { SYNC_URL: base });
+    return true;
+  }
+
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true, currency: true } });
+  try {
+    const response = await fetch(`${base}/api/sync/connect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        organizationName: org?.name || 'Mi gimnasio',
+        currency: org?.currency || undefined,
+      }),
+    });
+    const json = (await response.json().catch(() => null)) as
+      | { data?: { syncKey?: string; organizationId?: string }; message?: string }
+      | null;
+    if (!response.ok || !json?.data?.syncKey) {
+      const message = json?.message || `No se pudo conectar a la nube (HTTP ${response.status})`;
+      await upsertSettings(orgId, CLOUD, { LAST_ERROR: message.slice(0, 500) });
+      console.error('[cloud-sync]', message);
+      return false;
+    }
+    await upsertSettings(orgId, CLOUD, {
+      SYNC_URL: base,
+      SYNC_KEY: json.data.syncKey,
+      ENABLED: 'true',
+      LAST_ERROR: '',
+      ...(json.data.organizationId ? { CLOUD_ORG_ID: json.data.organizationId } : {}),
+    });
+    console.log('[cloud-sync] conectado automaticamente a la nube');
+    return true;
+  } catch (error) {
+    console.error('[cloud-sync] no se pudo conectar:', error instanceof Error ? error.message : error);
+    return false;
+  }
 }
 
 async function buildPayload(orgId: string, memberIds?: string[]) {
@@ -262,6 +316,7 @@ export function scheduleCloudSync() {
     timer = null;
     void (async () => {
       try {
+        if (!(await ensureCloudConnected())) return;
         const cfg = await getCloudConfig();
         if (!cfg.connected) return;
         await runCloudSync();
@@ -279,6 +334,7 @@ export function startCloudSyncScheduler() {
   if (!env.LICENSE_INSTALLATION_ID) return;
   const run = async () => {
     try {
+      if (!(await ensureCloudConnected())) return;
       const cfg = await getCloudConfig();
       if (!cfg.connected) return;
       await runCloudSync();
