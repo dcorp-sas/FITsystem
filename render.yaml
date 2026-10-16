@@ -202,6 +202,10 @@ services:
         sync: false
       - key: PLATFORM_SMTP_FROM
         sync: false
+      # API key de Brevo (envío por HTTP). Recomendado en Render free, que
+      # bloquea los puertos SMTP. Si está definido, tiene prioridad sobre SMTP.
+      - key: PLATFORM_BREVO_API_KEY
+        sync: false
       # Access token de MercadoPago de la cuenta del PROVEEDOR (pago embebido).
       - key: PLATFORM_MP_ACCESS_TOKEN
         sync: false

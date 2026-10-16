@@ -12,6 +12,7 @@ import {
   fulfillPurchase,
   verifyPlatformWebhookSignature,
 } from '../services/billing.js';
+import { isLicensorIssueConfigured } from '../services/licensing-client.js';
 
 export function billingRoutes(app: FastifyInstance) {
   // Catálogo de planes y productos de la tienda (público). Una sola fuente de verdad.
@@ -19,6 +20,7 @@ export function billingRoutes(app: FastifyInstance) {
     return ok(reply, {
       currency: 'ARS',
       configured: isBillingConfigured(),
+      licenseIssueConfigured: isLicensorIssueConfigured(),
       publicKey: isBillingConfigured() ? env.PLATFORM_MP_PUBLIC_KEY : '',
       plans: Object.entries(PLAN_CATALOG).map(([tag, plan]) => ({ tag, ...plan })),
       products: Object.entries(PRODUCT_CATALOG).map(([tag, product]) => ({ tag, ...product })),

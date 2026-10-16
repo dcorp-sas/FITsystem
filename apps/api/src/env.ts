@@ -114,6 +114,10 @@ export const env = {
   PLATFORM_SMTP_USER: process.env.PLATFORM_SMTP_USER || '',
   PLATFORM_SMTP_PASS: process.env.PLATFORM_SMTP_PASS || '',
   PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT system™ <contacto.fitsystem@gmail.com>',
+  // API key de Brevo (envío por HTTP, recomendado en Render free que bloquea
+  // los puertos SMTP 25/465/587). Si está definido, tiene prioridad sobre SMTP.
+  // El remitente (PLATFORM_SMTP_FROM) debe estar verificado en Brevo.
+  PLATFORM_BREVO_API_KEY: process.env.PLATFORM_BREVO_API_KEY || '',
   // Token de MercadoPago de la cuenta del PROVEEDOR (pago embebido del sitio).
   // Sin esto, los botones de compra del sitio no pueden iniciar el pago.
   PLATFORM_MP_ACCESS_TOKEN: process.env.PLATFORM_MP_ACCESS_TOKEN || '',

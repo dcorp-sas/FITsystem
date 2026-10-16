@@ -46,6 +46,9 @@ export async function sendEmail(
       port: cfg.port,
       secure: cfg.secure,
       auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
     await transporter.sendMail({
       from: cfg.from,
