@@ -125,7 +125,7 @@ export function verifyTotp(secret: string, code: string, window = 1): boolean {
   return false;
 }
 
-export function otpauthUrl(secret: string, label: string, issuer = 'FIT System'): string {
+export function otpauthUrl(secret: string, label: string, issuer = 'FIT system™'): string {
   const params = new URLSearchParams({
     secret,
     issuer,

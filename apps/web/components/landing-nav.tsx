@@ -21,8 +21,8 @@ export function LandingNav() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <a href="#inicio" className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="FIT System" className="h-9 w-9 rounded-xl object-cover" />
-          <span className="text-base font-bold tracking-tight text-text">FIT System</span>
+          <img src="/logo.png" alt="FIT system™" className="h-9 w-9 rounded-xl object-cover" />
+          <span className="text-base font-bold tracking-tight text-text">FIT system™</span>
         </a>
 
         <nav className="hidden items-center gap-8 md:flex">

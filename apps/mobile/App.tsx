@@ -100,7 +100,7 @@ export default function App() {
       <InstallPrompt />
       <View style={styles.header}>
         <View>
-          <Text style={styles.brand}>FIT System</Text>
+          <Text style={styles.brand}>FIT system™</Text>
           <Text style={styles.brandSub}>{session.organization.name}</Text>
         </View>
         <Pressable

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FIT System Socios",
+    "name": "FIT system™ Socios",
     "slug": "fitsystem-socios",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -14,7 +14,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.fitsystem.socios",
       "infoPlist": {
-        "NSCameraUsageDescription": "FIT System usa la cámara para escanear el QR de ingreso al gimnasio."
+        "NSCameraUsageDescription": "FIT system™ usa la cámara para escanear el QR de ingreso al gimnasio."
       }
     },
     "android": {
@@ -31,7 +31,7 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "single",
-      "name": "FIT System — App del socio",
+      "name": "FIT system™ — App del socio",
       "shortName": "FIT Socios",
       "themeColor": "#0b1120",
       "backgroundColor": "#0b1120"
@@ -42,7 +42,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Permití que FIT System use la cámara para escanear el QR de ingreso al gimnasio."
+          "cameraPermission": "Permití que FIT system™ use la cámara para escanear el QR de ingreso al gimnasio."
         }
       ]
     ],

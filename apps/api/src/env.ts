@@ -113,7 +113,7 @@ export const env = {
   PLATFORM_SMTP_SECURE: process.env.PLATFORM_SMTP_SECURE || '',
   PLATFORM_SMTP_USER: process.env.PLATFORM_SMTP_USER || '',
   PLATFORM_SMTP_PASS: process.env.PLATFORM_SMTP_PASS || '',
-  PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT System <contacto.fitsystem@gmail.com>',
+  PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT system™ <contacto.fitsystem@gmail.com>',
   // Token de MercadoPago de la cuenta del PROVEEDOR (pago embebido del sitio).
   // Sin esto, los botones de compra del sitio no pueden iniciar el pago.
   PLATFORM_MP_ACCESS_TOKEN: process.env.PLATFORM_MP_ACCESS_TOKEN || '',

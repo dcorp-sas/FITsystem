@@ -6,7 +6,7 @@ import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
 
 export const metadata: Metadata = {
-  title: 'FIT System — Software de gestión para gimnasios',
+  title: 'FIT system™ — Software de gestión para gimnasios',
   description:
     'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio para tu PC con app móvil para tus socios.',
 };
@@ -42,7 +42,7 @@ const MODULES: { icon: IconName; title: string; text: string }[] = [
 ];
 
 const STEPS = [
-  { n: '1', title: 'Instalá el escritorio', text: 'Descargá FIT System en la PC del gimnasio. Instalación simple, sin servidores ni configuración.' },
+  { n: '1', title: 'Instalá el escritorio', text: 'Descargá FIT system™ en la PC del gimnasio. Instalación simple, sin servidores ni configuración.' },
   { n: '2', title: 'Activá tu licencia', text: 'Ingresá la clave de licencia que te damos. Elegís el plan según los socios con app.' },
   { n: '3', title: 'Cargá y operá', text: 'Cargá socios, planes y productos. Empezá a cobrar, controlar caja y registrar asistencias.' },
   { n: '4', title: 'Tus socios, conectados', text: 'Los socios descargan la app y consultan cuota, rutinas, novedades y pagan desde el celular.' },
@@ -148,7 +148,7 @@ export default function LandingPage() {
               Todo tu gimnasio, en una pantalla
             </h2>
             <p className="mt-4 text-base text-text-muted">
-              El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT System
+              El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT system™
               por dentro.
             </p>
           </div>
@@ -159,10 +159,10 @@ export default function LandingPage() {
               <span className="h-3 w-3 rounded-full bg-danger/70" />
               <span className="h-3 w-3 rounded-full bg-warning/70" />
               <span className="h-3 w-3 rounded-full bg-success/70" />
-              <span className="ml-3 text-xs text-text-muted">FIT System · Panel general</span>
+              <span className="ml-3 text-xs text-text-muted">FIT system™ · Panel general</span>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT System con métricas del gimnasio" className="w-full" />
+            <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT system™ con métricas del gimnasio" className="w-full" />
           </div>
 
           {/* Módulos destacados */}
@@ -170,13 +170,13 @@ export default function LandingPage() {
             {[
               {
                 src: '/screens/sistema-socios.svg',
-                alt: 'Gestión de socios y cuotas en FIT System',
+                alt: 'Gestión de socios y cuotas en FIT system™',
                 title: 'Socios y cuotas',
                 text: 'Ficha de cada socio, estado de cuenta y cobro en un clic.',
               },
               {
                 src: '/screens/sistema-caja.svg',
-                alt: 'Cobros y caja diaria en FIT System',
+                alt: 'Cobros y caja diaria en FIT system™',
                 title: 'Cobros y caja',
                 text: 'Efectivo, transferencia o MercadoPago, con arqueo por turno.',
               },
@@ -198,7 +198,7 @@ export default function LandingPage() {
           <div className="mt-6 flex flex-col items-center gap-8 rounded-2xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-8 sm:flex-row sm:p-10">
             <div className="mx-auto w-[220px] shrink-0 sm:mx-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/screens/app-socios.svg" alt="App del socio de FIT System en el celular" className="w-full" />
+              <img src="/screens/app-socios.svg" alt="App del socio de FIT system™ en el celular" className="w-full" />
             </div>
             <div className="max-w-lg text-center sm:text-left">
               <h3 className="text-xl font-bold text-text">App del socio, incluida en tu licencia</h3>
@@ -469,7 +469,7 @@ export default function LandingPage() {
           <p className="mt-6 text-center text-xs text-text-muted">
             ¿Preferís la versión portable?{' '}
             <a href={PORTABLE_URL} className="text-primary-light transition-colors hover:underline">
-              Descargar FIT System Portable
+              Descargar FIT system™ Portable
             </a>
           </p>
         </div>
@@ -511,7 +511,7 @@ export default function LandingPage() {
             <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-[100px]" />
             <div className="relative mx-auto max-w-2xl">
               <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
-                Empezá hoy con FIT System
+                Empezá hoy con FIT system™
               </h2>
               <p className="mt-4 text-base text-text-muted">
                 Contanos sobre tu gimnasio y te mostramos el sistema en funcionamiento. Te ayudamos a
@@ -544,8 +544,8 @@ export default function LandingPage() {
             <div className="md:col-span-2">
               <div className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png" alt="FIT System" className="h-9 w-9 rounded-xl object-cover" />
-                <span className="text-base font-bold text-text">FIT System</span>
+                <img src="/logo.png" alt="FIT system™" className="h-9 w-9 rounded-xl object-cover" />
+                <span className="text-base font-bold text-text">FIT system™</span>
               </div>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-text-muted">
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
@@ -571,7 +571,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-line pt-6 text-xs text-text-muted sm:flex-row">
-            <span>© {new Date().getFullYear()} FIT System. Todos los derechos reservados.</span>
+            <span>© {new Date().getFullYear()} FIT system™. Todos los derechos reservados.</span>
             <span>Hecho para gimnasios que quieren crecer.</span>
           </div>
         </div>

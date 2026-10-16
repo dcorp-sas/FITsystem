@@ -233,7 +233,7 @@ export function paymentRoutes(app: FastifyInstance) {
       if (status === 'COMPLETED' && (await getRawSetting(orgId, 'PRINT', 'PRINT_ON_PAYMENT')) === 'true') {
         const org = await prisma.organization.findUnique({ where: { id: orgId } });
         await printTicket(orgId, buildReceiptTicket({
-          organization: org?.name ?? 'FIT System',
+          organization: org?.name ?? 'FIT system™',
           member: input.memberId ? (await prisma.member.findUnique({ where: { id: input.memberId } }))?.firstName ?? null : null,
           concept: input.concept,
           method: input.method,

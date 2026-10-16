@@ -1,4 +1,4 @@
-export const APP_NAME = 'FIT System';
+export const APP_NAME = 'FIT system™';
 export const APP_VERSION = '0.1.0';
 
 /** Paleta de marca: tema oscuro con acentos azules. */

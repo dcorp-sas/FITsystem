@@ -320,7 +320,7 @@ function activationHtml(info: LicenseInfo | null): string {
 <head>
 <meta charset="utf-8" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
-<title>Activación - FIT System</title>
+<title>Activación - FIT system™</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -399,7 +399,7 @@ async function createActivationWindow() {
     width: 520,
     height: 640,
     resizable: false,
-    title: 'Activación - FIT System',
+    title: 'Activación - FIT system™',
     backgroundColor: '#0f1115',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -463,9 +463,9 @@ function registerLicenseIpc() {
 
   ipcMain.handle('license:request', async () => {
     const installationId = getInstallationId();
-    const subject = encodeURIComponent('Solicitud de código de licencia FIT System');
+    const subject = encodeURIComponent('Solicitud de código de licencia FIT system™');
     const body = encodeURIComponent(
-      `Hola, quiero activar FIT System.\n\nID de instalación: ${installationId}\nEquipo: ${os.hostname()}\n`,
+      `Hola, quiero activar FIT system™.\n\nID de instalación: ${installationId}\nEquipo: ${os.hostname()}\n`,
     );
     const target = licenseConfig.contact
       ? `mailto:${licenseConfig.contact}?subject=${subject}&body=${body}`
@@ -576,7 +576,7 @@ async function checkForUpdates(silent = false): Promise<UpdateInfo | null> {
   const { response } = await dialog.showMessageBox({
     type: 'info',
     title: 'Actualización disponible',
-    message: `Hay una nueva versión de FIT System (${info.latest}).`,
+    message: `Hay una nueva versión de FIT system™ (${info.latest}).`,
     detail: `Tenés instalada la versión ${info.current}.${detail}\n\nDescargá el instalador y ejecutalo para actualizar.`,
     buttons: info.url ? ['Descargar', 'Más tarde'] : ['Aceptar'],
     defaultId: 0,
@@ -812,7 +812,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: 'FIT System',
+    title: 'FIT system™',
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#0f1115',
     show: false,
@@ -855,7 +855,7 @@ async function createWindow() {
 }
 
 function formatTicket(data: Record<string, any>): string {
-  const org = data.organization || 'FIT System';
+  const org = data.organization || 'FIT system™';
   const title = data.title || 'COMPROBANTE';
   const date = new Date(data.date || Date.now()).toLocaleString('es-AR');
   const lines = (data.lines || []) as Array<{ label: string; value: string }>;
@@ -998,7 +998,7 @@ function grantLocalMediaPermissions() {
 
 app.whenReady().then(async () => {
   if (!gotSingleInstanceLock) return;
-  log('=== FIT System iniciando ===', 'packaged=', app.isPackaged, 'userData=', app.getPath('userData'));
+  log('=== FIT system™ iniciando ===', 'packaged=', app.isPackaged, 'userData=', app.getPath('userData'));
   try {
     grantLocalMediaPermissions();
   } catch (err) {
@@ -1028,7 +1028,7 @@ app.whenReady().then(async () => {
   } catch (err) {
     log('Fallo al arrancar servicios:', (err as Error).message);
     dialog.showErrorBox(
-      'FIT System',
+      'FIT system™',
       `No se pudieron iniciar los servicios internos.\n\n${(err as Error).message}\n\nRevisa el log en:\n${LOG_FILE}`,
     );
   }
@@ -1059,7 +1059,7 @@ app.whenReady().then(async () => {
         const trial = info.plan === 'TRIAL';
         const { response } = await dialog.showMessageBox({
           type: 'warning',
-          title: 'FIT System',
+          title: 'FIT system™',
           message: trial
             ? `Tu prueba gratuita vence en ${info.daysLeft} día(s).`
             : `Tu licencia ${info.plan} vence en ${info.daysLeft} día(s).`,

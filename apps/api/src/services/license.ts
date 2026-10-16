@@ -394,7 +394,7 @@ export async function assertInstallationUsable(): Promise<void> {
   const usable = isUsable(license.status, license.expiresAt);
   const message = usable
     ? undefined
-    : 'La prueba gratuita finalizó. Activá tu licencia para seguir usando FIT System.';
+    : 'La prueba gratuita finalizó. Activá tu licencia para seguir usando FIT system™.';
   guardCache.set(key, { usable, message, at: Date.now() });
   if (!usable) throw new HttpError(402, message!);
 }

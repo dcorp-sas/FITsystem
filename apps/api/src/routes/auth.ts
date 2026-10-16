@@ -95,7 +95,7 @@ export function authRoutes(app: FastifyInstance) {
   }
 
   /**
-   * Organización/usuario "local" del producto de escritorio. FIT System en la PC
+   * Organización/usuario "local" del producto de escritorio. FIT system™ en la PC
    * de un gimnasio es single-tenant: no hay pantalla de login, entra directo como
    * administrador. Esta función crea (de forma idempotente) la organización, la
    * sede y el usuario OWNER por defecto.
@@ -104,7 +104,7 @@ export function authRoutes(app: FastifyInstance) {
     const slug = 'local';
     let org = await prisma.organization.findUnique({ where: { slug } });
     if (!org) {
-      org = await prisma.organization.create({ data: { name: 'FIT System', slug, currency: 'ARS' } });
+      org = await prisma.organization.create({ data: { name: 'FIT system™', slug, currency: 'ARS' } });
     }
     let branch = await prisma.branch.findFirst({ where: { organizationId: org.id }, orderBy: { name: 'asc' } });
     if (!branch) {
@@ -336,7 +336,7 @@ export function authRoutes(app: FastifyInstance) {
       const sent = await sendEmail(
         user.organizationId,
         user.email,
-        'Tu codigo de acceso a FIT System',
+        'Tu codigo de acceso a FIT system™',
         `Tu codigo de verificacion es: ${code}\nVence en 10 minutos. Si no intentaste ingresar, ignora este mensaje.`,
       );
       return ok(reply, { sent: sent.ok, error: sent.ok ? undefined : sent.error });

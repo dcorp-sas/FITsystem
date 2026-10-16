@@ -51,7 +51,7 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.logo}>FIT</Text>
-          <Title>FIT System Socios</Title>
+          <Title>FIT system™ Socios</Title>
           <Text style={styles.tagline}>Tu gimnasio en el celular</Text>
         </View>
 

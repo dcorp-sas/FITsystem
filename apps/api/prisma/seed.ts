@@ -4,15 +4,15 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Sembrando FIT System...');
+  console.log('🌱 Sembrando FIT system™...');
 
   const now = new Date();
 
   const org = await prisma.organization.upsert({
     where: { slug: 'fit-demo' },
-    update: { name: 'FIT System Demo' },
+    update: { name: 'FIT system™ Demo' },
     create: {
-      name: 'FIT System Demo',
+      name: 'FIT system™ Demo',
       slug: 'fit-demo',
       taxId: '30-12345678-9',
       email: 'contacto.fitsystem@gmail.com',

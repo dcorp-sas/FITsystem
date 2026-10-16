@@ -104,9 +104,9 @@ export function InstallPrompt() {
           <Muted style={styles.text}>
             {manual
               ? ios
-                ? 'Tocá el botón Compartir de Safari y elegí "Agregar a pantalla de inicio" para usar FIT System como una app.'
-                : 'Abrí el menú del navegador (⋮) y elegí "Instalar app" o "Agregar a pantalla de inicio" para usar FIT System como una app.'
-              : '¿Querés agregar FIT System a la pantalla de inicio? Se abrirá a pantalla completa, como una app común, sin la barra del navegador.'}
+                ? 'Tocá el botón Compartir de Safari y elegí "Agregar a pantalla de inicio" para usar FIT system™ como una app.'
+                : 'Abrí el menú del navegador (⋮) y elegí "Instalar app" o "Agregar a pantalla de inicio" para usar FIT system™ como una app.'
+              : '¿Querés agregar FIT system™ a la pantalla de inicio? Se abrirá a pantalla completa, como una app común, sin la barra del navegador.'}
           </Muted>
           <View style={styles.actions}>
             <Pressable style={[styles.button, styles.cancel]} onPress={() => setOpen(false)} disabled={busy}>

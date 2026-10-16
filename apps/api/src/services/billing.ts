@@ -286,7 +286,7 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
 
   const buyerLines = isProduct
     ? [
-        '¡Gracias por tu compra de FIT System!',
+        '¡Gracias por tu compra de FIT system™!',
         '',
         `Producto: ${itemName}`,
         `Importe: ARS ${purchase.amount}`,
@@ -297,10 +297,10 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
           : 'Sumamos los asientos a tu licencia. Si todavía no tenés una, te escribimos para activarla.',
         'En breve nos ponemos en contacto.',
         '',
-        '— FIT System',
+        '— FIT system™',
       ]
     : [
-        '¡Gracias por tu compra de FIT System!',
+        '¡Gracias por tu compra de FIT system™!',
         '',
         `Plan: ${itemName} · ${periodLabel}`,
         `Importe: ARS ${purchase.amount}`,
@@ -314,9 +314,9 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
           ? 'Activala en la app de escritorio: Configuración > Licencia.'
           : 'Si en 24 h no la recibís, respondé a este correo.',
         '',
-        '— FIT System',
+        '— FIT system™',
       ];
-  await sendPlatformEmail(purchase.buyerEmail, 'Tu compra de FIT System', buyerLines.join('\n'));
+  await sendPlatformEmail(purchase.buyerEmail, 'Tu compra de FIT system™', buyerLines.join('\n'));
 
   const adminLines = [
     isProduct ? 'Nuevo pedido en el sitio:' : 'Nueva compra en el sitio:',

@@ -96,7 +96,7 @@ async function completeMpOrder(orgId: string, paymentId: string, userId?: string
       memberName = m ? `${m.firstName} ${m.lastName}` : null;
     }
     await printTicketAuto(orgId, buildReceiptTicket({
-      organization: org?.name ?? 'FIT System',
+      organization: org?.name ?? 'FIT system™',
       member: memberName,
       concept: order.concept,
       method: order.method,
@@ -373,7 +373,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const body = (request.body ?? {}) as { phone?: string; message?: string };
       const phone = body.phone || (await getRawSetting(req.user.organizationId, 'WHATSAPP', 'BUSINESS_PHONE')) || '';
       if (!phone) throw new HttpError(400, 'Indicá un número de teléfono');
-      const message = body.message || 'Prueba de WhatsApp de FIT System: la conexión funciona.';
+      const message = body.message || 'Prueba de WhatsApp de FIT system™: la conexión funciona.';
       const result = await sendWhatsAppLinked(req.user.organizationId, phone, message);
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo enviar');
       await logActivity(req, 'CREATE', 'WHATSAPP_TEST', null, undefined, { phone });
@@ -396,7 +396,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const org = await prisma.organization.findUnique({ where: { id: orgId } });
       const payload =
         configured ||
-        `fitsystem://pay?org=${orgId}&branch=${branchId}&merchant=${encodeURIComponent(org?.name ?? 'FIT System')}`;
+        `fitsystem://pay?org=${orgId}&branch=${branchId}&merchant=${encodeURIComponent(org?.name ?? 'FIT system™')}`;
       const amount = query.amount ? Number(query.amount) : undefined;
       const finalPayload = amount && amount > 0 ? `${payload}&amount=${amount}` : payload;
 
@@ -972,7 +972,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
       const result = await printTicket(req.user.organizationId, {
-        organization: org?.name ?? 'FIT System',
+        organization: org?.name ?? 'FIT system™',
         title: 'PRUEBA DE IMPRESION',
         date: new Date().toISOString(),
         lines: [
@@ -1001,7 +1001,7 @@ export function integrationRoutes(app: FastifyInstance) {
       });
       if (!payment) throw new HttpError(404, 'Pago no encontrado');
       const result = await printTicket(req.user.organizationId, buildReceiptTicket({
-        organization: payment.organization?.name ?? 'FIT System',
+        organization: payment.organization?.name ?? 'FIT system™',
         member: payment.member ? `${payment.member.firstName} ${payment.member.lastName}` : null,
         concept: payment.concept,
         method: payment.method,
@@ -1027,7 +1027,7 @@ export function integrationRoutes(app: FastifyInstance) {
       });
       if (!payment) throw new HttpError(404, 'Pago no encontrado');
       const result = await printViaPoint(req.user.organizationId, buildReceiptTicket({
-        organization: payment.organization?.name ?? 'FIT System',
+        organization: payment.organization?.name ?? 'FIT system™',
         member: payment.member ? `${payment.member.firstName} ${payment.member.lastName}` : null,
         concept: payment.concept,
         method: payment.method,
@@ -1048,7 +1048,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
       const result = await printViaPoint(req.user.organizationId, {
-        organization: org?.name ?? 'FIT System',
+        organization: org?.name ?? 'FIT system™',
         title: 'PRUEBA POINT',
         date: new Date().toISOString(),
         lines: [

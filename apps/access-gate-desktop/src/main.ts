@@ -127,7 +127,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     backgroundColor: '#0b1120',
-    title: 'FIT System Acceso',
+    title: 'FIT system™ Acceso',
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

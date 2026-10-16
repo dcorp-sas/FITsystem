@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { http, ApiError } from '@/lib/api';
@@ -572,7 +572,7 @@ function NetworkCard() {
     return (
       <Card title="Red local" className="max-w-2xl">
         <p className="text-sm text-text-muted">
-          Esta opciÃ³n estÃ¡ disponible solo en la aplicaciÃ³n de escritorio de FIT System.
+          Esta opciÃ³n estÃ¡ disponible solo en la aplicaciÃ³n de escritorio de FIT system™.
         </p>
       </Card>
     );
@@ -591,7 +591,7 @@ function NetworkCard() {
   return (
     <Card title="Red local (varias PC en el gimnasio)" className="max-w-2xl">
       <p className="text-sm text-text-muted">
-        PodÃ©s usar FIT System en varias computadoras del mismo local. Una PC es el servidor (guarda los
+        PodÃ©s usar FIT system™ en varias computadoras del mismo local. Una PC es el servidor (guarda los
         datos) y las demÃ¡s entran desde el navegador apuntando a su direcciÃ³n de red. Todas ven y cargan
         sobre la misma informaciÃ³n.
       </p>
@@ -652,7 +652,7 @@ function NetworkCard() {
             </p>
           )}
           <p className="mt-3 text-xs text-text-muted">
-            AbrÃ­ esa direcciÃ³n en la PC de recepciÃ³n. Si Windows lo pide, permitÃ­ el acceso a FIT System en
+            AbrÃ­ esa direcciÃ³n en la PC de recepciÃ³n. Si Windows lo pide, permitÃ­ el acceso a FIT system™ en
             el firewall para las redes privadas.
           </p>
         </div>

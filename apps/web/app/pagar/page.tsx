@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PurchaseStatus } from './purchase-status';
 
 export const metadata = {
-  title: 'Estado de tu compra · FIT System',
+  title: 'Estado de tu compra · FIT system™',
   robots: { index: false },
 };
 

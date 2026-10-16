@@ -202,7 +202,7 @@ export default function LicensePage() {
       {isDesktop && (
         <Card title="Actualización del sistema" className="mt-5">
           <p className="mb-4 text-sm text-text-muted">
-            FIT System se actualiza solo: descarga en segundo plano y se reinicia e instala automáticamente apenas hay
+            FIT system™ se actualiza solo: descarga en segundo plano y se reinicia e instala automáticamente apenas hay
             una versión nueva.
           </p>
 

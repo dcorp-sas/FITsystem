@@ -135,7 +135,7 @@ export async function startWhatsAppSession(orgId: string, force = false): Promis
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, silentLogger),
       },
-      browser: Browsers.appropriate('FIT System'),
+      browser: Browsers.appropriate('FIT system™'),
       logger: silentLogger,
       syncFullHistory: false,
       markOnlineOnConnect: false,

@@ -87,7 +87,7 @@ export function systemRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const cfg = await getObservabilityConfig(req.user.organizationId);
       if (!cfg.webhookUrl) throw new HttpError(400, 'Configure la URL de webhook primero');
-      const sent = await sendAlert(cfg.webhookUrl, { level: 'info', message: 'Alerta de prueba de FIT System' });
+      const sent = await sendAlert(cfg.webhookUrl, { level: 'info', message: 'Alerta de prueba de FIT system™' });
       if (!sent) throw new HttpError(502, 'No se pudo enviar la alerta (verifique la URL)');
       return ok(reply, { ok: true });
     } catch (error) {
