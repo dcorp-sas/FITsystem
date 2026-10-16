@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio que funciona sin internet, con app móvil para tus socios.',
 };
 
-const CONTACT_EMAIL = 'contacto@fitsystem.app';
+const CONTACT_EMAIL = 'contacto.fitsystem@gmail.com';
 const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
 const TRIAL_DAYS = 15;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;

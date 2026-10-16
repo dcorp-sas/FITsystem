@@ -57,7 +57,7 @@ export const env = {
   // producto distribuido, vive en el Licensador). Opcional.
   LICENSE_PRIVATE_KEY: process.env.LICENSE_PRIVATE_KEY || '',
   // Contacto para solicitar el código de licencia (se muestra en la app).
-  LICENSE_CONTACT: process.env.LICENSE_CONTACT || 'contacto@fitsystem.app',
+  LICENSE_CONTACT: process.env.LICENSE_CONTACT || 'contacto.fitsystem@gmail.com',
   LICENSE_SITE: process.env.LICENSE_SITE || 'https://fitsystem.onrender.com',
   // ID de instalación (solo en el producto de escritorio). Cuando está presente,
   // la licencia de la instalación se administra desde Configuración > Licencia.
