@@ -79,7 +79,7 @@ const FAQS = [
   },
   {
     q: '¿Cómo consigo el código de licencia?',
-    a: `Al terminar la prueba de ${TRIAL_DAYS} días, la app te muestra un ID de instalación. Enviás ese ID a nuestro contacto y te devolvemos el código de licencia (FIT-) para activar el sistema. La activación se hace una sola vez desde la propia app.`,
+    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave (FIT-) automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
   },
 ];
 
@@ -454,15 +454,15 @@ export default function LandingPage() {
                 Instalá gratis y probá {TRIAL_DAYS} días completos
               </p>
               <p className="mt-1 text-sm text-text-muted">
-                Al terminar la prueba, enviás el ID de instalación y te damos tu código de licencia.
+                Al terminar la prueba, elegí un plan: al aprobarse el pago emitimos tu clave y te la enviamos por email.
               </p>
             </div>
             <a
-              href={`mailto:${CONTACT_EMAIL}?subject=Solicito%20c%C3%B3digo%20de%20licencia%20FIT%20System`}
+              href="#planes"
               className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
             >
               <Icon name="notifications" size={16} />
-              Solicitar código de licencia
+              Ver planes y activar licencia
             </a>
           </div>
 
