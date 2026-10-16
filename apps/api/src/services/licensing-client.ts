@@ -17,14 +17,41 @@ export function isLicensorIssueConfigured(): boolean {
 }
 
 async function login(): Promise<string | null> {
-  const res = await fetch(`${env.LICENSE_SERVER}/api/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user: env.LICENSOR_ADMIN_USER, pass: env.LICENSOR_ADMIN_PASS }),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json().catch(() => null)) as { token?: string } | null;
-  return data?.token ?? null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${env.LICENSE_SERVER}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: env.LICENSOR_ADMIN_USER, pass: env.LICENSOR_ADMIN_PASS }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { token?: string } | null;
+    return data?.token ?? null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Prueba en vivo el login contra el Licensador (diagnóstico). */
+export async function testLicensorLogin(): Promise<{ ok: boolean; status: number | null; error?: string }> {
+  if (!env.LICENSE_SERVER || !env.LICENSOR_ADMIN_PASS) return { ok: false, status: null, error: 'no configurado' };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${env.LICENSE_SERVER}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: env.LICENSOR_ADMIN_USER, pass: env.LICENSOR_ADMIN_PASS }),
+      signal: controller.signal,
+    });
+    return { ok: res.ok, status: res.status };
+  } catch (err) {
+    return { ok: false, status: null, error: (err as Error).message };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function issueLicense(input: {
