@@ -708,11 +708,11 @@ export type NotificationTemplateInput = z.infer<typeof notificationTemplateSchem
 // ---------------------------------------------------------------------------
 
 export const contactSchema = z.object({
-  name: z.string().trim().min(2, 'Ingresá tu nombre'),
+  name: z.string().trim().min(1, 'Ingresá tu nombre'),
   email: looseEmail,
   phone: z.string().trim().max(40).optional().nullable(),
   gymName: z.string().trim().max(120).optional().nullable(),
-  message: z.string().trim().min(10, 'Contanos brevemente tu consulta').max(4000),
+  message: z.string().trim().min(1, 'Escribí tu consulta').max(4000),
   // Honeypot anti-spam: los bots lo completan; los humanos no lo ven.
   company: z.string().max(200).optional().nullable(),
 });
