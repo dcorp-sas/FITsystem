@@ -7,6 +7,15 @@ import { api, ApiError } from '@/lib/api';
 const inputClass =
   'w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none transition-colors focus:border-primary';
 
+function validationMessage(details: unknown): string | null {
+  if (!Array.isArray(details)) return null;
+  const messages = details
+    .map((d) => (d && typeof d === 'object' && 'message' in d ? String((d as { message?: unknown }).message) : ''))
+    .filter((m) => m.trim().length > 0);
+  return messages.length ? messages.join(' ') : null;
+}
+
+
 export function LandingContact({ contactEmail }: { contactEmail: string }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
@@ -21,7 +30,11 @@ export function LandingContact({ contactEmail }: { contactEmail: string }) {
       setStatus('sent');
       setForm({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo enviar tu mensaje. Probá de nuevo.');
+      setError(
+        err instanceof ApiError
+          ? validationMessage(err.details) || err.message
+          : 'No se pudo enviar tu mensaje. Probá de nuevo.',
+      );
       setStatus('error');
     }
   }
