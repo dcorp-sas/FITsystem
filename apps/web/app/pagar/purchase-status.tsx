@@ -12,7 +12,19 @@ interface Purchase {
   licenseKey: string | null;
 }
 
-const PLAN_LABEL: Record<string, string> = { BASIC: 'Básico', PRO: 'Pro', ENTERPRISE: 'Empresa' };
+const PLAN_LABEL: Record<string, string> = {
+  BASIC: 'Básico',
+  PRO: 'Pro',
+  ENTERPRISE: 'Empresa',
+  SEAT_PACK: 'Pack de asientos',
+  MP_KIT: 'Kit MercadoPago',
+};
+
+function periodLabel(period: string): string {
+  if (period === 'ANNUAL') return 'anual';
+  if (period === 'MONTHLY') return 'mensual';
+  return 'pago único';
+}
 
 function formatArs(currency: string, amount: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
@@ -57,6 +69,7 @@ export function PurchaseStatus({ externalRef, estado }: { externalRef: string; e
 
   const paid = purchase.status === 'PAID';
   const failed = estado === 'failure' && !paid;
+  const isProduct = purchase.plan === 'SEAT_PACK' || purchase.plan === 'MP_KIT';
 
   return (
     <div className="space-y-3">
@@ -64,7 +77,7 @@ export function PurchaseStatus({ externalRef, estado }: { externalRef: string; e
         {paid ? '¡Pago aprobado!' : failed ? 'El pago no se completó' : 'Pago pendiente'}
       </h1>
       <p className="text-sm text-text-muted">
-        {PLAN_LABEL[purchase.plan] ?? purchase.plan} · {purchase.period === 'ANNUAL' ? 'anual' : 'mensual'} ·{' '}
+        {PLAN_LABEL[purchase.plan] ?? purchase.plan} · {periodLabel(purchase.period)} ·{' '}
         {new Intl.NumberFormat('es-AR', {
           style: 'currency',
           currency: purchase.currency,
@@ -73,7 +86,13 @@ export function PurchaseStatus({ externalRef, estado }: { externalRef: string; e
       </p>
 
       {paid &&
-        (purchase.licenseKey ? (
+        (isProduct ? (
+          <p className="mt-4 text-sm text-text-muted">
+            {purchase.plan === 'MP_KIT'
+              ? 'Confirmamos tu pago. En breve nos contactamos para coordinar el envío y la vinculación del equipo de MercadoPago.'
+              : 'Confirmamos tu pago. En breve sumamos los asientos a tu licencia y te contactamos por email.'}
+          </p>
+        ) : purchase.licenseKey ? (
           <div className="mt-4 rounded-xl border border-line bg-base p-4">
             <p className="text-xs uppercase tracking-wide text-text-muted">Tu clave de licencia</p>
             <p className="mt-1 break-all font-mono text-sm text-text">{purchase.licenseKey}</p>
@@ -87,8 +106,8 @@ export function PurchaseStatus({ externalRef, estado }: { externalRef: string; e
 
       {!paid && !failed && (
         <p className="mt-4 text-sm text-text-muted">
-          Estamos esperando la confirmación de MercadoPago. Si ya pagaste, en unos minutos se acredita y te llega la
-          licencia por email.
+          Estamos esperando la confirmación de MercadoPago. Si ya pagaste, en unos minutos se acredita y te avisamos por
+          email.
         </p>
       )}
       {failed && (

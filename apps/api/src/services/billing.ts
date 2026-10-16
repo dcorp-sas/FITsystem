@@ -6,12 +6,20 @@ import { sendPlatformEmail, isPlatformEmailConfigured } from './platform-email.j
 
 export type BillingPlan = 'BASIC' | 'PRO' | 'ENTERPRISE';
 export type BillingPeriod = 'MONTHLY' | 'ANNUAL';
+export type BillingProduct = 'SEAT_PACK' | 'MP_KIT';
 
 export interface PlanDef {
   name: string;
   seats: number;
   monthly: number;
   annual: number;
+}
+
+export interface ProductDef {
+  name: string;
+  desc: string;
+  seats: number;
+  amount: number;
 }
 
 /**
@@ -24,8 +32,31 @@ export const PLAN_CATALOG: Record<BillingPlan, PlanDef> = {
   ENTERPRISE: { name: 'Empresa', seats: 100000, monthly: 140000, annual: 1400000 },
 };
 
+/**
+ * Productos de pago único (complementos): pack de asientos y kit de cobro
+ * presencial. No emiten licencia: se cumplen a mano desde el proveedor.
+ */
+export const PRODUCT_CATALOG: Record<BillingProduct, ProductDef> = {
+  SEAT_PACK: {
+    name: 'Pack de asientos (+100 socios)',
+    desc: '100 socios adicionales con acceso a la app, por 12 meses.',
+    seats: 100,
+    amount: 60000,
+  },
+  MP_KIT: {
+    name: 'Kit MercadoPago (Terminal Point + QR)',
+    desc: 'Terminal Point y QR de MercadoPago para cobrar en el mostrador.',
+    seats: 0,
+    amount: 50000,
+  },
+};
+
 export function isKnownPlan(plan: string): plan is BillingPlan {
   return plan === 'BASIC' || plan === 'PRO' || plan === 'ENTERPRISE';
+}
+
+export function isKnownProduct(product: string): product is BillingProduct {
+  return product === 'SEAT_PACK' || product === 'MP_KIT';
 }
 
 export function isKnownPeriod(period: string): period is BillingPeriod {
@@ -63,8 +94,8 @@ interface MpPreference {
  * Devuelve el `init_point` para redirigir al comprador.
  */
 export async function createCheckout(input: {
-  plan: BillingPlan;
-  period: BillingPeriod;
+  plan: string;
+  period?: BillingPeriod | null;
   buyerName: string;
   buyerEmail: string;
   buyerPhone?: string | null;
@@ -72,15 +103,35 @@ export async function createCheckout(input: {
 }): Promise<CheckoutResult> {
   if (!isBillingConfigured()) return { ok: false, error: 'La pasarela de pago no está configurada' };
 
-  const amount = planAmount(input.plan, input.period);
-  const def = PLAN_CATALOG[input.plan];
+  let amount: number;
+  let seats: number;
+  let periodStore: string;
+  let title: string;
+
+  if (isKnownProduct(input.plan)) {
+    const product = PRODUCT_CATALOG[input.plan];
+    amount = product.amount;
+    seats = product.seats;
+    periodStore = 'ONCE';
+    title = `FIT System · ${product.name}`;
+  } else if (isKnownPlan(input.plan)) {
+    const period: BillingPeriod = isKnownPeriod(input.period ?? '') ? (input.period as BillingPeriod) : 'ANNUAL';
+    const plan = PLAN_CATALOG[input.plan];
+    amount = plan[period === 'ANNUAL' ? 'annual' : 'monthly'];
+    seats = plan.seats;
+    periodStore = period;
+    title = `FIT System ${plan.name} · ${period === 'ANNUAL' ? 'anual' : 'mensual'}`;
+  } else {
+    return { ok: false, error: 'Producto inválido' };
+  }
+
   const externalRef = `FITP-${randomBytes(8).toString('hex')}`;
 
   const purchase = await prisma.planPurchase.create({
     data: {
       plan: input.plan,
-      period: input.period,
-      seats: def.seats,
+      period: periodStore,
+      seats,
       amount,
       currency: 'ARS',
       status: 'PENDING',
@@ -92,11 +143,10 @@ export async function createCheckout(input: {
     },
   });
 
-  const periodLabel = input.period === 'ANNUAL' ? 'anual' : 'mensual';
   const body: Record<string, unknown> = {
     items: [
       {
-        title: `FIT System ${def.name} · ${periodLabel}`,
+        title,
         quantity: 1,
         currency_id: 'ARS',
         unit_price: amount,
@@ -165,12 +215,12 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
   const purchase = await prisma.planPurchase.findUnique({ where: { id: purchaseId } });
   if (!purchase || purchase.status === 'PAID') return;
 
-  let licenseKey = purchase.licenseKey;
-  let issueError: string | null = null;
+  const isProduct = isKnownProduct(purchase.plan);
 
-  if (!licenseKey && isLicensorIssueConfigured()) {
-    const plan = isKnownPlan(purchase.plan) ? purchase.plan : 'PRO';
-    const period = isKnownPeriod(purchase.period) ? purchase.period : 'ANNUAL';
+  let licenseKey = purchase.licenseKey;
+  if (!isProduct && !licenseKey && isLicensorIssueConfigured()) {
+    const plan: BillingPlan = isKnownPlan(purchase.plan) ? purchase.plan : 'PRO';
+    const period: BillingPeriod = isKnownPeriod(purchase.period) ? purchase.period : 'ANNUAL';
     const issued = await issueLicense({
       client: (purchase.gymName || purchase.buyerName || 'Cliente web').slice(0, 120),
       plan,
@@ -178,8 +228,7 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
       seats: purchase.seats,
       notas: `Compra web ${purchase.externalRef}`,
     });
-    if (issued.ok && issued.key) licenseKey = issued.key;
-    else licenseKey = null;
+    licenseKey = issued.ok && issued.key ? issued.key : null;
     if (!issued.ok) console.error('[billing] no se pudo emitir la licencia:', issued.error);
   }
 
@@ -190,37 +239,67 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
 
   if (!isPlatformEmailConfigured()) return;
 
-  const periodLabel = purchase.period === 'ANNUAL' ? 'anual' : 'mensual';
-  const buyerLines = [
-    `¡Gracias por tu compra de FIT System!`,
-    '',
-    `Plan: ${purchase.plan} · ${periodLabel}`,
-    `Importe: ARS ${purchase.amount}`,
-    `Gimnasio: ${purchase.gymName || '(no indicado)'}`,
-    '',
-    licenseKey
-      ? `Tu clave de licencia: ${licenseKey}`
-      : 'Registramos tu pago. En breve te enviamos la clave de licencia para activar el sistema.',
-    '',
-    licenseKey
-      ? 'Activala en la app de escritorio: Configuración > Licencia.'
-      : 'Si en 24 h no la recibís, respondé a este correo.',
-    '',
-    '— FIT System',
-  ];
+  const itemName = isProduct
+    ? PRODUCT_CATALOG[purchase.plan as BillingProduct].name
+    : PLAN_CATALOG[purchase.plan as BillingPlan]?.name ?? purchase.plan;
+  const periodLabel =
+    purchase.period === 'ANNUAL' ? 'anual' : purchase.period === 'MONTHLY' ? 'mensual' : 'pago único';
+
+  const buyerLines = isProduct
+    ? [
+        '¡Gracias por tu compra de FIT System!',
+        '',
+        `Producto: ${itemName}`,
+        `Importe: ARS ${purchase.amount}`,
+        `Gimnasio: ${purchase.gymName || '(no indicado)'}`,
+        '',
+        purchase.plan === 'MP_KIT'
+          ? 'Coordinamos el envío y la vinculación del equipo de MercadoPago a tu cuenta.'
+          : 'Sumamos los asientos a tu licencia. Si todavía no tenés una, te escribimos para activarla.',
+        'En breve nos ponemos en contacto.',
+        '',
+        '— FIT System',
+      ]
+    : [
+        '¡Gracias por tu compra de FIT System!',
+        '',
+        `Plan: ${itemName} · ${periodLabel}`,
+        `Importe: ARS ${purchase.amount}`,
+        `Gimnasio: ${purchase.gymName || '(no indicado)'}`,
+        '',
+        licenseKey
+          ? `Tu clave de licencia: ${licenseKey}`
+          : 'Registramos tu pago. En breve te enviamos la clave de licencia para activar el sistema.',
+        '',
+        licenseKey
+          ? 'Activala en la app de escritorio: Configuración > Licencia.'
+          : 'Si en 24 h no la recibís, respondé a este correo.',
+        '',
+        '— FIT System',
+      ];
   await sendPlatformEmail(purchase.buyerEmail, 'Tu compra de FIT System', buyerLines.join('\n'));
 
   const adminLines = [
-    'Nueva compra en el sitio:',
+    isProduct ? 'Nuevo pedido en el sitio:' : 'Nueva compra en el sitio:',
     `- Gimnasio: ${purchase.gymName || '(no indicado)'}`,
     `- Cliente: ${purchase.buyerName} <${purchase.buyerEmail}>`,
     purchase.buyerPhone ? `- Teléfono: ${purchase.buyerPhone}` : '',
-    `- Plan: ${purchase.plan} / ${purchase.period}`,
+    `- ${isProduct ? 'Producto' : 'Plan'}: ${itemName}${isProduct ? '' : ` / ${purchase.period}`}`,
     `- Importe: ARS ${purchase.amount}`,
     `- Referencia: ${purchase.externalRef}`,
-    licenseKey ? `- Licencia emitida: ${licenseKey}` : '- Licencia: PENDIENTE de emitir (revisar Licensador)',
+    isProduct
+      ? purchase.plan === 'MP_KIT'
+        ? '- A cumplir: enviar y vincular el kit MercadoPago'
+        : '- A cumplir: sumar los asientos a la licencia'
+      : licenseKey
+        ? `- Licencia emitida: ${licenseKey}`
+        : '- Licencia: PENDIENTE de emitir (revisar Licensador)',
   ].filter(Boolean);
-  await sendPlatformEmail(env.PLATFORM_CONTACT_TO, `Venta web: ${purchase.plan} ${purchase.period}`, adminLines.join('\n'));
+  await sendPlatformEmail(
+    env.PLATFORM_CONTACT_TO,
+    isProduct ? `Pedido web: ${itemName}` : `Venta web: ${purchase.plan} ${purchase.period}`,
+    adminLines.join('\n'),
+  );
 }
 
 export { isPlatformEmailConfigured };

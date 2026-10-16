@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { LandingNav } from '@/components/landing-nav';
 import { LandingPlans } from '@/components/landing-plans';
 import { LandingContact } from '@/components/landing-contact';
+import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
 
 export const metadata: Metadata = {
@@ -47,9 +48,9 @@ const STEPS = [
   { n: '4', title: 'Tus socios, conectados', text: 'Los socios descargan la app y consultan cuota, rutinas, novedades y pagan desde el celular.' },
 ];
 
-const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses' };
+const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses', amount: 60000 };
 
-const MP_KIT = { price: '$50.000', period: 'pago único' };
+const MP_KIT = { price: '$50.000', period: 'pago único', amount: 50000 };
 
 const FAQS = [
   {
@@ -310,12 +311,18 @@ export default function LandingPage() {
                 Se combinan con cualquier plan.
               </p>
             </div>
-            <a
-              href="#contacto"
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
+            <BuyButton
+              target={{
+                plan: 'SEAT_PACK',
+                title: 'Comprar Pack de asientos',
+                subtitle: `+${SEAT_PACK.seats} socios con app · ${SEAT_PACK.price} / ${SEAT_PACK.period}`,
+                amount: SEAT_PACK.amount,
+                note: 'Pago seguro con MercadoPago. Al aprobarse, sumamos los asientos a tu licencia y te contactamos por email.',
+              }}
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
             >
-              <Icon name="plus" size={16} /> Consultar asientos
-            </a>
+              Comprar asientos
+            </BuyButton>
           </div>
         </div>
       </section>
@@ -363,12 +370,18 @@ export default function LandingPage() {
                   <div className="text-2xl font-bold text-text">{MP_KIT.price}</div>
                   <div className="text-xs text-text-muted">Se solicita adicionalmente · {MP_KIT.period}</div>
                 </div>
-                <a
-                  href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Solicito el Kit MercadoPago (Terminal POS + QR)')}`}
+                <BuyButton
+                  target={{
+                    plan: 'MP_KIT',
+                    title: 'Comprar Kit MercadoPago',
+                    subtitle: `Terminal Point + QR · ${MP_KIT.price} (${MP_KIT.period})`,
+                    amount: MP_KIT.amount,
+                    note: 'Pago seguro con MercadoPago. Coordinamos el envío y la vinculación del equipo a tu cuenta.',
+                  }}
                   className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
                 >
-                  <Icon name="plus" size={16} /> Solicitar el kit
-                </a>
+                  Comprar el kit
+                </BuyButton>
               </div>
               <p className="mt-3 text-xs text-text-muted">
                 Se combina con cualquier plan. El equipo se envía y se vincula a tu cuenta de MercadoPago.

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/icon';
-import { api, ApiError } from '@/lib/api';
+import { CheckoutModal, type CheckoutTarget } from '@/components/landing-checkout';
 
 type Period = 'MONTHLY' | 'ANNUAL';
 type PlanTag = 'BASIC' | 'PRO' | 'ENTERPRISE';
@@ -52,107 +52,20 @@ const ars = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 0,
 });
 
-function CheckoutModal({
-  plan,
-  period,
-  onClose,
-}: {
-  plan: PlanDef;
-  period: Period;
-  onClose: () => void;
-}) {
-  const [form, setForm] = useState({ buyerName: '', buyerEmail: '', buyerPhone: '', gymName: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const amount = period === 'ANNUAL' ? plan.annual : plan.monthly;
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api<{ initPoint: string }>('/billing/checkout', {
-        method: 'POST',
-        body: { plan: plan.tag, period, ...form },
-      });
-      window.location.href = data.initPoint;
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo iniciar la compra. Probá de nuevo.');
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-text">Comprar plan {plan.name}</h3>
-            <p className="mt-1 text-sm text-text-muted">
-              {period === 'ANNUAL' ? 'Anual (2 meses gratis)' : 'Mensual'} · {ars.format(amount)}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-lg border border-line p-1.5 text-text-muted hover:text-text">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="mt-5 space-y-3">
-          <input
-            required
-            placeholder="Tu nombre y apellido"
-            value={form.buyerName}
-            onChange={(e) => setForm({ ...form, buyerName: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={form.buyerEmail}
-            onChange={(e) => setForm({ ...form, buyerEmail: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-          <input
-            type="tel"
-            placeholder="Teléfono (opcional)"
-            value={form.buyerPhone}
-            onChange={(e) => setForm({ ...form, buyerPhone: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-          <input
-            placeholder="Nombre del gimnasio (opcional)"
-            value={form.gymName}
-            onChange={(e) => setForm({ ...form, gymName: e.target.value })}
-            className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
-          />
-
-          {error && <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
-          >
-            <Icon name="card" size={18} />
-            {loading ? 'Redirigiendo a MercadoPago…' : `Pagar ${ars.format(amount)}`}
-          </button>
-          <p className="text-center text-xs text-text-muted">
-            Pago seguro con MercadoPago. Al aprobarse se emite tu clave de licencia y te llega por email.
-          </p>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialDays: number }) {
   const [period, setPeriod] = useState<Period>('ANNUAL');
-  const [checkout, setCheckout] = useState<{ plan: PlanDef; period: Period } | null>(null);
+  const [checkout, setCheckout] = useState<CheckoutTarget | null>(null);
+
+  function openCheckout(plan: PlanDef, period: Period) {
+    const amount = period === 'ANNUAL' ? plan.annual : plan.monthly;
+    setCheckout({
+      plan: plan.tag,
+      period,
+      title: `Comprar plan ${plan.name}`,
+      subtitle: `${period === 'ANNUAL' ? 'Anual (2 meses gratis)' : 'Mensual'} · ${ars.format(amount)}`,
+      amount,
+    });
+  }
 
   return (
     <div>
@@ -242,7 +155,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
               </ul>
               <button
                 type="button"
-                onClick={() => setCheckout({ plan, period })}
+                onClick={() => openCheckout(plan, period)}
                 className={`mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors ${
                   plan.popular
                     ? 'bg-primary text-white hover:bg-primary-dark'
@@ -257,9 +170,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
         })}
       </div>
 
-      {checkout && (
-        <CheckoutModal plan={checkout.plan} period={checkout.period} onClose={() => setCheckout(null)} />
-      )}
+      {checkout && <CheckoutModal target={checkout} onClose={() => setCheckout(null)} />}
     </div>
   );
 }
