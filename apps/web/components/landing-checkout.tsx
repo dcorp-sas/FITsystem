@@ -51,6 +51,8 @@ export function CheckoutModal({ target, onClose }: { target: CheckoutTarget; onC
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [ready, setReady] = useState(false);
+  const [brickReady, setBrickReady] = useState(false);
+  const [brickError, setBrickError] = useState<string | null>(null);
   const [externalRef, setExternalRef] = useState<string | null>(null);
   const [amount, setAmount] = useState(target.amount);
   const [result, setResult] = useState<{ status?: string; statusDetail?: string } | null>(null);
@@ -224,10 +226,20 @@ export function CheckoutModal({ target, onClose }: { target: CheckoutTarget; onC
                 initialization={{ amount, payer: { email: form.buyerEmail } }}
                 customization={{ paymentMethods: { maxInstallments: 12 } }}
                 locale="es-AR"
+                onReady={() => setBrickReady(true)}
+                onError={(e) => setBrickError(e?.message || 'No se pudo cargar el formulario de pago')}
                 onSubmit={submitCard}
               />
             ) : (
               <p className="py-8 text-center text-sm text-text-muted">Cargando el formulario de pago…</p>
+            )}
+            {ready && !brickReady && !brickError && (
+              <p className="py-4 text-center text-sm text-text-muted">Cargando el formulario de pago…</p>
+            )}
+            {brickError && (
+              <p className="mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {brickError}
+              </p>
             )}
             {error && (
               <p className="mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
