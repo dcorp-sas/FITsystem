@@ -507,33 +507,7 @@ export default function LandingPage() {
       {/* Contacto */}
       <section id="contacto" className="scroll-mt-20 pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/20 via-surface to-base px-6 py-14 text-center sm:px-12">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-[100px]" />
-            <div className="relative mx-auto max-w-2xl">
-              <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
-                Empezá hoy con FIT system™
-              </h2>
-              <p className="mt-4 text-base text-text-muted">
-                Contanos sobre tu gimnasio y te mostramos el sistema en funcionamiento. Te ayudamos a
-                activar tu licencia y a poner en marcha la app de tus socios.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                <a
-                  href={`mailto:${CONTACT_EMAIL}?subject=Quiero%20una%20demo%20de%20FIT%20System`}
-                  className="inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-white transition-colors hover:bg-primary-dark"
-                >
-                  <Icon name="notifications" size={18} />
-                  Pedir una demo
-                </a>
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  className="inline-flex h-12 items-center gap-2 rounded-lg border border-line bg-base/60 px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
-                >
-                  {CONTACT_EMAIL}
-                </a>
-              </div>
-            </div>
-          </div>
+          <LandingContact contactEmail={CONTACT_EMAIL} />
         </div>
       </section>
 
