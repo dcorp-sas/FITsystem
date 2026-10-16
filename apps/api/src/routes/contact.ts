@@ -45,7 +45,7 @@ export function contactRoutes(app: FastifyInstance) {
 
       const result = await sendPlatformEmail(env.PLATFORM_CONTACT_TO, `Consulta web de ${input.name}`, lines.join('\n'));
       if (!result.ok) {
-        throw new HttpError(502, 'No pudimos enviar tu mensaje. Escribinos a ' + env.PLATFORM_CONTACT_TO);
+        throw new HttpError(502, `No pudimos enviar tu mensaje.${result.error ? ` [debug: ${result.error}]` : ''}`);
       }
       return ok(reply, { ok: true });
     } catch (error) {
