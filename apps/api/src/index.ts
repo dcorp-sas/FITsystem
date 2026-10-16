@@ -36,6 +36,8 @@ import syncRoutes from './routes/sync.js';
 import cloudRoutes from './routes/cloud.js';
 import systemRoutes from './routes/system.js';
 import onboardingRoutes from './routes/onboarding.js';
+import contactRoutes from './routes/contact.js';
+import billingRoutes from './routes/billing.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
 import { startCloudSyncScheduler } from './services/cloud-sync.js';
@@ -107,6 +109,8 @@ export async function buildServer() {
     const url = request.url.split('?')[0] ?? '';
     if (!url.startsWith('/api/')) return;
     if (
+      url.startsWith('/api/contact') ||
+      url.startsWith('/api/billing') ||
       url.startsWith('/api/auth') ||
       url.startsWith('/api/license') ||
       url.startsWith('/api/portal') ||
@@ -166,6 +170,8 @@ export async function buildServer() {
       cloudRoutes(api);
       systemRoutes(api);
       onboardingRoutes(api);
+      contactRoutes(api);
+      billingRoutes(api);
     },
     { prefix: '/api' },
   );

@@ -184,6 +184,35 @@ services:
       # BACKUP_TOKEN del Licensador.
       - key: PROVIDER_BACKUP_TOKEN
         sync: false
+      # --- Tienda del sitio (landing): contacto y pasarela de pago del proveedor ---
+      # Destinatario del formulario de contacto de la landing.
+      - key: PLATFORM_CONTACT_TO
+        value: contacto.fitsystem@gmail.com
+      # SMTP propio del sitio para el contacto y el alta de compra (si falta el
+      # host, esos emails no salen, aunque la compra se registra igual).
+      - key: PLATFORM_SMTP_HOST
+        sync: false
+      - key: PLATFORM_SMTP_PORT
+        value: "587"
+      - key: PLATFORM_SMTP_SECURE
+        sync: false
+      - key: PLATFORM_SMTP_USER
+        sync: false
+      - key: PLATFORM_SMTP_PASS
+        sync: false
+      - key: PLATFORM_SMTP_FROM
+        sync: false
+      # Access token de MercadoPago de la cuenta del PROVEEDOR (Checkout Pro).
+      - key: PLATFORM_MP_ACCESS_TOKEN
+        sync: false
+      # Secreto del webhook de MercadoPago del proveedor (opcional, recomendado).
+      - key: PLATFORM_MP_WEBHOOK_SECRET
+        sync: false
+      # Credenciales de admin del Licensador para emitir la clave al aprobarse el pago.
+      - key: LICENSOR_ADMIN_USER
+        value: admin
+      - key: LICENSOR_ADMIN_PASS
+        sync: false
 
 databases:
   - name: fitsystem-db

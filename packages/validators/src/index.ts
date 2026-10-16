@@ -698,3 +698,29 @@ export type GymClassInput = z.infer<typeof gymClassSchema>;
 export type EquipmentInput = z.infer<typeof equipmentSchema>;
 export type MaintenanceOrderInput = z.infer<typeof maintenanceOrderSchema>;
 export type NotificationTemplateInput = z.infer<typeof notificationTemplateSchema>;
+
+// ---------------------------------------------------------------------------
+// Sitio publico: contacto y compra de licencias (pasarela de pago)
+// ---------------------------------------------------------------------------
+
+export const contactSchema = z.object({
+  name: z.string().trim().min(2, 'Ingresá tu nombre'),
+  email: z.string().trim().email('Email inválido'),
+  phone: z.string().trim().max(40).optional().nullable(),
+  gymName: z.string().trim().max(120).optional().nullable(),
+  message: z.string().trim().min(10, 'Contanos brevemente tu consulta').max(4000),
+  // Honeypot anti-spam: los bots lo completan; los humanos no lo ven.
+  company: z.string().max(200).optional().nullable(),
+});
+
+export const checkoutSchema = z.object({
+  plan: z.enum(['BASIC', 'PRO', 'ENTERPRISE']),
+  period: z.enum(['MONTHLY', 'ANNUAL']),
+  buyerName: z.string().trim().min(2, 'Ingresá tu nombre'),
+  buyerEmail: z.string().trim().email('Email inválido'),
+  buyerPhone: z.string().trim().max(40).optional().nullable(),
+  gymName: z.string().trim().max(120).optional().nullable(),
+});
+
+export type ContactInput = z.infer<typeof contactSchema>;
+export type CheckoutInput = z.infer<typeof checkoutSchema>;

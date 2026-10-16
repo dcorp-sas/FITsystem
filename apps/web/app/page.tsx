@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { LandingNav } from '@/components/landing-nav';
+import { LandingPlans } from '@/components/landing-plans';
+import { LandingContact } from '@/components/landing-contact';
 import { Icon, type IconName } from '@/components/icon';
 
 export const metadata: Metadata = {
   title: 'FIT System — Software de gestión para gimnasios',
   description:
-    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio que funciona sin internet, con app móvil para tus socios.',
+    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio para tu PC con app móvil para tus socios.',
 };
 
 const CONTACT_EMAIL = 'contacto.fitsystem@gmail.com';
@@ -18,7 +20,7 @@ const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1
 
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
-  { value: '100%', label: 'Funciona sin internet' },
+  { value: 'Local', label: 'Tus datos en tu equipo' },
   { value: '∞', label: 'Socios y cuotas' },
   { value: '24/7', label: 'App para tus socios' },
 ];
@@ -45,49 +47,6 @@ const STEPS = [
   { n: '4', title: 'Tus socios, conectados', text: 'Los socios descargan la app y consultan cuota, rutinas, novedades y pagan desde el celular.' },
 ];
 
-const PLANS = [
-  {
-    name: 'Prueba',
-    tag: 'TRIAL',
-    price: 'Gratis',
-    period: `${TRIAL_DAYS} días`,
-    popular: false,
-    features: [`Hasta 10 socios con app`, 'Todos los módulos', 'Soporte por email', 'Sin tarjeta'],
-    cta: 'Descargar gratis',
-    href: '#descargas',
-  },
-  {
-    name: 'Básico',
-    tag: 'BASIC',
-    price: '$299.000',
-    period: '12 meses · ARS',
-    popular: false,
-    features: ['Hasta 100 socios con app', 'Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Soporte por email'],
-    cta: 'Solicitar cotización',
-    href: '#contacto',
-  },
-  {
-    name: 'Pro',
-    tag: 'PRO',
-    price: '$499.000',
-    period: '12 meses · ARS',
-    popular: true,
-    features: ['Hasta 500 socios con app', 'Todos los módulos', 'App del socio incluida', 'Reportes por sede', 'Soporte prioritario'],
-    cta: 'Solicitar cotización',
-    href: '#contacto',
-  },
-  {
-    name: 'Empresa',
-    tag: 'ENTERPRISE',
-    price: '$899.000',
-    period: '12 meses · ARS',
-    popular: false,
-    features: ['Socios ilimitados con app', 'Sedes y reportes avanzados', 'Onboarding acompañado', 'Soporte dedicado'],
-    cta: 'Hablar con ventas',
-    href: '#contacto',
-  },
-];
-
 const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses' };
 
 const MP_KIT = { price: '$50.000', period: 'pago único' };
@@ -95,7 +54,7 @@ const MP_KIT = { price: '$50.000', period: 'pago único' };
 const FAQS = [
   {
     q: '¿Necesito internet para usar el sistema?',
-    a: 'No. La aplicación de escritorio funciona de forma local en la PC del gimnasio, sin depender de internet. La conexión solo se usa para la app móvil de los socios y las novedades.',
+    a: 'Para la operación diaria no: el sistema corre en la PC del gimnasio y sigue funcionando aunque se corte internet (socios, cuotas, caja, clases, asistencia y tienda). La conexión se usa para la app móvil de los socios, los pagos online, las novedades, el envío de recordatorios y la sincronización del consolidado para reportes.',
   },
   {
     q: '¿Qué es la app del socio?',
@@ -142,8 +101,8 @@ export default function LandingPage() {
               Gestioná tu gimnasio <span className="text-primary-light">de punta a punta</span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted">
-              Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Funciona en tu
-              PC, sin internet, y conecta a tus socios con una app móvil propia.
+              Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y
+              sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -157,7 +116,7 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-text-muted">
-              {['Funciona sin internet', 'Datos en tu equipo', 'App del socio incluida'].map((item) => (
+              {['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida'].map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">
                   <Icon name="check" size={16} className="text-success" />
                   {item}
@@ -334,50 +293,11 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-5 lg:grid-cols-4">
-            {PLANS.map((plan) => (
-              <div
-                key={plan.tag}
-                className={`relative flex flex-col rounded-2xl border bg-surface p-6 ${
-                  plan.popular ? 'border-primary/60 shadow-xl shadow-primary/10' : 'border-line'
-                }`}
-              >
-                {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-white">
-                    Más elegido
-                  </span>
-                )}
-                <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">{plan.tag}</div>
-                <h3 className="mt-1 text-lg font-bold text-text">{plan.name}</h3>
-                <div className="mt-4">
-                  <div className="text-2xl font-bold text-text">{plan.price}</div>
-                  <div className="text-xs text-text-muted">{plan.period}</div>
-                </div>
-                <ul className="mt-5 flex-1 space-y-2.5">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm text-text-muted">
-                      <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={plan.href}
-                  className={`mt-6 inline-flex h-11 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                    plan.popular
-                      ? 'bg-primary text-white hover:bg-primary-dark'
-                      : 'border border-line text-text hover:bg-surface-alt'
-                  }`}
-                >
-                  {plan.cta}
-                </a>
-              </div>
-            ))}
-          </div>
+          <LandingPlans setupUrl={SETUP_URL} trialDays={TRIAL_DAYS} />
 
           <p className="mt-8 text-center text-xs text-text-muted">
-            Todos los planes incluyen el sistema completo y el primer año de la app del socio. Los
-            precios son orientativos y se ajustan según sucursales y socios.
+            Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
+            Todos los planes incluyen el sistema completo y la app del socio.
           </p>
 
           <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center justify-between gap-3 rounded-xl border border-line bg-surface/60 px-5 py-4 text-center sm:flex-row sm:text-left">
@@ -475,7 +395,7 @@ export default function LandingPage() {
               {
                 icon: 'dashboard' as IconName,
                 title: 'Escritorio (Windows)',
-                text: 'La app completa del gimnasio, con todos los módulos. Funciona sin internet.',
+                text: 'La app completa del gimnasio, con todos los módulos. Sigue operando aunque se corte internet.',
                 cta: 'Descargar para Windows',
                 href: SETUP_URL,
                 note: `Incluye ${TRIAL_DAYS} días de prueba gratis`,

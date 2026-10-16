@@ -1079,3 +1079,34 @@ model ErrorLog {
   @@index([createdAt])
   @@map("error_logs")
 }
+
+// ---------------------------------------------------------------------------
+// Tienda / pasarela de pago del sitio: compra de licencias desde la web publica
+// (MercadoPago Checkout Pro). No depende de una organizacion: es del proveedor.
+// ---------------------------------------------------------------------------
+model PlanPurchase {
+  id                String   @id @default(cuid())
+  plan              String // BASIC | PRO | ENTERPRISE
+  period            String // MONTHLY | ANNUAL
+  seats             Int
+  amount            Float
+  currency          String   @default("ARS")
+  status            String   @default("PENDING") // PENDING | PAID | FAILED
+  buyerName         String
+  buyerEmail        String
+  buyerPhone        String?
+  gymName           String?
+  externalRef       String   @unique
+  providerId        String? // id de la preferencia de MercadoPago
+  providerPaymentId String? // id del pago aprobado en MercadoPago
+  providerStatus    String?
+  providerData      String? // JSON string
+  licenseKey        String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([providerPaymentId])
+  @@map("plan_purchases")
+}

@@ -92,4 +92,31 @@ export const env = {
   // defecto, junto a la base de datos (userData del escritorio). Debe ser
   // persistente: si se borra, hay que volver a escanear el QR.
   WHATSAPP_AUTH_DIR: process.env.WHATSAPP_AUTH_DIR || path.join(resolveDataDir(), 'whatsapp'),
+
+  // ---------------------------------------------------------------------------
+  // Tienda del sitio (landing): formulario de contacto y pasarela de pago.
+  // Es la cuenta del PROVEEDOR, distinta de la de cada gimnasio.
+  // ---------------------------------------------------------------------------
+  // Destinatario del formulario de contacto del sitio. Por defecto, el mismo
+  // contacto de licencias.
+  PLATFORM_CONTACT_TO: process.env.PLATFORM_CONTACT_TO || process.env.LICENSE_CONTACT || 'contacto.fitsystem@gmail.com',
+  // SMTP propio del sitio para enviar el contacto y el alta de compra. Si
+  // PLATFORM_SMTP_HOST está vacío, se cae al SMTP del gimnasio demo/owner o no
+  // se envía (según disponibilidad).
+  PLATFORM_SMTP_HOST: process.env.PLATFORM_SMTP_HOST || '',
+  PLATFORM_SMTP_PORT: Number(process.env.PLATFORM_SMTP_PORT || 587) || 587,
+  PLATFORM_SMTP_SECURE: process.env.PLATFORM_SMTP_SECURE || '',
+  PLATFORM_SMTP_USER: process.env.PLATFORM_SMTP_USER || '',
+  PLATFORM_SMTP_PASS: process.env.PLATFORM_SMTP_PASS || '',
+  PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT System <contacto.fitsystem@gmail.com>',
+  // Token de MercadoPago de la cuenta del PROVEEDOR (Checkout Pro del sitio).
+  // Sin esto, los botones de compra del sitio no pueden iniciar el pago.
+  PLATFORM_MP_ACCESS_TOKEN: process.env.PLATFORM_MP_ACCESS_TOKEN || '',
+  // Secreto del webhook de MercadoPago de la cuenta del proveedor (opcional).
+  // Si está definido, el webhook exige firma válida.
+  PLATFORM_MP_WEBHOOK_SECRET: process.env.PLATFORM_MP_WEBHOOK_SECRET || '',
+  // Credenciales de administrador del Licensador para emitir la clave al aprobarse
+  // un pago. Si faltan, la compra queda registrada y se avisa por email.
+  LICENSOR_ADMIN_USER: process.env.LICENSOR_ADMIN_USER || 'admin',
+  LICENSOR_ADMIN_PASS: process.env.LICENSOR_ADMIN_PASS || '',
 };

@@ -25,6 +25,7 @@ en el menú **Configuración**. Cada pestaña corresponde a un tema.
 10. [Red local](#10-red-local)
 11. [Licencia](#11-licencia)
 12. [Variables de servidor](#12-variables-de-servidor-avanzado)
+13. [Tienda del sitio (para el proveedor)](#13-tienda-del-sitio-para-el-proveedor)
 
 ---
 
@@ -322,6 +323,30 @@ gimnasio, archivo `.env`). En la app de escritorio muchas se generan solas.
 
 Referencia completa con comentarios: `apps/api/.env.example` y
 [`docs/RUNBOOK.md`](./RUNBOOK.md).
+
+---
+
+## 13. Tienda del sitio (para el proveedor)
+
+La **landing pública** (donde los gimnasios compran su licencia) se configura con
+variables de servidor del **proveedor**, no con las del gimnasio. No se cargan en
+el panel: van como variables de entorno de la API (Render / `.env`).
+
+| Variable | Para qué sirve |
+| --- | --- |
+| `PLATFORM_CONTACT_TO` | Correo que recibe el formulario de contacto de la landing. Por defecto `contacto.fitsystem@gmail.com`. |
+| `PLATFORM_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASS` / `_FROM` | SMTP propio del sitio para el contacto y el aviso de compra. Si falta el host, esos emails no salen (la compra igual se registra). |
+| `PLATFORM_MP_ACCESS_TOKEN` | **Access Token** de la cuenta de MercadoPago del proveedor (Checkout Pro). Se obtiene en el panel de MercadoPago del proveedor. |
+| `PLATFORM_MP_WEBHOOK_SECRET` | Clave del webhook `https://<tu-api>/api/billing/webhook`. |
+| `LICENSOR_ADMIN_USER` / `LICENSOR_ADMIN_PASS` | Usuario admin del Licensador, para emitir la clave de licencia automáticamente cuando se aprueba el pago. |
+
+Flujo de una compra: el visitante elige plan → **Pagar** → Checkout Pro de
+MercadoPago → al aprobarse, el webhook confirma el pago, se emite la **clave de
+licencia** y se envía por email al comprador.
+
+> Las credenciales de MercadoPago de la tienda son de la **cuenta del proveedor**.
+> Son distintas de las que cada gimnasio carga en **Cobros (MercadoPago)** para
+> cobrarle a sus socios (sección 3).
 
 ---
 
