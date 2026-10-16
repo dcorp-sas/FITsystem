@@ -170,6 +170,12 @@ export function syncRoutes(app: FastifyInstance) {
         classSessions: 0,
         reservations: 0,
         attendance: 0,
+        payments: 0,
+        sales: 0,
+        cashSessions: 0,
+        cashMovements: 0,
+        stockMovements: 0,
+        products: 0,
       };
 
       await prisma.$transaction(
@@ -267,6 +273,66 @@ export function syncRoutes(app: FastifyInstance) {
           /* fila no sincronizable */
         }
       }
+      for (const p of input.payments ?? []) {
+        const data: Record<string, unknown> = { ...(p as Record<string, unknown>), organizationId };
+        delete data.receivedById; // el usuario es local al escritorio
+        try {
+          await prisma.payment.upsert({ where: { id: String(p.id) }, create: data as never, update: data as never });
+          counts.payments++;
+        } catch {
+          /* fila no sincronizable */
+        }
+      }
+      for (const s of input.sales ?? []) {
+        const data: Record<string, unknown> = { ...(s as Record<string, unknown>), organizationId };
+        delete data.userId; // el usuario es local al escritorio
+        try {
+          await prisma.sale.upsert({ where: { id: String(s.id) }, create: data as never, update: data as never });
+          counts.sales++;
+        } catch {
+          /* fila no sincronizable */
+        }
+      }
+      for (const cs of input.cashSessions ?? []) {
+        const data: Record<string, unknown> = { ...(cs as Record<string, unknown>), organizationId };
+        delete data.openedById; // el usuario es local al escritorio
+        delete data.closedById;
+        try {
+          await prisma.cashSession.upsert({ where: { id: String(cs.id) }, create: data as never, update: data as never });
+          counts.cashSessions++;
+        } catch {
+          /* fila no sincronizable */
+        }
+      }
+      for (const cm of input.cashMovements ?? []) {
+        const data: Record<string, unknown> = { ...(cm as Record<string, unknown>), organizationId };
+        delete data.userId; // el usuario es local al escritorio
+        try {
+          await prisma.cashMovement.upsert({ where: { id: String(cm.id) }, create: data as never, update: data as never });
+          counts.cashMovements++;
+        } catch {
+          /* fila no sincronizable */
+        }
+      }
+      for (const sm of input.stockMovements ?? []) {
+        const data: Record<string, unknown> = { ...(sm as Record<string, unknown>), organizationId };
+        delete data.userId; // el usuario es local al escritorio
+        try {
+          await prisma.stockMovement.upsert({ where: { id: String(sm.id) }, create: data as never, update: data as never });
+          counts.stockMovements++;
+        } catch {
+          /* fila no sincronizable */
+        }
+      }
+      for (const pr of input.products ?? []) {
+        const data: Record<string, unknown> = { ...(pr as Record<string, unknown>), organizationId };
+        try {
+          await prisma.product.upsert({ where: { id: String(pr.id) }, create: data as never, update: data as never });
+          counts.products++;
+        } catch {
+          /* fila no sincronizable */
+        }
+      }
 
       return ok(reply, { ok: true, syncedAt: new Date().toISOString(), counts });
     } catch (error) {
@@ -279,7 +345,8 @@ export function syncRoutes(app: FastifyInstance) {
   // nuevos; las reservas incluyen siempre las de sesiones futuras (cupo vivo).
   app.get('/sync/pull', async (request, reply) => {
     try {
-      const res = await orgFromSyncKey(request); const organizationId = typeof (res as any) === 'string' ? (res as any) : (res as any).orgId;
+      const res = await orgFromSyncKey(request);
+      const organizationId = typeof (res as any) === 'string' ? (res as any) : (res as any).orgId;
       const query = request.query as { since?: string };
       const since = query.since ? new Date(query.since) : new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
       const now = new Date();
@@ -287,43 +354,69 @@ export function syncRoutes(app: FastifyInstance) {
       const attendance = await prisma.attendance.findMany({
         where: { organizationId, checkedInAt: { gte: since } },
         select: {
-          id: true,
-          branchId: true,
-          memberId: true,
-          membershipId: true,
-          method: true,
-          status: true,
-          rejectionReason: true,
-          checkedInAt: true,
-          checkedOutAt: true,
+          id: true, branchId: true, memberId: true, membershipId: true, method: true, status: true, rejectionReason: true, checkedInAt: true, checkedOutAt: true,
         },
         orderBy: { checkedInAt: 'asc' },
         take: 20000,
       });
 
       const reservations = await prisma.reservation.findMany({
-        where: {
-          member: { organizationId },
-          OR: [{ createdAt: { gte: since } }, { session: { startAt: { gte: now } } }],
-        },
+        where: { member: { organizationId }, OR: [{ createdAt: { gte: since } }, { session: { startAt: { gte: now } } }] },
         select: { id: true, sessionId: true, memberId: true, status: true, createdAt: true },
         orderBy: { createdAt: 'asc' },
         take: 20000,
       });
 
-      return ok(reply, { attendance, reservations, serverTime: now.toISOString() });
+      const payments = await prisma.payment.findMany({
+        where: { organizationId, paidAt: { gte: since } },
+        select: { id: true, branchId: true, memberId: true, membershipId: true, concept: true, method: true, status: true, amount: true, currency: true, reference: true, providerId: true, paidAt: true, notes: true },
+        orderBy: { paidAt: 'asc' },
+        take: 20000,
+      });
+
+      const sales = await prisma.sale.findMany({
+        where: { organizationId, createdAt: { gte: since } },
+        select: { id: true, branchId: true, memberId: true, userId: true, number: true, subtotal: true, discount: true, total: true, method: true, status: true, paymentId: true, notes: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+        take: 20000,
+      });
+
+      const cashSessions = await prisma.cashSession.findMany({
+        where: { organizationId, openedAt: { gte: since } },
+        select: { id: true, branchId: true, openedById: true, closedById: true, status: true, openedAt: true, closedAt: true, openingAmount: true, closingAmount: true, expectedAmount: true, difference: true, notes: true },
+        orderBy: { openedAt: 'asc' },
+        take: 5000,
+      });
+
+      const cashMovements = await prisma.cashMovement.findMany({
+        where: { organizationId, createdAt: { gte: since } },
+        select: { id: true, branchId: true, cashSessionId: true, type: true, category: true, method: true, amount: true, description: true, memberId: true, userId: true, referenceId: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+        take: 20000,
+      });
+
+      const stockMovements = await prisma.stockMovement.findMany({
+        where: { organizationId, createdAt: { gte: since } },
+        select: { id: true, branchId: true, productId: true, type: true, quantity: true, unitCost: true, reason: true, referenceId: true, userId: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+        take: 20000,
+      });
+
+      const products = await prisma.product.findMany({
+        where: { organizationId },
+        select: { id: true, categoryId: true, name: true, sku: true, barcode: true, description: true, cost: true, price: true, stock: true, minStock: true, unit: true, imageUrl: true, isActive: true, expiresAt: true, createdAt: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 5000,
+      });
+
+      return ok(reply, { attendance, reservations, payments, sales, cashSessions, cashMovements, stockMovements, products, serverTime: now.toISOString() });
     } catch (error) {
       return fail(reply, error);
     }
   });
+
 }
-
 export default syncRoutes;
-
-
-
-
-
 
 
 
