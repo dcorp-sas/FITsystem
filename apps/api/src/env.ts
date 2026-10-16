@@ -1,7 +1,29 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 config();
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
+
+/**
+ * Carpeta de datos persistente del proceso. En el escritorio la base SQLite vive
+ * en el userData del usuario; reutilizamos esa misma carpeta para guardar estados
+ * que deben sobrevivir reinicios (por ejemplo la sesión de WhatsApp).
+ */
+function resolveDataDir(): string {
+  const databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
+  try {
+    if (databaseUrl.startsWith('file:')) {
+      const dbPath = databaseUrl.startsWith('file://')
+        ? fileURLToPath(databaseUrl)
+        : databaseUrl.slice('file:'.length);
+      return path.dirname(path.resolve(dbPath));
+    }
+  } catch {
+    /* si el URL no es parseable, caemos al directorio de trabajo */
+  }
+  return process.cwd();
+}
 
 // Secreto para firmar los tokens JWT. En producción es OBLIGATORIO definirlo con
 // un valor propio de al menos 32 caracteres; los valores por defecto del repo (de
@@ -66,4 +88,8 @@ export const env = {
   // Postgres (su disco es efímero en el plan free). Si está vacío, el respaldo
   // remoto queda deshabilitado.
   PROVIDER_BACKUP_TOKEN: process.env.PROVIDER_BACKUP_TOKEN || '',
+  // Carpeta donde se guarda la sesión de WhatsApp (credenciales vinculadas). Por
+  // defecto, junto a la base de datos (userData del escritorio). Debe ser
+  // persistente: si se borra, hay que volver a escanear el QR.
+  WHATSAPP_AUTH_DIR: process.env.WHATSAPP_AUTH_DIR || path.join(resolveDataDir(), 'whatsapp'),
 };

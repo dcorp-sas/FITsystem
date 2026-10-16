@@ -8,6 +8,12 @@ import { logActivity } from '../lib/activity.js';
 import { getRawSetting, getSettings } from '../services/settings.js';
 import { notifyEvent } from '../services/notifications.js';
 import { whatsappLink } from '../services/whatsapp.js';
+import {
+  connectWhatsApp,
+  getWhatsAppStatusEnsuring,
+  logoutWhatsApp,
+  sendWhatsAppLinked,
+} from '../services/whatsapp-client.js';
 import { getSmtpConfig } from '../services/email.js';
 import {
   getArcaConfig,
@@ -178,6 +184,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const settings = await getSettings(req.user.organizationId);
       const mp = settings.MERCADOPAGO ?? {};
       const wa = settings.WHATSAPP ?? {};
+      const waSession = await getWhatsAppStatusEnsuring(req.user.organizationId);
       const print = settings.PRINT ?? {};
       const smtp = await getSmtpConfig(req.user.organizationId);
       const arcaCfg = await getArcaConfig(req.user.organizationId);
@@ -218,6 +225,9 @@ export function integrationRoutes(app: FastifyInstance) {
           defaultMessage: wa.DEFAULT_MESSAGE ?? '',
           cloudConfigured: Boolean(wa.CLOUD_TOKEN && wa.PHONE_NUMBER_ID),
           useAutomation: wa.USE_AUTOMATION === 'true',
+          linked: waSession.status === 'connected',
+          connection: waSession.status,
+          linkedNumber: waSession.linkedNumber ?? '',
         },
         print: {
           configured: Boolean(print.PRINTER_NAME || print.DEST_URL || print.POINT_DEVICE_ID),
@@ -310,6 +320,64 @@ export function integrationRoutes(app: FastifyInstance) {
       }
       const link = await whatsappLink(req.user.organizationId, phone, q.message ?? '');
       return ok(reply, { link, phone });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // ---------- WhatsApp: vinculación por QR (Baileys) ----------
+  // Estado de la sesión vinculada; incluye el QR (data URL) mientras espera.
+  app.get('/integrations/whatsapp/status', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const session = await getWhatsAppStatusEnsuring(req.user.organizationId);
+      const qr = session.qr
+        ? await QRCode.toDataURL(session.qr, { width: 512, margin: 1, color: { dark: '#0b1120', light: '#ffffff' } })
+        : null;
+      return ok(reply, { status: session.status, qr, linkedNumber: session.linkedNumber ?? '', error: session.lastError ?? '' });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Inicia la vinculación: genera el QR para escanear desde el teléfono.
+  app.post('/integrations/whatsapp/connect', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const session = await connectWhatsApp(req.user.organizationId);
+      const qr = session.qr
+        ? await QRCode.toDataURL(session.qr, { width: 512, margin: 1, color: { dark: '#0b1120', light: '#ffffff' } })
+        : null;
+      return ok(reply, { status: session.status, qr, linkedNumber: session.linkedNumber ?? '', error: session.lastError ?? '' });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Cierra la sesión vinculada y borra las credenciales.
+  app.post('/integrations/whatsapp/logout', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const session = await logoutWhatsApp(req.user.organizationId);
+      await logActivity(req, 'DELETE', 'WHATSAPP_SESSION', req.user.organizationId, undefined, {});
+      return ok(reply, { status: session.status, qr: null, linkedNumber: '', error: '' });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Envía un mensaje de prueba por la sesión vinculada.
+  app.post('/integrations/whatsapp/test', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const body = (request.body ?? {}) as { phone?: string; message?: string };
+      const phone = body.phone || (await getRawSetting(req.user.organizationId, 'WHATSAPP', 'BUSINESS_PHONE')) || '';
+      if (!phone) throw new HttpError(400, 'Indicá un número de teléfono');
+      const message = body.message || 'Prueba de WhatsApp de FIT System: la conexión funciona.';
+      const result = await sendWhatsAppLinked(req.user.organizationId, phone, message);
+      if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo enviar');
+      await logActivity(req, 'CREATE', 'WHATSAPP_TEST', null, undefined, { phone });
+      return ok(reply, { ok: true, providerId: result.providerId ?? null });
     } catch (error) {
       return fail(reply, error);
     }

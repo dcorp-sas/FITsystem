@@ -39,6 +39,7 @@ import onboardingRoutes from './routes/onboarding.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
 import { startCloudSyncScheduler } from './services/cloud-sync.js';
+import { shutdownWhatsApp } from './services/whatsapp-client.js';
 import { recordError } from './services/observability.js';
 import { licensePublicKeyFingerprint } from './services/license.js';
 
@@ -196,6 +197,7 @@ export async function buildServer() {
   });
 
   app.addHook('onClose', async () => {
+    await shutdownWhatsApp();
     await prisma.$disconnect();
   });
 

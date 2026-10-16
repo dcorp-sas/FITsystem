@@ -41,6 +41,10 @@ apps/mobile/ios/
 licencias*.csv
 apps/licensador/data/
 
+# Sesión de WhatsApp (Baileys): credenciales vinculadas, no versionar
+apps/api/prisma/whatsapp/
+whatsapp-auth/
+
 # Database
 *.db
 *.db-journal

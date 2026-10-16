@@ -45,7 +45,7 @@ interface IntegrationStatus {
     condicionReceptor: string;
     hasCertificate: boolean;
   };
-  whatsapp: { configured: boolean; businessPhone: string; cloudConfigured: boolean };
+  whatsapp: { configured: boolean; businessPhone: string; cloudConfigured: boolean; linked?: boolean; connection?: string; linkedNumber?: string };
   email: { configured: boolean; host: string; port: number; from: string };
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
@@ -321,9 +321,16 @@ export default function SettingsPage() {
               title="WhatsApp"
               category="WHATSAPP"
               values={settings.WHATSAPP ?? {}}
+              intro={
+                <p className="text-xs text-text-muted">
+                  El sistema envía los mensajes de WhatsApp desde el servidor. Vinculá el número del gimnasio una sola
+                  vez escaneando un QR (más abajo) y listo: no hace falta abrir WhatsApp Web ni usar una cuenta de
+                  empresa.
+                </p>
+              }
               fields={[
-                { key: 'BUSINESS_PHONE', label: 'Número de WhatsApp del gimnasio (con código de país, sin + ni espacios)', placeholder: '5491155551234' },
-                { key: 'DEFAULT_MESSAGE', label: 'Mensaje que se escribe solo al abrir el chat (opcional)', placeholder: '¡Hola! Quería consultar por...' },
+                { key: 'BUSINESS_PHONE', label: 'Número de WhatsApp del gimnasio (con código de país, sin + ni espacios)', placeholder: '5491155551234', help: 'Es el número que vas a vincular escaneando el QR.' },
+                { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto para enviar desde «Notificaciones» (opcional)', placeholder: '¡Hola! Te escribimos del gimnasio.' },
               ]}
               onSaved={load}
               extra={<WhatsappCard status={status} />}
@@ -1193,30 +1200,140 @@ function MpCard({ status }: { status: IntegrationStatus | null }) {
   );
 }
 
+interface WhatsAppSession {
+  status: 'disconnected' | 'connecting' | 'qr' | 'connected';
+  qr: string | null;
+  linkedNumber: string;
+  error: string;
+}
+
+const WA_LABELS: Record<WhatsAppSession['status'], string> = {
+  connected: 'Conectado',
+  qr: 'Escaneá el QR',
+  connecting: 'Conectando…',
+  disconnected: 'Desconectado',
+};
+
 function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
-  const phone = status?.whatsapp.businessPhone ?? '';
-  const link = phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : '';
+  const toast = useToast();
+  const [session, setSession] = useState<WhatsAppSession | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testing, setTesting] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const s = await http.get<WhatsAppSession>('/integrations/whatsapp/status');
+      setSession(s);
+    } catch {
+      /* silencioso: se reintenta en el próximo ciclo */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const id = setInterval(() => void refresh(), 3000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  const conn: WhatsAppSession['status'] =
+    session?.status ?? ((status?.whatsapp.connection as WhatsAppSession['status']) || 'disconnected');
+  const linkedNumber = session?.linkedNumber || status?.whatsapp.linkedNumber || '';
+
+  async function connect() {
+    setLoading(true);
+    try {
+      const s = await http.post<WhatsAppSession>('/integrations/whatsapp/connect', {});
+      setSession(s);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo iniciar la conexión');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function disconnect() {
+    setLoading(true);
+    try {
+      const s = await http.post<WhatsAppSession>('/integrations/whatsapp/logout', {});
+      setSession(s);
+      toast.success('WhatsApp desconectado');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo desconectar');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    try {
+      await http.post('/integrations/whatsapp/test', { phone: testPhone });
+      toast.success('Mensaje de prueba enviado');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo enviar el mensaje');
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
-    <Card title="Envío de mensajes">
+    <Card title="Conexión de WhatsApp">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge color={status?.whatsapp.configured ? 'green' : 'gray'}>
-          {status?.whatsapp.configured ? 'Número cargado' : 'Sin número'}
+        <Badge color={conn === 'connected' ? 'green' : conn === 'qr' || conn === 'connecting' ? 'yellow' : 'gray'}>
+          {WA_LABELS[conn]}
         </Badge>
+        {conn === 'connected' && linkedNumber && (
+          <span className="text-xs text-text-muted">Número: {linkedNumber}</span>
+        )}
       </div>
-      <p className="mt-3 text-sm text-text-muted">
-        Los mensajes se envían abriendo WhatsApp con el chat y el mensaje ya escritos. Solo necesitás cargar el
-        número del gimnasio; no hace falta ninguna cuenta de empresa ni API.
-      </p>
-      {link && (
-        <a
-          href={link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-dark"
-        >
-          Probar enlace de WhatsApp
-        </a>
+
+      {conn === 'connected' ? (
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-text-muted">
+            Listo. El sistema envía los mensajes solo, sin abrir WhatsApp Web.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Enviar mensaje de prueba a" className="flex-1">
+              <Input
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+                placeholder="5491155551234"
+              />
+            </Field>
+            <Button variant="secondary" onClick={sendTest} loading={testing} disabled={!testPhone}>
+              Enviar prueba
+            </Button>
+          </div>
+          <Button variant="secondary" onClick={disconnect} loading={loading}>
+            Desconectar
+          </Button>
+        </div>
+      ) : (conn === 'qr' || conn === 'connecting') && session?.qr ? (
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <img
+            src={session.qr}
+            alt="QR de WhatsApp"
+            className="h-56 w-56 rounded-lg border border-line bg-white p-2"
+          />
+          <p className="max-w-xs text-center text-xs text-text-muted">
+            Abrí WhatsApp en el teléfono del gimnasio → <strong>Dispositivos vinculados</strong> → «Vincular un
+            dispositivo» → escaneá este código.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-text-muted">
+            Vinculá el número del gimnasio una sola vez escaneando un QR. Después, los mensajes se envían
+            automáticamente desde el sistema.
+          </p>
+          <Button onClick={connect} loading={loading}>
+            Conectar WhatsApp
+          </Button>
+        </div>
       )}
+
+      {session?.error && conn !== 'connected' && <p className="mt-3 text-xs text-warning">{session.error}</p>}
     </Card>
   );
 }

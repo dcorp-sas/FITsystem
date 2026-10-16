@@ -2,6 +2,7 @@ import { prisma } from '../db.js';
 import { renderTemplate, fullName, startOfDay } from '@fitsystem/utils';
 import type { NotificationEvent } from '@fitsystem/types';
 import { whatsappLink, sendWhatsAppCloud } from './whatsapp.js';
+import { sendWhatsAppLinked } from './whatsapp-client.js';
 import { sendEmail } from './email.js';
 import { sendPushToMember } from './push.js';
 
@@ -69,17 +70,26 @@ export async function notifyEvent(
 
     if (channel === 'WHATSAPP') {
       if (member?.phone) {
-        const cloud = await sendWhatsAppCloud(organizationId, member.phone, body);
-        if (cloud.ok) {
-          provider = 'META_WHATSAPP';
-          providerId = cloud.providerId ?? null;
+        // 1) Sesión vinculada por QR (Baileys): envía directo desde el sistema.
+        const linked = await sendWhatsAppLinked(organizationId, member.phone, body);
+        if (linked.ok) {
+          provider = 'WHATSAPP_LINKED';
+          providerId = linked.providerId ?? null;
           status = 'SENT';
         } else {
-          // Sin Cloud API configurada: se deja el enlace click-to-chat (wa.me).
-          provider = 'WHATSAPP_LINK';
-          providerId = await whatsappLink(organizationId, member.phone, body);
-          status = 'PENDING';
-          error = cloud.error ?? null;
+          // 2) Fallback: WhatsApp Cloud API (Meta) si está configurada.
+          const cloud = await sendWhatsAppCloud(organizationId, member.phone, body);
+          if (cloud.ok) {
+            provider = 'META_WHATSAPP';
+            providerId = cloud.providerId ?? null;
+            status = 'SENT';
+          } else {
+            // 3) Último recurso: dejar el enlace click-to-chat (wa.me) pendiente.
+            provider = 'WHATSAPP_LINK';
+            providerId = await whatsappLink(organizationId, member.phone, body);
+            status = 'PENDING';
+            error = linked.error ?? cloud.error ?? null;
+          }
         }
       }
     } else if (channel === 'EMAIL') {

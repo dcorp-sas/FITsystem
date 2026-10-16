@@ -29,6 +29,7 @@
     "@fitsystem/validators": "workspace:*",
     "@prisma/client": "^5.22.0",
     "@sinclair/typebox": "^0.33.9",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "fastify": "^5.1.0",
