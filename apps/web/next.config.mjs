@@ -9,13 +9,13 @@ try {
 
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://*.mercadopago.com https://*.mercadolibre.com",
-  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://*.mercadopago.com https://*.mercadolibre.com https://*.mlstatic.com",
+  "style-src 'self' 'unsafe-inline' https://*.mercadopago.com https://*.mercadolibre.com https://*.mlstatic.com",
   'img-src \'self\' data: blob: https:',
   "media-src 'self' blob:",
   `connect-src 'self'${apiOrigin ? ' ' + apiOrigin : ''} https:`,
-  "font-src 'self' data:",
-  "frame-src 'self' https://*.mercadopago.com https://*.mercadopago.com.ar https://*.mercadopago.com.br https://*.mercadopago.com.mx https://*.mercadopago.com.co https://*.mercadolibre.com",
+  "font-src 'self' data: https://*.mlstatic.com https://*.mercadopago.com",
+  "frame-src 'self' https://*.mercadopago.com https://*.mercadopago.com.ar https://*.mercadopago.com.br https://*.mercadopago.com.mx https://*.mercadopago.com.co https://*.mercadolibre.com https://*.mlstatic.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
