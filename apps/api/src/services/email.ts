@@ -20,7 +20,7 @@ export async function getSmtpConfig(orgId: string): Promise<SmtpConfig | null> {
   const user = (await getRawSetting(orgId, 'SMTP', 'SMTP_USER')) || '';
   const pass = (await getRawSetting(orgId, 'SMTP', 'SMTP_PASS')) || '';
   const from =
-    (await getRawSetting(orgId, 'SMTP', 'SMTP_FROM')) || user || 'FIT System <no-reply@fitsystem.app>';
+    (await getRawSetting(orgId, 'SMTP', 'SMTP_FROM')) || user || 'FIT System <contacto.fitsystem@gmail.com>';
   const secure = rawSecure ? rawSecure === 'true' : port === 465;
   return { host, port, secure, user, pass, from };
 }

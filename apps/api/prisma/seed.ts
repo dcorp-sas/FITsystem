@@ -15,7 +15,7 @@ async function main() {
       name: 'FIT System Demo',
       slug: 'fit-demo',
       taxId: '30-12345678-9',
-      email: 'demo@fitsystem.app',
+      email: 'contacto.fitsystem@gmail.com',
       phone: '+54 11 1234 5678',
       address: 'Av. Corrientes 1234',
       currency: 'ARS',
@@ -36,13 +36,13 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('admin123', 10);
   const owner = await prisma.user.upsert({
-    where: { email: 'admin@fitsystem.app' },
+    where: { email: 'admin@fitsystem.local' },
     update: {},
     create: {
       organizationId: org.id,
       branchId: central.id,
       name: 'Admin FIT',
-      email: 'admin@fitsystem.app',
+      email: 'admin@fitsystem.local',
       passwordHash,
       role: 'OWNER',
     },
@@ -50,13 +50,13 @@ async function main() {
   console.log(`Usuario demo: ${owner.email} / admin123`);
 
   const staff = await prisma.user.upsert({
-    where: { email: 'recepcion@fitsystem.app' },
+    where: { email: 'recepcion@fitsystem.local' },
     update: {},
     create: {
       organizationId: org.id,
       branchId: central.id,
       name: 'Recepcion 1',
-      email: 'recepcion@fitsystem.app',
+      email: 'recepcion@fitsystem.local',
       passwordHash,
       role: 'RECEPTIONIST',
     },
@@ -89,7 +89,7 @@ async function main() {
       organizationId: org.id,
       branchId: central.id,
       name: 'Luciana Perez',
-      email: 'luciana@fitsystem.app',
+      email: 'luciana@fitsystem.local',
       specialty: 'Funcional',
       hourlyRate: 5000,
       commissionPct: 10,
