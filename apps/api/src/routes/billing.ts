@@ -21,6 +21,8 @@ export function billingRoutes(app: FastifyInstance) {
       currency: 'ARS',
       configured: isBillingConfigured(),
       licenseIssueConfigured: isLicensorIssueConfigured(),
+      licenseServerConfigured: Boolean(env.LICENSE_SERVER),
+      licensorPassConfigured: Boolean(env.LICENSOR_ADMIN_PASS),
       publicKey: isBillingConfigured() ? env.PLATFORM_MP_PUBLIC_KEY : '',
       plans: Object.entries(PLAN_CATALOG).map(([tag, plan]) => ({ tag, ...plan })),
       products: Object.entries(PRODUCT_CATALOG).map(([tag, product]) => ({ tag, ...product })),
