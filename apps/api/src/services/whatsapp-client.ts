@@ -1,26 +1,21 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import { prisma } from '../db.js';
 import {
   makeWASocket,
-  useMultiFileAuthState,
   makeCacheableSignalKeyStore,
   fetchLatestBaileysVersion,
-  DisconnectReason,
+  initAuthCreds,
+  BufferJSON,
+  proto,
   Browsers,
-  type WASocket,
-  type ConnectionState,
+  DisconnectReason,
 } from '@whiskeysockets/baileys';
-import { env } from '../env.js';
+import type {
+  AuthenticationCreds,
+  AuthenticationState,
+  ConnectionState,
+  WASocket,
+} from '@whiskeysockets/baileys';
 import { normalizePhone } from './whatsapp.js';
-
-/**
- * Sesión de WhatsApp vinculada por QR (Baileys). El gimnasio escanea el QR una
- * sola vez; a partir de ahí el sistema envía los mensajes desde el servidor sin
- * abrir WhatsApp Web.
- *
- * La sesión se guarda en disco (WHATSAPP_AUTH_DIR/<orgId>) para sobrevivir
- * reinicios. Si el usuario cierra sesión desde el teléfono, hay que re-vincular.
- */
 
 // Baileys espera un logger estilo pino. Usamos uno silencioso, sin depender de
 // que pino esté instalado en el paquete de la API.
@@ -60,12 +55,91 @@ interface Session {
 
 const sessions = new Map<string, Session>();
 
-function authDir(orgId: string): string {
-  return path.join(env.WHATSAPP_AUTH_DIR, orgId);
+// ---------------------------------------------------------------------------
+// Persistencia del estado de sesión en la base (no en disco).
+//
+// El plan free de Render no tiene disco persistente y la instancia se duerme,
+// así que guardar las credenciales de Baileys en el filesystem las perdería en
+// cada reinicio. Las guardamos en Postgres (tabla whatsapp_auth) por
+// organización, con la serialización de BufferJSON de Baileys.
+// ---------------------------------------------------------------------------
+
+async function readAuth(orgId: string, key: string): Promise<unknown> {
+  const row = await prisma.whatsAppAuth.findUnique({
+    where: { organizationId_key: { organizationId: orgId, key } },
+  });
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value, BufferJSON.reviver);
+  } catch {
+    return null;
+  }
 }
 
-function hasCreds(orgId: string): boolean {
-  return fs.existsSync(path.join(authDir(orgId), 'creds.json'));
+async function writeAuth(orgId: string, key: string, value: unknown): Promise<void> {
+  const serialized = JSON.stringify(value, BufferJSON.replacer);
+  await prisma.whatsAppAuth.upsert({
+    where: { organizationId_key: { organizationId: orgId, key } },
+    create: { organizationId: orgId, key, value: serialized },
+    update: { value: serialized },
+  });
+}
+
+async function removeAuth(orgId: string, key: string): Promise<void> {
+  await prisma.whatsAppAuth.deleteMany({ where: { organizationId: orgId, key } });
+}
+
+/** Borra todas las credenciales guardadas de una organización. */
+export async function clearWhatsAppAuth(orgId: string): Promise<void> {
+  await prisma.whatsAppAuth.deleteMany({ where: { organizationId: orgId } });
+}
+
+async function hasCreds(orgId: string): Promise<boolean> {
+  const row = await prisma.whatsAppAuth.findUnique({
+    where: { organizationId_key: { organizationId: orgId, key: 'creds' } },
+  });
+  return Boolean(row);
+}
+
+async function useDatabaseAuthState(
+  orgId: string,
+): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> {
+  const creds: AuthenticationCreds =
+    ((await readAuth(orgId, 'creds')) as AuthenticationCreds | null) ?? initAuthCreds();
+
+  const state: AuthenticationState = {
+    creds,
+    keys: {
+      get: async (type, ids) => {
+        const data: Record<string, unknown> = {};
+        await Promise.all(
+          ids.map(async (id) => {
+            let value = await readAuth(orgId, `${type}-${id}`);
+            if (type === 'app-state-sync-key' && value) {
+              value = proto.Message.AppStateSyncKeyData.fromObject(value as object);
+            }
+            data[id] = value;
+          }),
+        );
+        return data as never;
+      },
+      set: async (data) => {
+        const tasks: Promise<void>[] = [];
+        for (const category of Object.keys(data) as (keyof typeof data)[]) {
+          const categoryData = data[category];
+          if (!categoryData) continue;
+          for (const id of Object.keys(categoryData as Record<string, unknown>)) {
+            const value = (categoryData as Record<string, unknown>)[id];
+            const key = `${String(category)}-${id}`;
+            tasks.push(value ? writeAuth(orgId, key, value) : removeAuth(orgId, key));
+          }
+        }
+        await Promise.all(tasks);
+      },
+    },
+  };
+
+  return { state, saveCreds: () => writeAuth(orgId, 'creds', creds) };
 }
 
 function getSession(orgId: string): Session {
@@ -112,15 +186,14 @@ function toJid(rawPhone: string): string {
 export async function startWhatsAppSession(orgId: string, force = false): Promise<void> {
   const s = getSession(orgId);
   if (s.socket || s.starting) return;
-  if (!force && !hasCreds(orgId)) return;
+  if (!force && !(await hasCreds(orgId))) return;
 
   s.starting = true;
   s.stopped = false;
   clearTimer(s);
 
   try {
-    fs.mkdirSync(authDir(orgId), { recursive: true });
-    const { state, saveCreds } = await useMultiFileAuthState(authDir(orgId));
+    const { state, saveCreds } = await useDatabaseAuthState(orgId);
 
     let version: [number, number, number] | undefined;
     try {
@@ -135,7 +208,7 @@ export async function startWhatsAppSession(orgId: string, force = false): Promis
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, silentLogger),
       },
-      browser: Browsers.appropriate('FIT system™'),
+      browser: Browsers.appropriate('FIT system'),
       logger: silentLogger,
       syncFullHistory: false,
       markOnlineOnConnect: false,
@@ -167,8 +240,8 @@ export async function startWhatsAppSession(orgId: string, force = false): Promis
           s.status = 'disconnected';
           s.qr = null;
           s.linkedNumber = null;
-          // La sesión quedó invalidada: descartamos las credenciales.
-          fs.rmSync(authDir(orgId), { recursive: true, force: true });
+          // La sesión quedó invalidada: descartamos las credenciales guardadas.
+          void clearWhatsAppAuth(orgId);
         } else if (!s.stopped) {
           s.status = 'connecting';
           s.lastError = `Reconectando (${statusCode ?? 'sin código'})`;
@@ -205,7 +278,7 @@ export function getWhatsAppStatus(orgId: string): WhatsAppSessionInfo {
  */
 export async function getWhatsAppStatusEnsuring(orgId: string): Promise<WhatsAppSessionInfo> {
   const s = getSession(orgId);
-  if (!s.socket && !s.stopped && hasCreds(orgId)) {
+  if (!s.socket && !s.stopped && (await hasCreds(orgId))) {
     await startWhatsAppSession(orgId, false);
   }
   return getWhatsAppStatus(orgId);
@@ -237,7 +310,7 @@ export async function logoutWhatsApp(orgId: string): Promise<WhatsAppSessionInfo
   s.linkedNumber = null;
   s.status = 'disconnected';
   s.lastError = null;
-  fs.rmSync(authDir(orgId), { recursive: true, force: true });
+  await clearWhatsAppAuth(orgId);
   return getWhatsAppStatus(orgId);
 }
 

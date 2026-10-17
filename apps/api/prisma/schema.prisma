@@ -1057,6 +1057,21 @@ model ProviderBackup {
   @@map("provider_backups")
 }
 
+// Estado de la sesion de WhatsApp (Baileys) por organizacion. Se guarda en la
+// base (durable) en lugar del disco para sobrevivir reinicios y el sleep de
+// Render, cuyo plan free no tiene disco persistente.
+model WhatsAppAuth {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String
+  value          String
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@map("whatsapp_auth")
+}
+
 // ---------------------------------------------------------------------------
 // Observabilidad: registro de errores en la base (panel + alertas por webhook)
 // ---------------------------------------------------------------------------
