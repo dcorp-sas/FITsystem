@@ -56,10 +56,10 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
   { key: 'attendance', label: 'Ingreso (QR fijo)' },
   { key: 'cobros', label: 'Cobros (MercadoPago)' },
-  { key: 'arca', label: 'ARCA (FacturaciÃ³n)' },
+  { key: 'arca', label: 'ARCA (Facturación)' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'email', label: 'Email (SMTP)' },
-  { key: 'print', label: 'ImpresiÃ³n' },
+  { key: 'print', label: 'Impresión' },
   { key: 'face', label: 'Reconocimiento facial' },
   { key: 'turnstile', label: 'Molinetes / acceso' },
   { key: 'network', label: 'Red local' },
@@ -83,7 +83,7 @@ export default function SettingsPage() {
       setSettings(s);
       setStatus(st);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Error al cargar configuraciÃ³n');
+      toast.error(error instanceof ApiError ? error.message : 'Error al cargar configuración');
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="ConfiguraciÃ³n" subtitle="Datos del gimnasio e integraciones" />
+      <PageHeader title="Configuración" subtitle="Datos del gimnasio e integraciones" />
 
       <div className="mb-5 flex flex-wrap gap-1 rounded-lg border border-line bg-surface p-1">
         {TABS.map((t) => (
@@ -127,9 +127,9 @@ export default function SettingsPage() {
               values={settings.ATTENDANCE ?? {}}
               intro={
                 <p className="text-xs text-text-muted">
-                  ConfigurÃ¡ el ingreso por QR. El <strong className="text-text">QR para imprimir</strong> estÃ¡ en{' '}
-                  <strong className="text-text">Acceso y asistencia</strong>. Tus socios lo escanean con la cÃ¡mara de la
-                  app del socio y el ingreso se registra solo, sin pasar por recepciÃ³n.
+                  Configurá el ingreso por QR. El <strong className="text-text">QR para imprimir</strong> está en{' '}
+                  <strong className="text-text">Acceso y asistencia</strong>. Tus socios lo escanean con la cámara de la
+                  app del socio y el ingreso se registra solo, sin pasar por recepción.
                 </p>
               }
               fields={[
@@ -138,42 +138,42 @@ export default function SettingsPage() {
                   label: 'Ingreso por QR habilitado',
                   type: 'select',
                   options: [
-                    { value: 'true', label: 'SÃ­' },
+                    { value: 'true', label: 'Sí' },
                     { value: 'false', label: 'No' },
                   ],
                 },
                 {
                   key: 'ACCESS_QR_ROTATION',
-                  label: 'Formato / rotaciÃ³n del QR',
+                  label: 'Formato / rotación del QR',
                   type: 'select',
                   options: [
-                    { value: 'NEVER', label: 'Fijo (nunca cambia) â€” recomendado' },
-                    { value: 'DAILY', label: 'Cambia todos los dÃ­as' },
+                    { value: 'NEVER', label: 'Fijo (nunca cambia) — recomendado' },
+                    { value: 'DAILY', label: 'Cambia todos los días' },
                     { value: 'WEEKLY', label: 'Cambia cada semana' },
                   ],
-                  help: 'Si rotÃ¡s el QR, tenÃ©s que volver a imprimir y reemplazar el cartel cuando cambia.',
+                  help: 'Si rotás el QR, tenés que volver a imprimir y reemplazar el cartel cuando cambia.',
                 },
-                { key: 'ACCESS_QR_TITLE', label: 'TÃ­tulo del cartel', placeholder: 'Ingreso al gimnasio' },
+                { key: 'ACCESS_QR_TITLE', label: 'Título del cartel', placeholder: 'Ingreso al gimnasio' },
                 {
                   key: 'ACCESS_QR_SUBTITLE',
                   label: 'Texto principal',
-                  placeholder: 'EscaneÃ¡ este cÃ³digo con la app de socios para registrar tu ingreso',
+                  placeholder: 'Escaneá este código con la app de socios para registrar tu ingreso',
                   type: 'textarea',
                 },
-                { key: 'ACCESS_QR_FOOTER', label: 'Texto al pie (opcional)', placeholder: 'Ej: Gimnasio Central Â· Av. Siempre Viva 123' },
+                { key: 'ACCESS_QR_FOOTER', label: 'Texto al pie (opcional)', placeholder: 'Ej: Gimnasio Central · Av. Siempre Viva 123' },
                 {
                   key: 'ACCESS_QR_COLOR',
                   label: 'Color del QR (hex)',
                   placeholder: '#0b1120',
                   advanced: true,
-                  help: 'Se recomienda un color oscuro sobre fondo blanco para que la cÃ¡mara lo lea bien.',
+                  help: 'Se recomienda un color oscuro sobre fondo blanco para que la cámara lo lea bien.',
                 },
                 {
                   key: 'ACCESS_QR_SIZE',
-                  label: 'TamaÃ±o del QR en pÃ­xeles',
+                  label: 'Tamaño del QR en píxeles',
                   placeholder: '512',
                   advanced: true,
-                  help: 'Entre 128 y 2048. 512 alcanza para imprimir en tamaÃ±o carta/A4.',
+                  help: 'Entre 128 y 2048. 512 alcanza para imprimir en tamaño carta/A4.',
                 },
               ]}
               onSaved={load}
@@ -201,7 +201,7 @@ export default function SettingsPage() {
                   label: 'Point habilitado',
                   type: 'select',
                   options: [
-                    { value: 'true', label: 'SÃ­' },
+                    { value: 'true', label: 'Sí' },
                     { value: 'false', label: 'No' },
                   ],
                 },
@@ -211,14 +211,14 @@ export default function SettingsPage() {
                 { key: 'QR_POS_EXTERNAL_ID', label: 'QR: External ID de la caja (sucursal)' },
                 {
                   key: 'QR_FIXED_ENABLED',
-                  label: 'QR fijo con confirmaciÃ³n automÃ¡tica',
+                  label: 'QR fijo con confirmación automática',
                   type: 'select',
                   options: [
-                    { value: 'true', label: 'SÃ­' },
+                    { value: 'true', label: 'Sí' },
                     { value: 'false', label: 'No' },
                   ],
                 },
-                { key: 'STATIC_QR_PAYLOAD', label: 'Payload del QR estÃ¡tico (alternativo)', placeholder: 'fitsystem://pay?...' },
+                { key: 'STATIC_QR_PAYLOAD', label: 'Payload del QR estático (alternativo)', placeholder: 'fitsystem://pay?...' },
                 { key: 'WEBHOOK_SECRET', label: 'Secreto del webhook (secreto)', type: 'password', secret: true },
                 { key: 'TRANSFER_ALIAS', label: 'Alias/CBU para transferencias' },
                 { key: 'RETURN_URL', label: 'URL de retorno tras el pago' },
@@ -241,10 +241,10 @@ export default function SettingsPage() {
               fields={[
                 {
                   key: 'ENABLED',
-                  label: 'FacturaciÃ³n ARCA habilitada',
+                  label: 'Facturación ARCA habilitada',
                   type: 'select',
                   options: [
-                    { value: 'true', label: 'SÃ­' },
+                    { value: 'true', label: 'Sí' },
                     { value: 'false', label: 'No' },
                   ],
                 },
@@ -255,8 +255,8 @@ export default function SettingsPage() {
                   label: 'Entorno',
                   type: 'select',
                   options: [
-                    { value: 'HOMOLOGACION', label: 'HomologaciÃ³n (pruebas)' },
-                    { value: 'PRODUCCION', label: 'ProducciÃ³n' },
+                    { value: 'HOMOLOGACION', label: 'Homologación (pruebas)' },
+                    { value: 'PRODUCCION', label: 'Producción' },
                   ],
                 },
                 {
@@ -281,7 +281,7 @@ export default function SettingsPage() {
                 },
                 {
                   key: 'CONDICION_RECEPTOR',
-                  label: 'CondiciÃ³n IVA del receptor',
+                  label: 'Condición IVA del receptor',
                   type: 'select',
                   options: [
                     { value: '5', label: 'Consumidor final (5)' },
@@ -292,7 +292,7 @@ export default function SettingsPage() {
                 },
                 {
                   key: 'CONDICION_EMISOR',
-                  label: 'CondiciÃ³n IVA del emisor',
+                  label: 'Condición IVA del emisor',
                   type: 'select',
                   options: [
                     { value: '6', label: 'Monotributo (6)' },
@@ -304,7 +304,7 @@ export default function SettingsPage() {
                 { key: 'PRIVATE_KEY', label: 'Clave privada (PEM, secreto)', type: 'textarea', secret: true },
                 { key: 'CERT_P12', label: 'Certificado .p12 en base64 (secreto)', type: 'textarea', secret: true, placeholder: 'Alternativa a PEM' },
                 { key: 'CERT_PATH', label: 'Ruta a un .p12 en el servidor (solo local)' },
-                { key: 'CERT_PASSWORD', label: 'ContraseÃ±a del .p12 (secreto)', type: 'password', secret: true },
+                { key: 'CERT_PASSWORD', label: 'Contraseña del .p12 (secreto)', type: 'password', secret: true },
               ]}
               onSaved={load}
               extra={
@@ -323,14 +323,14 @@ export default function SettingsPage() {
               values={settings.WHATSAPP ?? {}}
               intro={
                 <p className="text-xs text-text-muted">
-                  El sistema envÃ­a los mensajes de WhatsApp desde el servidor. VinculÃ¡ el nÃºmero del gimnasio una sola
-                  vez escaneando un QR (mÃ¡s abajo) y listo: no hace falta abrir WhatsApp Web ni usar una cuenta de
+                  El sistema envía los mensajes de WhatsApp desde el servidor. Vinculá el número del gimnasio una sola
+                  vez escaneando un QR (más abajo) y listo: no hace falta abrir WhatsApp Web ni usar una cuenta de
                   empresa.
                 </p>
               }
               fields={[
-                { key: 'BUSINESS_PHONE', label: 'NÃºmero de WhatsApp del gimnasio (con cÃ³digo de paÃ­s, sin + ni espacios)', placeholder: '5491155551234', help: 'Es el nÃºmero que vas a vincular escaneando el QR.' },
-                { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto para enviar desde Â«NotificacionesÂ» (opcional)', placeholder: 'Â¡Hola! Te escribimos del gimnasio.' },
+                { key: 'BUSINESS_PHONE', label: 'Número de WhatsApp del gimnasio (con código de país, sin + ni espacios)', placeholder: '5491155551234', help: 'Es el número que vas a vincular escaneando el QR.' },
+                { key: 'DEFAULT_MESSAGE', label: 'Mensaje por defecto para enviar desde «Notificaciones» (opcional)', placeholder: '¡Hola! Te escribimos del gimnasio.' },
               ]}
               onSaved={load}
               extra={<WhatsappCard status={status} />}
@@ -344,8 +344,9 @@ export default function SettingsPage() {
               values={settings.SMTP ?? {}}
               intro={
                 <p className="text-xs text-text-muted">
-                  Sirve para enviar la bienvenida y los avisos de vencimiento. Si usÃ¡s Gmail, activÃ¡ la verificaciÃ³n en
-                  2 pasos y creÃ¡ una Â«contraseÃ±a de aplicaciÃ³nÂ» (no uses tu contraseÃ±a normal).
+                  Sirve para enviar la bienvenida y los avisos de vencimiento al correo de tus socios. En Gmail:
+                  primero activá la «Verificación en 2 pasos», después creá una «Contraseña de aplicación» (16 letras)
+                  en myaccount.google.com/apppasswords y pegala acá. No uses la contraseña normal de tu cuenta.
                 </p>
               }
               presets={[
@@ -353,12 +354,12 @@ export default function SettingsPage() {
                 { label: 'Outlook / Hotmail', values: { SMTP_HOST: 'smtp.office365.com', SMTP_PORT: '587', SMTP_SECURE: 'false' } },
               ]}
               fields={[
-                { key: 'SMTP_USER', label: 'Correo desde el que enviÃ¡s', placeholder: 'gimnasio@gmail.com' },
-                { key: 'SMTP_PASS', label: 'ContraseÃ±a de la aplicaciÃ³n', type: 'password', secret: true, help: 'En Gmail: Cuenta > Seguridad > ContraseÃ±as de aplicaciones.' },
+                { key: 'SMTP_USER', label: 'Correo desde el que enviás', placeholder: 'gimnasio@gmail.com' },
+                { key: 'SMTP_PASS', label: 'Contraseña de la aplicación', type: 'password', secret: true, help: 'Gmail: activá la Verificación en 2 pasos en myaccount.google.com/security y generá la contraseña en myaccount.google.com/apppasswords. Outlook/Hotmail: usá una «contraseña de aplicación» de tu cuenta Microsoft.' },
                 { key: 'SMTP_FROM', label: 'Nombre y correo que ve el socio', placeholder: 'Mi Gimnasio <gimnasio@gmail.com>' },
                 { key: 'SMTP_HOST', label: 'Servidor de correo', placeholder: 'smtp.gmail.com', advanced: true },
                 { key: 'SMTP_PORT', label: 'Puerto', placeholder: '587', advanced: true },
-                { key: 'SMTP_SECURE', label: 'ConexiÃ³n segura (true/false)', placeholder: 'false', advanced: true },
+                { key: 'SMTP_SECURE', label: 'Conexión segura (true/false)', placeholder: 'false', advanced: true },
               ]}
               onSaved={load}
               extra={<EmailCard status={status} />}
@@ -367,19 +368,19 @@ export default function SettingsPage() {
 
           {tab === 'print' && (
             <CategoryForm
-              title="ImpresiÃ³n"
+              title="Impresión"
               category="PRINT"
               values={settings.PRINT ?? {}}
               intro={
                 <p className="text-xs text-text-muted">
-                  ElegÃ­ dÃ³nde se imprime el comprobante. Lo mÃ¡s comÃºn es Â«Impresora conectada a esta PCÂ» y probar con el
-                  botÃ³n Â«Imprimir pruebaÂ».
+                  Elegí dónde se imprime el comprobante. Lo más común es «Impresora conectada a esta PC» y probar con el
+                  botón «Imprimir prueba».
                 </p>
               }
               fields={[
                 {
                   key: 'DESTINATION',
-                  label: 'Â¿DÃ³nde imprimir?',
+                  label: '¿Dónde imprimir?',
                   type: 'select',
                   options: [
                     { value: 'server', label: 'Impresora conectada a esta PC (red / USB)' },
@@ -390,14 +391,14 @@ export default function SettingsPage() {
                 { key: 'PRINTER_NAME', label: 'Nombre de la impresora (opcional)', placeholder: 'EPSON TM-T20' },
                 {
                   key: 'PRINT_ON_PAYMENT',
-                  label: 'Imprimir automÃ¡ticamente al cobrar',
+                  label: 'Imprimir automáticamente al cobrar',
                   type: 'select',
                   options: [
-                    { value: 'true', label: 'SÃ­' },
+                    { value: 'true', label: 'Sí' },
                     { value: 'false', label: 'No' },
                   ],
                 },
-                { key: 'DEST_URL', label: 'Servidor de impresiÃ³n', placeholder: 'http://127.0.0.1:3999', advanced: true },
+                { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999', advanced: true },
                 { key: 'POINT_DEVICE_ID', label: 'Terminal Point (opcional)', placeholder: 'NEWLAND_N950__...', advanced: true },
                 { key: 'TICKET_TEMPLATE', label: 'Plantilla de ticket', placeholder: 'default', advanced: true },
               ]}
@@ -413,9 +414,9 @@ export default function SettingsPage() {
               values={settings.FACE ?? {}}
               intro={
                 <p className="text-xs text-text-muted">
-                  Para usar la cÃ¡mara: abrÃ­ la ficha del socio y tocÃ¡ Â«Registrar rostroÂ». DespuÃ©s el socio entra mirando
-                  a la cÃ¡mara desde Â«Registrar asistenciaÂ». Si la cÃ¡mara no conecta, revisÃ¡ que estÃ© enchufada y que el
-                  navegador tenga permiso de cÃ¡mara.
+                  Para usar la cámara: abrí la ficha del socio y tocá «Registrar rostro». Después el socio entra mirando
+                  a la cámara desde «Registrar asistencia». Si la cámara no conecta, revisá que esté enchufada y que el
+                  navegador tenga permiso de cámara.
                 </p>
               }
               fields={[
@@ -424,7 +425,7 @@ export default function SettingsPage() {
                   label: 'Exigencia del reconocimiento',
                   placeholder: '0.55',
                   advanced: true,
-                  help: 'Valor entre 0.4 y 0.6 (mÃ¡s bajo = mÃ¡s estricto). VacÃ­o = recomendado (0.55).',
+                  help: 'Valor entre 0.4 y 0.6 (más bajo = más estricto). Vacío = recomendado (0.55).',
                 },
               ]}
               onSaved={load}
@@ -519,10 +520,10 @@ function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSav
         <Field label="Email">
           <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
         </Field>
-        <Field label="TelÃ©fono">
+        <Field label="Teléfono">
           <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
         </Field>
-        <Field label="DirecciÃ³n" className="sm:col-span-2">
+        <Field label="Dirección" className="sm:col-span-2">
           <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
         </Field>
         <div className="sm:col-span-2">
@@ -563,7 +564,7 @@ function NetworkCard() {
     try {
       await bridge.setNetwork(mode);
       setInfo((prev) => (prev ? { ...prev, mode } : prev));
-      toast.success('Modo guardado. Reiniciando para aplicarâ€¦');
+      toast.success('Modo guardado. Reiniciando para aplicar…');
       await bridge.restartApp();
     } catch {
       toast.error('No se pudo cambiar el modo de red');
@@ -575,7 +576,7 @@ function NetworkCard() {
     return (
       <Card title="Red local" className="max-w-2xl">
         <p className="text-sm text-text-muted">
-          Esta opciÃ³n estÃ¡ disponible solo en la aplicaciÃ³n de escritorio de FIT system™.
+          Esta opción está disponible solo en la aplicación de escritorio de FIT system™.
         </p>
       </Card>
     );
@@ -595,9 +596,9 @@ function NetworkCard() {
   return (
     <Card title="Red local (varias PC en el gimnasio)" className="max-w-2xl">
       <p className="text-sm text-text-muted">
-        PodÃ©s usar FIT system™ en varias computadoras del mismo local. Una PC es el servidor (guarda los
-        datos) y las demÃ¡s entran desde el navegador apuntando a su direcciÃ³n de red. Todas ven y cargan
-        sobre la misma informaciÃ³n.
+        Podés usar FIT system™ en varias computadoras del mismo local. Una PC es el servidor (guarda los
+        datos) y las demás entran desde el navegador apuntando a su dirección de red. Todas ven y cargan
+        sobre la misma información.
       </p>
 
       <div className="mt-4 space-y-3">
@@ -631,7 +632,7 @@ function NetworkCard() {
           <span>
             <span className="block text-sm font-medium text-text">Esta PC sola (por defecto)</span>
             <span className="mt-0.5 block text-xs text-text-muted">
-              El sistema funciona Ãºnicamente en esta computadora. No se abre a la red.
+              El sistema funciona únicamente en esta computadora. No se abre a la red.
             </span>
           </span>
         </label>
@@ -650,8 +651,8 @@ function NetworkCard() {
               Esta PC es el servidor (varias PC en la red)
             </span>
             <span className="mt-0.5 block text-xs text-text-muted">
-              Las demÃ¡s PC abren el panel desde el navegador con la direcciÃ³n de abajo e ingresan con su
-              usuario y contraseÃ±a.
+              Las demás PC abren el panel desde el navegador con la dirección de abajo e ingresan con su
+              usuario y contraseña.
             </span>
           </span>
         </label>
@@ -670,7 +671,7 @@ function NetworkCard() {
 
       {isServer && (
         <div className="mt-4 rounded-lg border border-line bg-surface-alt/60 p-4">
-          <div className="text-xs font-medium text-text-muted">DirecciÃ³n para las demÃ¡s PC</div>
+          <div className="text-xs font-medium text-text-muted">Dirección para las demás PC</div>
           {info?.lanUrls.length ? (
             <ul className="mt-2 space-y-1">
               {info.lanUrls.map((url) => (
@@ -681,18 +682,18 @@ function NetworkCard() {
             </ul>
           ) : (
             <p className="mt-2 text-xs text-text-muted">
-              No se detectÃ³ una direcciÃ³n de red. VerificÃ¡ que esta PC estÃ© conectada a la red del gimnasio.
+              No se detectó una dirección de red. Verificá que esta PC esté conectada a la red del gimnasio.
             </p>
           )}
           <p className="mt-3 text-xs text-text-muted">
-            AbrÃ­ esa direcciÃ³n en la PC de recepciÃ³n. Si Windows lo pide, permitÃ­ el acceso a FIT system™ en
+            Abrí esa dirección en la PC de recepción. Si Windows lo pide, permití el acceso a FIT system™ en
             el firewall para las redes privadas.
           </p>
         </div>
       )}
 
       <p className="mt-4 text-xs text-text-muted">
-        Cambiar el modo reinicia la aplicaciÃ³n. La impresiÃ³n local desde terminales de red se configura por
+        Cambiar el modo reinicia la aplicación. La impresión local desde terminales de red se configura por
         equipo.
       </p>
     </Card>
@@ -999,7 +1000,7 @@ function CategoryForm({
           {intro}
           {presets && presets.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-text-muted">Carga rÃ¡pida:</span>
+              <span className="text-xs text-text-muted">Carga rápida:</span>
               {presets.map((p) => (
                 <Button
                   key={p.label}
@@ -1063,7 +1064,7 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
     try {
       const res = await http.post<ArcaTestResponse>('/integrations/arca/test', {});
       setResult(res);
-      toast.success(res.ok ? 'ConexiÃ³n con ARCA verificada' : 'RevisÃ¡ la configuraciÃ³n de ARCA');
+      toast.success(res.ok ? 'Conexión con ARCA verificada' : 'Revisá la configuración de ARCA');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al probar ARCA');
     } finally {
@@ -1072,7 +1073,7 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
   }
 
   return (
-    <Card title="Estado de facturaciÃ³n">
+    <Card title="Estado de facturación">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge color={mode === 'real' ? 'green' : 'gray'}>{mode === 'real' ? 'CAE real' : 'Sin configurar'}</Badge>
         {arca?.cbteLabel && <Badge color="blue">{arca.cbteLabel}</Badge>}
@@ -1080,16 +1081,16 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
       </div>
       {arca?.cuit && (
         <p className="mt-3 text-sm text-text-muted">
-          CUIT {arca.cuit} Â· Punto de venta {arca.puntoVenta}
+          CUIT {arca.cuit} · Punto de venta {arca.puntoVenta}
         </p>
       )}
       <p className="mt-3 text-sm text-text-muted">
         {mode === 'real'
           ? 'Se emiten comprobantes reales contra ARCA (WSAA/WSFE).'
-          : 'Sin certificado vÃ¡lido no se puede facturar. CargÃ¡ el certificado y la clave privada para emitir CAE reales.'}
+          : 'Sin certificado válido no se puede facturar. Cargá el certificado y la clave privada para emitir CAE reales.'}
       </p>
       <Button onClick={test} disabled={busy} className="mt-4">
-        {busy ? 'Probando...' : 'Probar conexiÃ³n ARCA'}
+        {busy ? 'Probando...' : 'Probar conexión ARCA'}
       </Button>
       {result && (
         <div className="mt-3 space-y-1 text-sm text-text-muted">
@@ -1097,13 +1098,13 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
           {result.cert?.present && (
             <p>
               Certificado: {result.cert.subject || '(sin datos)'}
-              {result.cert.notAfter ? ` Â· vence ${new Date(result.cert.notAfter).toLocaleDateString()}` : ''}
+              {result.cert.notAfter ? ` · vence ${new Date(result.cert.notAfter).toLocaleDateString()}` : ''}
             </p>
           )}
           {result.lastCbte != null && <p>Ãšltimo comprobante autorizado: {result.lastCbte}</p>}
           {result.dummy && result.dummy.app != null && (
             <p>
-              AFIP Â· App {result.dummy.app ?? '-'} Â· DB {result.dummy.db ?? '-'} Â· Auth {result.dummy.auth ?? '-'}
+              AFIP · App {result.dummy.app ?? '-'} · DB {result.dummy.db ?? '-'} · Auth {result.dummy.auth ?? '-'}
             </p>
           )}
           {result.token && !result.token.ok && (
@@ -1145,7 +1146,7 @@ function ArcaPointsOfSaleCard() {
     const raw = edits[branchId];
     const pointOfSale = raw === '' || raw == null ? 0 : Number(raw);
     if (Number.isNaN(pointOfSale) || pointOfSale < 0) {
-      toast.error('Punto de venta invÃ¡lido');
+      toast.error('Punto de venta inválido');
       return;
     }
     setSavingId(branchId);
@@ -1168,7 +1169,7 @@ function ArcaPointsOfSaleCard() {
   return (
     <Card title="Puntos de venta por sucursal">
       <p className="text-sm text-text-muted">
-        AsignÃ¡ el punto de venta AFIP de cada sucursal. Dejalo vacÃ­o o en 0 para usar el global
+        Asigná el punto de venta AFIP de cada sucursal. Dejalo vacío o en 0 para usar el global
         {data ? ` (${data.globalPointOfSale})` : ''}.
       </p>
       {!data ? (
@@ -1225,7 +1226,7 @@ function MpCard({ status }: { status: IntegrationStatus | null }) {
         {},
       );
       setPing(res);
-      toast[res.ok ? 'success' : 'error'](res.ok ? 'Credenciales de MercadoPago vÃ¡lidas' : res.error || 'MercadoPago rechazÃ³ las credenciales');
+      toast[res.ok ? 'success' : 'error'](res.ok ? 'Credenciales de MercadoPago válidas' : res.error || 'MercadoPago rechazó las credenciales');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al probar MercadoPago');
     } finally {
@@ -1252,11 +1253,11 @@ function MpCard({ status }: { status: IntegrationStatus | null }) {
         {mp?.pointDeviceId && <span className="text-xs text-text-muted">Point: {mp.pointDeviceId}</span>}
       </div>
       <p className="mt-3 text-sm text-text-muted">
-        Los cobros se envÃ­an a MercadoPago con las credenciales configuradas.
+        Los cobros se envían a MercadoPago con las credenciales configuradas.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button onClick={test} loading={busy}>
-          Probar conexiÃ³n
+          Probar conexión
         </Button>
         <Button variant="secondary" onClick={loadTerminals}>
           Ver terminales
@@ -1265,7 +1266,7 @@ function MpCard({ status }: { status: IntegrationStatus | null }) {
       {ping && (
         <p className="mt-3 text-sm text-text-muted">
           {ping.ok
-            ? `Cuenta ${ping.nickname ?? ping.userId ?? 'OK'}${ping.terminals != null ? ` Â· ${ping.terminals} terminal(es)` : ''}`
+            ? `Cuenta ${ping.nickname ?? ping.userId ?? 'OK'}${ping.terminals != null ? ` · ${ping.terminals} terminal(es)` : ''}`
             : ping.error}
         </p>
       )}
@@ -1274,7 +1275,7 @@ function MpCard({ status }: { status: IntegrationStatus | null }) {
           {terminals.length === 0 && <li>No hay terminales asociadas.</li>}
           {terminals.map((t, i) => (
             <li key={t.id ?? i}>
-              {t.pos_id ?? t.id} {t.external_pos_id ? `Â· ${t.external_pos_id}` : ''} {t.operating_mode ? `(${t.operating_mode})` : ''}
+              {t.pos_id ?? t.id} {t.external_pos_id ? `· ${t.external_pos_id}` : ''} {t.operating_mode ? `(${t.operating_mode})` : ''}
             </li>
           ))}
         </ul>
@@ -1292,8 +1293,8 @@ interface WhatsAppSession {
 
 const WA_LABELS: Record<WhatsAppSession['status'], string> = {
   connected: 'Conectado',
-  qr: 'EscaneÃ¡ el QR',
-  connecting: 'Conectandoâ€¦',
+  qr: 'Escaneá el QR',
+  connecting: 'Conectando…',
   disconnected: 'Desconectado',
 };
 
@@ -1309,7 +1310,7 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
       const s = await http.get<WhatsAppSession>('/integrations/whatsapp/status');
       setSession(s);
     } catch {
-      /* silencioso: se reintenta en el prÃ³ximo ciclo */
+      /* silencioso: se reintenta en el próximo ciclo */
     }
   }, []);
 
@@ -1329,7 +1330,7 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
       const s = await http.post<WhatsAppSession>('/integrations/whatsapp/connect', {});
       setSession(s);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'No se pudo iniciar la conexiÃ³n');
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo iniciar la conexión');
     } finally {
       setLoading(false);
     }
@@ -1361,20 +1362,20 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
   }
 
   return (
-    <Card title="ConexiÃ³n de WhatsApp">
+    <Card title="Conexión de WhatsApp">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge color={conn === 'connected' ? 'green' : conn === 'qr' || conn === 'connecting' ? 'yellow' : 'gray'}>
           {WA_LABELS[conn]}
         </Badge>
         {conn === 'connected' && linkedNumber && (
-          <span className="text-xs text-text-muted">NÃºmero: {linkedNumber}</span>
+          <span className="text-xs text-text-muted">Número: {linkedNumber}</span>
         )}
       </div>
 
       {conn === 'connected' ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm text-text-muted">
-            Listo. El sistema envÃ­a los mensajes solo, sin abrir WhatsApp Web.
+            Listo. El sistema envía los mensajes solo, sin abrir WhatsApp Web.
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <Field label="Enviar mensaje de prueba a" className="flex-1">
@@ -1400,15 +1401,15 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
             className="h-56 w-56 rounded-lg border border-line bg-white p-2"
           />
           <p className="max-w-xs text-center text-xs text-text-muted">
-            AbrÃ­ WhatsApp en el telÃ©fono del gimnasio â†’ <strong>Dispositivos vinculados</strong> â†’ Â«Vincular un
-            dispositivoÂ» â†’ escaneÃ¡ este cÃ³digo.
+            Abrí WhatsApp en el teléfono del gimnasio → <strong>Dispositivos vinculados</strong> → «Vincular un
+            dispositivo» → escaneá este código.
           </p>
         </div>
       ) : (
         <div className="mt-4 space-y-3">
           <p className="text-sm text-text-muted">
-            VinculÃ¡ el nÃºmero del gimnasio una sola vez escaneando un QR. DespuÃ©s, los mensajes se envÃ­an
-            automÃ¡ticamente desde el sistema.
+            Vinculá el número del gimnasio una sola vez escaneando un QR. Después, los mensajes se envían
+            automáticamente desde el sistema.
           </p>
           <Button onClick={connect} loading={loading}>
             Conectar WhatsApp
@@ -1431,12 +1432,12 @@ function EmailCard({ status }: { status: IntegrationStatus | null }) {
       </div>
       {status?.email.configured ? (
         <p className="mt-3 text-sm text-text-muted">
-          Enviando desde <span className="text-text">{status.email.from}</span> vÃ­a {status.email.host}:
+          Enviando desde <span className="text-text">{status.email.from}</span> vía {status.email.host}:
           {status.email.port}.
         </p>
       ) : (
         <p className="mt-3 text-sm text-text-muted">
-          CargÃ¡ los datos SMTP para enviar emails reales (bienvenida, avisos de vencimiento, etc.). Si no estÃ¡
+          Cargá los datos SMTP para enviar emails reales (bienvenida, avisos de vencimiento, etc.). Si no está
           configurado, los avisos quedan registrados como pendientes.
         </p>
       )}
@@ -1463,7 +1464,7 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
   }
 
   return (
-    <Card title="QR estÃ¡tico">
+    <Card title="QR estático">
       <div className="flex items-center gap-2 text-sm">
         <Badge color={status?.mercadopago.configured ? 'green' : 'gray'}>
           {status?.mercadopago.configured ? 'Configurado' : 'Sin configurar'}
@@ -1472,7 +1473,7 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
       </div>
       <div className="mt-4 flex flex-col items-center gap-3">
         {image ? (
-          <img src={image} alt="QR estÃ¡tico" className="h-56 w-56 rounded-lg border border-line bg-white p-2" />
+          <img src={image} alt="QR estático" className="h-56 w-56 rounded-lg border border-line bg-white p-2" />
         ) : (
           <div className="flex h-56 w-56 items-center justify-center rounded-lg border border-dashed border-line text-xs text-text-muted">
             Sin QR generado
@@ -1487,9 +1488,9 @@ function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
 }
 
 const CHECKIN_METHODS: { key: string; label: string; hint: string }[] = [
-  { key: 'QR', label: 'QR', hint: 'Lector de pistola o cÃ¡mara, y el QR fijo que escanea la app del socio' },
-  { key: 'CARD', label: 'Tarjeta', hint: 'Credencial RFID / banda magnÃ©tica (lector HID/Serial/NFC)' },
-  { key: 'FACE', label: 'Reconocimiento facial', hint: 'CÃ¡mara del equipo con detecciÃ³n de rostro' },
+  { key: 'QR', label: 'QR', hint: 'Lector de pistola o cámara, y el QR fijo que escanea la app del socio' },
+  { key: 'CARD', label: 'Tarjeta', hint: 'Credencial RFID / banda magnética (lector HID/Serial/NFC)' },
+  { key: 'FACE', label: 'Reconocimiento facial', hint: 'Cámara del equipo con detección de rostro' },
   { key: 'FINGERPRINT', label: 'Huella', hint: 'Lector de huellas / Windows Hello (WebAuthn)' },
   { key: 'TURNSTILE', label: 'Molinete', hint: 'Barrera o molinete controlado por el sistema' },
 ];
@@ -1528,7 +1529,7 @@ function MethodsCard({ config }: { config: Record<string, string> }) {
   return (
     <Card title="Medios de ingreso (check-in)">
       <p className="text-xs text-text-muted">
-        ElegÃ­ con quÃ© medios pueden registrar su ingreso tus socios. El mÃ©todo manual siempre queda disponible como respaldo.
+        Elegí con qué medios pueden registrar su ingreso tus socios. El método manual siempre queda disponible como respaldo.
       </p>
       <div className="mt-4 space-y-2">
         {CHECKIN_METHODS.map((m) => (
@@ -1560,26 +1561,26 @@ function MethodsCard({ config }: { config: Record<string, string> }) {
 
 function FaceInfoCard() {
   return (
-    <Card title="CÃ³mo funciona">
+    <Card title="Cómo funciona">
       <div className="space-y-3 text-sm text-text-muted">
         <p>
-          El sistema usa <span className="text-text">reconocimiento facial real</span> en el dispositivo (cÃ¡mara este
-          navegador / kiosco): detecta el rostro, lo vuelve un vector de 128 dimensiones y lo envÃ­a al servidor para
+          El sistema usa <span className="text-text">reconocimiento facial real</span> en el dispositivo (cámara este
+          navegador / kiosco): detecta el rostro, lo vuelve un vector de 128 dimensiones y lo envía al servidor para
           compararlo con los rostros enrolados.
         </p>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="rounded-lg bg-surface-alt/60 p-3">
             <div className="mb-1 font-semibold text-text">Enrolamiento</div>
-            Desde la ficha del socio â†’ "Registrar rostro". Se toman 5 muestras en vivo.
+            Desde la ficha del socio → "Registrar rostro". Se toman 5 muestras en vivo.
           </div>
           <div className="rounded-lg bg-surface-alt/60 p-3">
             <div className="mb-1 font-semibold text-text">Check-in</div>
-            Desde "Acceso y asistencia" â†’ "Check-in por rostro", o desde el kiosco de la sucursal.
+            Desde "Acceso y asistencia" → "Check-in por rostro", o desde el kiosco de la sucursal.
           </div>
         </div>
         <p>
-          Umbral de coincidencia: menor valor = mÃ¡s estricto (0.30â€“0.40), mayor valor = mÃ¡s permisivo (0.60â€“0.70).
-          0.55 es el valor recomendado. El cÃ³digo de acceso/sede habitual sigue funcionando igual.
+          Umbral de coincidencia: menor valor = más estricto (0.30–0.40), mayor valor = más permisivo (0.60–0.70).
+          0.55 es el valor recomendado. El código de acceso/sede habitual sigue funcionando igual.
         </p>
       </div>
     </Card>
@@ -1599,7 +1600,7 @@ function PrintCard({ status }: { status: IntegrationStatus | null }) {
     try {
       const res = await http.get<{ ok: boolean; printers: Array<{ name: string }>; error?: string }>('/integrations/print/printers');
       setPrinters((res.printers ?? []).map((p) => p.name).filter(Boolean));
-      if (!res.ok) setResult(res.error ?? 'No se pudo conectar con el servidor de impresiÃ³n');
+      if (!res.ok) setResult(res.error ?? 'No se pudo conectar con el servidor de impresión');
       else setResult(`${(res.printers ?? []).length} impresora(s) disponibles`);
     } catch (error) {
       setResult(error instanceof ApiError ? error.message : 'Error al listar impresoras');
@@ -1637,7 +1638,7 @@ function PrintCard({ status }: { status: IntegrationStatus | null }) {
   }
 
   return (
-    <Card title="Impresora tÃ©rmica">
+    <Card title="Impresora térmica">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge color={status?.print.configured ? 'green' : 'gray'}>
           {status?.print.configured ? 'Configurada' : 'Valores por defecto'}
@@ -1647,8 +1648,8 @@ function PrintCard({ status }: { status: IntegrationStatus | null }) {
         </Badge>
       </div>
       <p className="mt-3 text-sm text-text-muted">
-        La app de escritorio expone el servidor de impresiÃ³n en <code>http://127.0.0.1:3999</code>. Si el panel
-        corre en otra PC, apuntÃ¡ <code>DEST_URL</code> a la IP de esa mÃ¡quina.
+        La app de escritorio expone el servidor de impresión en <code>http://127.0.0.1:3999</code>. Si el panel
+        corre en otra PC, apuntá <code>DEST_URL</code> a la IP de esa máquina.
         {hasPoint && ' Con la terminal Point seleccionada, el comprobante se imprime en la impresora de la terminal.'}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -1733,7 +1734,7 @@ function SystemPanel() {
         OBS_RETENTION_DAYS: cfg.retentionDays,
       });
       setCfg((prev) => (prev ? { ...prev, ...res } : res));
-      toast.success('ConfiguraciÃ³n guardada');
+      toast.success('Configuración guardada');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
     } finally {
@@ -1754,7 +1755,7 @@ function SystemPanel() {
   }
 
   async function purge() {
-    if (!confirm('Â¿Borrar logs y notificaciones mÃ¡s antiguos que la retenciÃ³n configurada?')) return;
+    if (!confirm('¿Borrar logs y notificaciones más antiguos que la retención configurada?')) return;
     setPurging(true);
     try {
       const res = await http.post<{ retentionDays: number; errorLogs: number; activityLogs: number; notifications: number }>(
@@ -1817,11 +1818,11 @@ function SystemPanel() {
                 value={String(cfg.alertsEnabled)}
                 onChange={(e) => setCfg({ ...cfg, alertsEnabled: e.target.value === 'true' })}
               >
-                <option value="true">SÃ­</option>
+                <option value="true">Sí</option>
                 <option value="false">No</option>
               </Select>
             </Field>
-            <Field label="Nivel mÃ­nimo de alerta">
+            <Field label="Nivel mínimo de alerta">
               <Select
                 value={cfg.minLevel}
                 onChange={(e) => setCfg({ ...cfg, minLevel: e.target.value as ObservabilityConfig['minLevel'] })}
@@ -1831,7 +1832,7 @@ function SystemPanel() {
                 <option value="info">Todo</option>
               </Select>
             </Field>
-            <Field label="RetenciÃ³n de logs (dÃ­as)">
+            <Field label="Retención de logs (días)">
               <Input
                 type="number"
                 value={String(cfg.retentionDays)}
@@ -1849,7 +1850,7 @@ function SystemPanel() {
                 Exportar datos
               </Button>
               <Button type="button" variant="secondary" onClick={purge} loading={purging}>
-                Aplicar retenciÃ³n
+                Aplicar retención
               </Button>
             </div>
           </form>
@@ -1858,8 +1859,8 @@ function SystemPanel() {
 
       <Card title="Errores recientes">
         <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-          <Badge color={(cfg?.errors7d ?? 0) > 0 ? 'red' : 'green'}>{cfg?.errors7d ?? 0} en 7 dÃ­as</Badge>
-          {cfg?.lastErrorAt && <span className="text-xs text-text-muted">Ãºltimo {new Date(cfg.lastErrorAt).toLocaleString()}</span>}
+          <Badge color={(cfg?.errors7d ?? 0) > 0 ? 'red' : 'green'}>{cfg?.errors7d ?? 0} en 7 días</Badge>
+          {cfg?.lastErrorAt && <span className="text-xs text-text-muted">último {new Date(cfg.lastErrorAt).toLocaleString()}</span>}
           <Button variant="secondary" onClick={clearErrors}>
             Borrar historial
           </Button>
