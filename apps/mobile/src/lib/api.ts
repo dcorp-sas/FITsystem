@@ -86,7 +86,12 @@ interface RequestOptions {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = true } = options;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // Solo declaramos JSON cuando hay cuerpo: un POST/DELETE sin cuerpo con
+  // Content-Type: application/json hace que el servidor rechace la petición
+  // ("body cannot be empty when content-type is set to application/json").
+  const hasBody = body !== undefined && body !== null;
+  const headers: Record<string, string> = {};
+  if (hasBody) headers['Content-Type'] = 'application/json';
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   let res: Response;
@@ -94,7 +99,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch {
     // Sin respuesta del servidor (sin conexión, servidor caído o arrancando).

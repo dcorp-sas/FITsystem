@@ -1,6 +1,6 @@
 {
-  "version": "0.3.11",
+  "version": "0.3.12",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Actualizacion del escritorio sin instalador y mejoras en la app del socio.\n\n- Actualizacion del escritorio: al descargarse una version nueva ya NO aparece el\n  instalador tradicional que obligaba a esperar. La descarga sigue en segundo\n  plano mientras seguis usando el sistema. La instalacion es silenciosa y, al\n  reiniciar, el sistema se vuelve a abrir solo. Podes elegir reiniciar ahora\n  (\"Reiniciar e instalar\") o seguir trabajando: la actualizacion se aplica sola al\n  cerrar el sistema. Al reabrir, vuelve a la pantalla donde estabas.\n\n- App del socio: los mensajes al reservar una clase (confirmacion o error) se\n  muestran de forma mas clara. Si la reserva se hace bien pero falla la recarga de\n  la lista, ya no parece que hubiera fallado la reserva.",
+  "notes": "Correccion de las reservas de clases en la app del socio.\n\n- La app enviaba las peticiones de reservar y cancelar clase con el encabezado de\n  JSON pero sin cuerpo, y el servidor las rechazaba (\"body cannot be empty when\n  content-type is set to application/json\"). Por eso aparecia \"No se pudo\n  completar\" y la reserva no quedaba registrada ni se veia en el panel. Ahora\n  reservar y cancelar clase funcionan correctamente.",
   "mandatory": false
 }
