@@ -17,7 +17,7 @@ interface GateConfig {
 }
 
 const DEFAULT_CONFIG: GateConfig = {
-  apiUrl: 'http://127.0.0.1:3001',
+  apiUrl: 'https://fitsystem-api.onrender.com',
   email: '',
   token: '',
   branchId: '',

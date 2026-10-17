@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('fitsystem', {
-  version: '0.3.5',
+  version: '0.3.6',
   getLicense: () => ipcRenderer.invoke('license:get'),
   activate: (key: string) => ipcRenderer.invoke('license:activate', key),
   requestCode: () => ipcRenderer.invoke('license:request'),
@@ -10,13 +10,14 @@ contextBridge.exposeInMainWorld('fitsystem', {
   getUpdateState: () => ipcRenderer.invoke('update:state'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  dismissUpdate: () => ipcRenderer.invoke('update:dismiss'),
   // Avisa al proceso principal si hay una venta/cobro en curso, para que la
   // actualización automática no reinicie la app justo en ese momento.
   setBusy: (busy: boolean) => ipcRenderer.invoke('app:busy', busy),
-  // Red local: consultar/definir el modo (standalone o servidor) y reiniciar la
-  // app para aplicar el cambio.
+  // Red: consultar/definir el modo (local o nube) y reiniciar la app para
+  // aplicar el cambio.
   getNetwork: () => ipcRenderer.invoke('network:get'),
-  setNetwork: (mode: 'standalone' | 'server') => ipcRenderer.invoke('network:set', mode),
+  setNetwork: (mode: 'standalone' | 'server' | 'cloud') => ipcRenderer.invoke('network:set', mode),
   restartApp: () => ipcRenderer.invoke('network:restart'),
   onUpdateEvent: (listener: (payload: unknown) => void) => {
     const wrapped = (_event: unknown, payload: unknown) => listener(payload);

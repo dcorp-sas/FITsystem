@@ -553,7 +553,7 @@ function NetworkCard() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function applyMode(mode: 'standalone' | 'server') {
+  async function applyMode(mode: 'standalone' | 'server' | 'cloud') {
     const bridge = typeof window !== 'undefined' ? window.fitsystem : undefined;
     if (!bridge?.setNetwork || !bridge?.restartApp) return;
     setSaving(true);
@@ -587,6 +587,7 @@ function NetworkCard() {
   }
 
   const isServer = info?.mode === 'server';
+  const isCloud = info?.mode === 'cloud';
 
   return (
     <Card title="Red local (varias PC en el gimnasio)" className="max-w-2xl">
@@ -602,7 +603,25 @@ function NetworkCard() {
             type="radio"
             name="netmode"
             className="mt-1"
-            checked={!isServer}
+            checked={isCloud}
+            disabled={saving}
+            onChange={() => applyMode('cloud')}
+          />
+          <span>
+            <span className="block text-sm font-medium text-text">Nube (recomendado)</span>
+            <span className="mt-0.5 block text-xs text-text-muted">
+              El sistema trabaja contra la nube: la misma informaci&oacute;n que ve la app del socio (pagos,
+              ingresos, rutinas y vencimientos). Necesita conexi&oacute;n a internet.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4">
+          <input
+            type="radio"
+            name="netmode"
+            className="mt-1"
+            checked={!isServer && !isCloud}
             disabled={saving}
             onChange={() => applyMode('standalone')}
           />
@@ -634,6 +653,17 @@ function NetworkCard() {
           </span>
         </label>
       </div>
+
+      {isCloud && (
+        <div className="mt-4 rounded-lg border border-line bg-surface-alt/60 p-4">
+          <div className="text-xs font-medium text-text-muted">Panel en la nube</div>
+          <p className="mt-2 font-mono text-sm text-primary-light">{info?.cloudPanelUrl}</p>
+          <p className="mt-2 text-xs text-text-muted">
+            Para sumar m&aacute;s PC, abr&iacute; esa direcci&oacute;n en el navegador de cualquier equipo e
+            ingres&aacute; con tu usuario. Todas trabajan sobre la misma base que la app del socio.
+          </p>
+        </div>
+      )}
 
       {isServer && (
         <div className="mt-4 rounded-lg border border-line bg-surface-alt/60 p-4">

@@ -22,6 +22,12 @@ const UPDATE_FEED_URL =
   process.env.UPDATE_FEED_URL ||
   'https://raw.githubusercontent.com/dcorp-sas/FITsystem/main/updates/latest.json';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Modo "nube": el panel y la API se sirven desde la infraestructura del
+// proveedor (la MISMA base de datos que la app del socio). El equipo del
+// gimnasio abre el panel remoto; el proceso local solo administra la licencia y
+// la impresión de tickets. Se puede apuntar a otro entorno con estas variables.
+const CLOUD_PANEL_URL = (process.env.CLOUD_PANEL_URL || 'https://fitsystem-web.onrender.com').replace(/\/+$/, '');
+const CLOUD_API_URL = (process.env.CLOUD_API_URL || 'https://fitsystem-api.onrender.com').replace(/\/+$/, '');
 // Auto-actualizador (electron-updater). Se inicializa solo en la app instalada
 // (app.isPackaged). El build portable no puede auto-actualizarse.
 let updater: import('electron-updater').AppUpdater | null = null;
@@ -39,6 +45,9 @@ let rendererBusy = false;
 let activationWindow: BrowserWindow | null = null;
 let printServer: http.Server | null = null;
 let licenseInfo: LicenseInfo | null = null;
+// Ventana aparte que avisa que hay una actualización descargada y pide
+// confirmación antes de reiniciar e instalar.
+let updateWindow: BrowserWindow | null = null;
 
 interface LicenseInfo {
   plan: string;
@@ -203,7 +212,7 @@ function getApiSecret(): string {
 // Red local (modo servidor / terminal)
 // ---------------------------------------------------------------------------
 
-type NetworkMode = 'standalone' | 'server';
+type NetworkMode = 'standalone' | 'server' | 'cloud';
 
 interface NetworkConfig {
   mode: NetworkMode;
@@ -216,15 +225,25 @@ function networkFile(): string {
 // 'standalone' (por defecto): todo en esta PC, API solo en loopback.
 // 'server': esta PC es el servidor del gimnasio; API y panel escuchan en la red
 // local y las demás PC entran desde el navegador (http://IP:3000).
+// 'cloud': el panel y los datos viven en la nube (la misma base que la app del
+// socio); en el equipo solo corre la API local (licencia/impresión).
 function readNetworkConfig(): NetworkConfig {
   try {
     const raw = fs.readFileSync(networkFile(), 'utf8');
     const parsed = JSON.parse(raw) as Partial<NetworkConfig>;
     if (parsed.mode === 'server') return { mode: 'server' };
+    if (parsed.mode === 'cloud') return { mode: 'cloud' };
   } catch {
     /* default */
   }
-  return { mode: 'standalone' };
+  // Por defecto el producto instalado trabaja contra la nube (misma base que la
+  // app del socio). En desarrollo, panel local. Un gimnasio puede fijar
+  // 'standalone'/'server' desde Configuración > Red.
+  return { mode: app.isPackaged ? 'cloud' : 'standalone' };
+}
+
+function isCloudMode(): boolean {
+  return readNetworkConfig().mode === 'cloud';
 }
 
 function writeNetworkConfig(config: NetworkConfig): void {
@@ -597,6 +616,84 @@ function emitUpdate(payload: UpdateState) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Aviso de actualización (ventana aparte, con confirmación del usuario)
+// ---------------------------------------------------------------------------
+
+function updateReadyHtml(version: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+<title>Actualización lista - FIT system™</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #0f1115; color: #e6ecf7; font-family: 'Segoe UI', system-ui, sans-serif; }
+  .card { width: 420px; padding: 30px; border: 1px solid #233150; border-radius: 16px; background: #131c31; text-align: center; }
+  .logo { color: #60a5fa; font-size: 24px; font-weight: 900; letter-spacing: 3px; }
+  h1 { font-size: 18px; margin: 12px 0 6px; }
+  p { color: #8fa0bd; font-size: 13px; margin: 0 0 20px; line-height: 1.5; }
+  button { width: 100%; height: 46px; margin-top: 12px; border: none; border-radius: 10px; cursor: pointer;
+    background: #2563eb; color: #fff; font-size: 15px; font-weight: 600; }
+  button:disabled { opacity: .6; cursor: default; }
+  button.ghost { background: transparent; color: #8fa0bd; border: 1px solid #233150; font-size: 13px; font-weight: 500; }
+  button.ghost:hover { color: #e6ecf7; border-color: #2563eb; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">FIT</div>
+    <h1>Actualización lista</h1>
+    <p>Se descargó la versión <b>${version}</b> de FIT system™. Pod&eacute;s reiniciar ahora para instalarla o hacerlo m&aacute;s tarde.</p>
+    <button id="install">Reiniciar e instalar</button>
+    <button id="later" class="ghost">M&aacute;s tarde</button>
+  </div>
+  <script>
+    document.getElementById('install').addEventListener('click', function () {
+      this.disabled = true;
+      this.textContent = 'Reiniciando...';
+      window.fitsystem.installUpdate();
+    });
+    document.getElementById('later').addEventListener('click', function () {
+      window.fitsystem.dismissUpdate();
+    });
+  </script>
+</body>
+</html>`;
+}
+
+function showUpdateWindow(version: string): void {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.focus();
+    return;
+  }
+  try {
+    const htmlFile = path.join(app.getPath('userData'), 'update-ready.html');
+    fs.writeFileSync(htmlFile, updateReadyHtml(version));
+    updateWindow = new BrowserWindow({
+      width: 480,
+      height: 380,
+      resizable: false,
+      title: 'Actualización - FIT system™',
+      backgroundColor: '#0f1115',
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+    void updateWindow.loadFile(htmlFile);
+    updateWindow.on('closed', () => {
+      updateWindow = null;
+    });
+  } catch (err) {
+    log('No se pudo mostrar el aviso de actualización:', (err as Error).message);
+  }
+}
+
 async function initAutoUpdater() {
   if (!app.isPackaged) return;
   try {
@@ -612,34 +709,20 @@ async function initAutoUpdater() {
       log('electron-updater no disponible: el modulo no expone autoUpdater');
       return;
     }
-    // Descarga e instalación automáticas en segundo plano: al detectar una
-    // versión nueva se descarga sola y, al terminar, se reinicia e instala sin
-    // pedir confirmación para no interrumpir el uso del sistema.
+    // Descarga automática en segundo plano, pero la instalación SIEMPRE la
+    // confirma el usuario: al terminar se abre una ventana aparte con
+    // "Reiniciar e instalar" o "Más tarde". No se instala sola.
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.on('checking-for-update', () => emitUpdate({ state: 'checking' }));
     autoUpdater.on('update-available', (info) => emitUpdate({ state: 'available', version: info.version }));
     autoUpdater.on('update-not-available', () => emitUpdate({ state: 'up-to-date' }));
     autoUpdater.on('download-progress', (p) => emitUpdate({ state: 'downloading', percent: Math.round(p.percent) }));
     autoUpdater.on('update-downloaded', (info) => {
       emitUpdate({ state: 'downloaded', version: info.version });
-      // Instala en silencio y reabre la app tal cual estaba. Espera a que el
-      // panel no tenga una venta a medio hacer para no interrumpir un cobro.
-      const tryInstall = () => {
-        if (rendererBusy) {
-          log('Actualización lista; esperando a que termine la venta en curso.');
-          setTimeout(tryInstall, 20000);
-          return;
-        }
-        setTimeout(() => {
-          try {
-            autoUpdater.quitAndInstall(true, true);
-          } catch (err) {
-            log('No se pudo instalar la actualización automáticamente:', (err as Error).message);
-          }
-        }, 1500);
-      };
-      tryInstall();
+      // No se instala sola: se abre una ventana aparte para que el usuario
+      // confirme el reinicio ("Reiniciar e instalar") o lo deje para más tarde.
+      showUpdateWindow(info.version);
     });
     autoUpdater.on('error', (err) => emitUpdate({ state: 'error', message: String((err as Error)?.message || err) }));
     updater = autoUpdater;
@@ -663,7 +746,12 @@ function registerUpdateIpc() {
   });
   ipcMain.handle('update:install', async () => {
     if (!updater) return { ok: false, error: 'Actualizador no disponible' };
+    if (rendererBusy) return { ok: false, error: 'Hay una venta en curso. Reintentá en unos segundos.' };
     setImmediate(() => updater?.quitAndInstall());
+    return { ok: true };
+  });
+  ipcMain.handle('update:dismiss', () => {
+    if (updateWindow && !updateWindow.isDestroyed()) updateWindow.close();
     return { ok: true };
   });
   // El panel avisa si hay una venta/cobro en curso, para no reiniciar la app
@@ -684,11 +772,13 @@ function registerNetworkIpc() {
       lanUrls: addresses.map((ip) => `http://${ip}:${WEB_PORT}/dashboard`),
       webPort: WEB_PORT,
       apiPort: API_PORT,
+      cloudPanelUrl: CLOUD_PANEL_URL,
+      cloudApiUrl: CLOUD_API_URL,
     };
   });
 
   ipcMain.handle('network:set', (_event, mode: string) => {
-    const next: NetworkMode = mode === 'server' ? 'server' : 'standalone';
+    const next: NetworkMode = mode === 'server' ? 'server' : mode === 'cloud' ? 'cloud' : 'standalone';
     writeNetworkConfig({ mode: next });
     log('Modo de red guardado:', next, '(requiere reiniciar)');
     return { ok: true, mode: next };
@@ -789,6 +879,7 @@ function stopServices() {
 }
 
 function appUrl(): string {
+  if (isCloudMode()) return `${CLOUD_PANEL_URL}/dashboard`;
   return app.isPackaged ? `http://127.0.0.1:${WEB_PORT}/dashboard` : 'http://localhost:3000/dashboard';
 }
 
@@ -838,12 +929,13 @@ async function createWindow() {
     return { action: 'deny' };
   });
 
-  // Evita que la ventana principal navegue fuera de la aplicación local.
+  // Evita que la ventana principal navegue fuera de la aplicación (panel local
+  // o panel en la nube). Todo lo demás se abre en el navegador externo.
   mainWindow.webContents.on('will-navigate', (event, navUrl) => {
-    const allowed = app.isPackaged
-      ? `http://127.0.0.1:${WEB_PORT}`
-      : 'http://localhost:3000';
-    if (!navUrl.startsWith(allowed)) {
+    const allowedOrigins = app.isPackaged
+      ? [`http://127.0.0.1:${WEB_PORT}`, CLOUD_PANEL_URL]
+      : ['http://localhost:3000', CLOUD_PANEL_URL];
+    if (!allowedOrigins.some((origin) => navUrl.startsWith(origin))) {
       event.preventDefault();
       openExternalSafe(navUrl);
     }
@@ -896,9 +988,11 @@ function startPrintServer() {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '', `http://127.0.0.1:${PRINT_PORT}`);
 
-    // CORS: solo se refleja el origen si es loopback (el panel local). NO se usa '*'.
+    // CORS: se refleja el origen si es loopback (panel local) o el panel en la
+    // nube. NO se usa '*'.
     const origin = String(req.headers.origin || '');
-    const originAllowed = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
+    const originAllowed =
+      /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin) || origin.startsWith(CLOUD_PANEL_URL);
     if (originAllowed) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
@@ -982,17 +1076,20 @@ app.on('second-instance', () => {
   }
 });
 
-// Permite el uso de la cámara (reconocimiento facial / check-in) sólo para el
-// panel local. Sin esto, Electron bloquea getUserMedia y la cámara "no conecta".
+// Permite el uso de la cámara (reconocimiento facial / check-in) en el panel
+// local y en el panel en la nube. Sin esto, Electron bloquea getUserMedia y la
+// cámara "no conecta".
 function grantLocalMediaPermissions() {
-  const isLocal = (url: string) =>
-    url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost');
+  const isAllowedOrigin = (url: string) =>
+    url.startsWith('http://127.0.0.1') ||
+    url.startsWith('http://localhost') ||
+    url.startsWith(CLOUD_PANEL_URL);
   const allowed = new Set(['media', 'camera', 'microphone', 'mediaKeySystem', 'audioCapture', 'videoCapture']);
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    callback(allowed.has(permission) && isLocal(webContents.getURL()));
+    callback(allowed.has(permission) && isAllowedOrigin(webContents.getURL()));
   });
   session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
-    allowed.has(permission) && isLocal(requestingOrigin),
+    allowed.has(permission) && isAllowedOrigin(requestingOrigin),
   );
 }
 
@@ -1014,16 +1111,25 @@ app.whenReady().then(async () => {
   try {
     if (app.isPackaged) {
       const network = readNetworkConfig();
+      const cloud = network.mode === 'cloud';
       const lanMode = network.mode === 'server';
       const bindHost = lanMode ? '0.0.0.0' : '127.0.0.1';
+      // La API local siempre arranca en el equipo: administra la licencia y la
+      // impresión de tickets. En modo nube NO se levanta el panel local; la
+      // ventana principal abre el panel remoto (misma base que la app del socio).
       apiProcess = startApi(bindHost, lanMode);
-      webProcess = startWeb(bindHost);
-      await Promise.all([
-        waitForUrl(`http://127.0.0.1:${API_PORT}/health`),
-        waitForUrl(`http://127.0.0.1:${WEB_PORT}/`),
-      ]);
+      if (cloud) {
+        await waitForUrl(`http://127.0.0.1:${API_PORT}/health`);
+        log('Modo nube: panel remoto', CLOUD_PANEL_URL);
+      } else {
+        webProcess = startWeb(bindHost);
+        await Promise.all([
+          waitForUrl(`http://127.0.0.1:${API_PORT}/health`),
+          waitForUrl(`http://127.0.0.1:${WEB_PORT}/`),
+        ]);
+        log('Servicios listos', lanMode ? `(red local: ${getLanAddresses().join(', ')})` : '');
+      }
       servicesReady = true;
-      log('Servicios listos', lanMode ? `(red local: ${getLanAddresses().join(', ')})` : '');
     }
   } catch (err) {
     log('Fallo al arrancar servicios:', (err as Error).message);

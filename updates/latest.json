@@ -1,6 +1,6 @@
 {
-  "version": "0.3.5",
+  "version": "0.3.6",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Marca unificada a FIT system (TM) en interfaz, emails y titulos. Pago con tarjeta embebido en la landing (Card Payment Brick) con estados de carga/error y CSP corregido para el CDN de MercadoPago. Tienda de licencias y productos de pago unico (asientos y kit MP) via Checkout Pro, formulario de contacto y precios mensual/anual. WhatsApp por QR (Baileys) para enviar desde el sistema. Fase 2 de sincronizacion (pagos, ventas, caja, stock, productos).",
+  "notes": "Modo nube: el panel y los datos del gimnasio ahora viven en la nube (la misma base que la app del socio) y se comparten en tiempo real entre el sistema y la app (pagos, ingresos/check-in, rutinas y vencimientos). Nuevo modo de red 'Nube' en Configuracion > Red (recomendado). El aviso de actualizacion ahora abre una ventana aparte para confirmar o posponer la instalacion (ya no se actualiza sola). El lector de acceso (FIT System Acceso) apunta por defecto a la nube.",
   "mandatory": false
 }

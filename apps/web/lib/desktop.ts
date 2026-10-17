@@ -6,11 +6,13 @@ export interface UpdateEvent {
 }
 
 export interface NetworkInfo {
-  mode: 'standalone' | 'server';
+  mode: 'standalone' | 'server' | 'cloud';
   addresses: string[];
   lanUrls: string[];
   webPort: number;
   apiPort: number;
+  cloudPanelUrl: string;
+  cloudApiUrl: string;
 }
 
 export interface DesktopBridge {
@@ -19,10 +21,11 @@ export interface DesktopBridge {
   getUpdateState?: () => Promise<UpdateEvent | null>;
   downloadUpdate?: () => Promise<{ ok: boolean; error?: string }>;
   installUpdate?: () => Promise<{ ok: boolean; error?: string }>;
+  dismissUpdate?: () => Promise<{ ok: boolean }>;
   setBusy?: (busy: boolean) => Promise<unknown>;
   onUpdateEvent?: (listener: (payload: UpdateEvent) => void) => () => void;
   getNetwork?: () => Promise<NetworkInfo>;
-  setNetwork?: (mode: 'standalone' | 'server') => Promise<{ ok: boolean; mode: 'standalone' | 'server' }>;
+  setNetwork?: (mode: 'standalone' | 'server' | 'cloud') => Promise<{ ok: boolean; mode: 'standalone' | 'server' | 'cloud' }>;
   restartApp?: () => Promise<{ ok: boolean }>;
 }
 
