@@ -1,6 +1,6 @@
 {
-  "version": "0.3.7",
+  "version": "0.3.8",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Notificaciones: el envío manual ahora respeta el canal que elijas (WhatsApp o email) y te muestra si se envió o el error real. WhatsApp: la sesión del QR se guarda en la base y se reconecta sola después de reiniciar el sistema. Ajustes: textos con caracteres especiales corregidos.",
+  "notes": "Notificaciones push en la app del socio (Web Push/VAPID)\n- La app ahora puede avisarte cuando tu gimnasio publica una novedad o te asigna una rutina nueva.\n- Se pide permiso una sola vez y podés desactivarlo desde el navegador.\n\nApp del socio\n- La camara pide permiso una sola vez y lo recuerda: no vuelve a preguntar en cada ingreso.\n\nEscritorio\n- Aclarado el aviso de actualizacion: se descarga en segundo plano y se te pide reiniciar para instalar (nunca se reinicia sola).\n\nNotificaciones por email\n- Se quito el canal de email de las notificaciones y los ajustes. Las credenciales de acceso del socio ahora se envian por WhatsApp.",
   "mandatory": false
 }
