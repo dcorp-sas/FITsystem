@@ -38,11 +38,16 @@ export function ClassesScreen() {
           showToast('¡Listo! Ya estás anotado/a', `${item.name} · te esperamos.`, 'success');
         }
       }
-      await load();
     } catch (error) {
       showToast('No se pudo completar', error instanceof ApiError ? error.message : 'Intentá de nuevo.', 'error');
     } finally {
       setBusyId(null);
+    }
+    // La recarga va aparte: si falla, no debe parecer que falló la reserva.
+    try {
+      await load();
+    } catch {
+      /* la lista se actualizará en el próximo refresco */
     }
   }
 

@@ -647,9 +647,9 @@ function updateReadyHtml(version: string): string {
   <div class="card">
     <div class="logo">FIT</div>
     <h1>Actualización lista</h1>
-    <p>Se descargó la versión <b>${version}</b> de FIT system™. Pod&eacute;s reiniciar ahora para instalarla o hacerlo m&aacute;s tarde.</p>
+    <p>Se descargó la versión <b>${version}</b> de FIT system™. Ya pod&eacute;s seguir trabajando: la actualizaci&oacute;n se instalar&aacute; sola al cerrar el sistema. Si quer&eacute;s aplicarla ahora, se reinicia y vuelve a abrir en unos segundos, sin perder lo que estabas haciendo.</p>
     <button id="install">Reiniciar e instalar</button>
-    <button id="later" class="ghost">M&aacute;s tarde</button>
+    <button id="later" class="ghost">Seguir trabajando</button>
   </div>
   <script>
     document.getElementById('install').addEventListener('click', function () {
@@ -710,11 +710,12 @@ async function initAutoUpdater() {
       log('electron-updater no disponible: el modulo no expone autoUpdater');
       return;
     }
-    // Descarga automática en segundo plano, pero la instalación SIEMPRE la
-    // confirma el usuario: al terminar se abre una ventana aparte con
-    // "Reiniciar e instalar" o "Más tarde". No se instala sola.
+    // Descarga automática en segundo plano mientras se sigue usando el sistema.
+    // La instalación es silenciosa (sin el asistente tradicional) y se puede hacer
+    // de dos formas: al cerrar la app (autoInstallOnAppQuit) o reiniciando al
+    // instante desde el aviso. En ambos casos no se pierde el trabajo en curso.
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.on('checking-for-update', () => emitUpdate({ state: 'checking' }));
     autoUpdater.on('update-available', (info) => {
       log('Actualización disponible:', info.version, '(descarga automática:', autoUpdater.autoDownload, ')');
@@ -728,8 +729,9 @@ async function initAutoUpdater() {
     autoUpdater.on('update-downloaded', (info) => {
       log('Actualización descargada:', info.version);
       emitUpdate({ state: 'downloaded', version: info.version });
-      // No se instala sola: se abre una ventana aparte para que el usuario
-      // confirme el reinicio ("Reiniciar e instalar") o lo deje para más tarde.
+      // Se descargó en segundo plano; se puede seguir trabajando. La instalación
+      // se hará (silenciosa) al cerrar la app, o bien al toque si el usuario
+      // elige "Reiniciar e instalar".
       showUpdateWindow(info.version);
     });
     autoUpdater.on('error', (err) => {
@@ -758,7 +760,9 @@ function registerUpdateIpc() {
   ipcMain.handle('update:install', async () => {
     if (!updater) return { ok: false, error: 'Actualizador no disponible' };
     if (rendererBusy) return { ok: false, error: 'Hay una venta en curso. Reintentá en unos segundos.' };
-    setImmediate(() => updater?.quitAndInstall());
+    // Instalación silenciosa (sin el asistente) y reapertura automática del
+    // sistema ya actualizado. La URL actual quedó guardada para restaurarla.
+    setImmediate(() => updater?.quitAndInstall(true, true));
     return { ok: true };
   });
   ipcMain.handle('update:dismiss', () => {
@@ -894,6 +898,48 @@ function appUrl(): string {
   return app.isPackaged ? `http://127.0.0.1:${WEB_PORT}/dashboard` : 'http://localhost:3000/dashboard';
 }
 
+// Recuerda la última pantalla del panel para reabrirla tras reiniciar (por
+// ejemplo, al instalar una actualización). Así el usuario no pierde el contexto
+// de trabajo: al volver a abrir la app aparece donde estaba.
+function routeFilePath(): string {
+  return path.join(app.getPath('userData'), 'last-route.json');
+}
+
+function panelOrigin(): string {
+  try {
+    return new URL(appUrl()).origin;
+  } catch {
+    return '';
+  }
+}
+
+function isPanelUrl(url: string): boolean {
+  try {
+    return panelOrigin() !== '' && new URL(url).origin === panelOrigin();
+  } catch {
+    return false;
+  }
+}
+
+function saveRoute(url: string): void {
+  if (!isPanelUrl(url)) return;
+  try {
+    fs.writeFileSync(routeFilePath(), JSON.stringify({ url }));
+  } catch {
+    /* sin permiso de escritura: no es crítico */
+  }
+}
+
+function savedRouteUrl(): string | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(routeFilePath(), 'utf8')) as { url?: string };
+    if (parsed.url && isPanelUrl(parsed.url)) return parsed.url;
+  } catch {
+    /* sin archivo o contenido inválido */
+  }
+  return null;
+}
+
 // Bloqueo duro: si la prueba venció y no hay licencia, la ventana principal
 // muestra SOLO la pantalla de activación (no se entra al panel).
 async function showActivationInMain(info: LicenseInfo | null): Promise<void> {
@@ -928,12 +974,29 @@ async function createWindow() {
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
 
-  const url = appUrl();
+  // Reabre la última pantalla usada (si pertenece al mismo panel) para no perder
+  // el contexto al reiniciar tras una actualización.
+  const base = appUrl();
+  const restored = savedRouteUrl();
+  const url = restored && restored !== base ? restored : base;
   try {
     await mainWindow.loadURL(url);
   } catch (err) {
     log('Error al cargar', url, (err as Error).message);
   }
+
+  // Guarda la pantalla actual ante cada navegación (incluye navegación interna
+  // del panel, que usa el historial del navegador).
+  const persistRoute = () => {
+    try {
+      const current = mainWindow?.webContents.getURL();
+      if (current) saveRoute(current);
+    } catch {
+      /* la ventana puede estar cerrándose */
+    }
+  };
+  mainWindow.webContents.on('did-navigate', persistRoute);
+  mainWindow.webContents.on('did-navigate-in-page', persistRoute);
 
   mainWindow.webContents.setWindowOpenHandler(({ url: openUrl }) => {
     openExternalSafe(openUrl);

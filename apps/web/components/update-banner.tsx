@@ -60,7 +60,7 @@ export function UpdateBanner() {
             </span>
           </span>
         )}
-        {update.state === 'downloaded' && <>Actualización lista{update.version ? ` (${update.version})` : ''}. Reiniciá la aplicación para instalarla.</>}
+        {update.state === 'downloaded' && <>Actualización lista{update.version ? ` (${update.version})` : ''}. Se instala al cerrar el sistema, o reiniciá ahora para aplicarla.</>}
         {update.state === 'error' && <>No se pudo actualizar: {update.message ?? 'error desconocido'}.</>}
       </span>
       <div className="flex items-center gap-3">
