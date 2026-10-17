@@ -119,12 +119,20 @@ export function notificationRoutes(app: FastifyInstance) {
         where: { id: input.memberId, organizationId: req.user.organizationId },
       });
       if (!member) throw new HttpError(404, 'Socio no encontrado');
-      await notifyEvent(req.user.organizationId, member.id, input.event, {
-        member,
-        message: input.body || '',
+      const result = await notifyEvent(
+        req.user.organizationId,
+        member.id,
+        input.event,
+        { member, message: input.body || '' },
+        { channel: input.channel, templateId: input.templateId || undefined },
+      );
+      await logActivity(req, 'SEND', 'NOTIFICATION', undefined, undefined, {
+        member: member.id,
+        event: input.event,
+        channel: input.channel,
+        status: result.status,
       });
-      await logActivity(req, 'SEND', 'NOTIFICATION', undefined, undefined, { member: member.id, event: input.event });
-      return ok(reply, { sent: true }, 201);
+      return ok(reply, result, 201);
     } catch (error) {
       return fail(reply, error);
     }

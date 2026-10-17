@@ -330,6 +330,17 @@ export async function sendWhatsAppLinked(
   message: string,
 ): Promise<WhatsAppLinkedResult> {
   const s = ensureSession(orgId);
+  if ((!s.socket || s.status !== 'connected') && !s.stopped) {
+    // Intenta (re)conectar con las credenciales guardadas: si el proceso se
+    // reinició (sleep/redeploy de Render) la sesión en memoria se perdió, pero
+    // el estado está en la base y se puede recuperar.
+    await startWhatsAppSession(orgId, false);
+    for (let i = 0; i < 16 && !s.stopped; i++) {
+      if (s.status === 'connected') break;
+      if (!s.socket && !s.starting) break; // sin credenciales guardadas
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
   if (!s.socket || s.status !== 'connected') {
     return { ok: false, error: 'WhatsApp no está conectado (vinculá el número con el QR)' };
   }

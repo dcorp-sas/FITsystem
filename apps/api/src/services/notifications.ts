@@ -28,18 +28,36 @@ function renderDefault(event: NotificationEvent, vars: Vars): string {
   return renderTemplate(DEFAULT_SE_VARIANTS[event] ?? DEFAULT_SE_VARIANTS.CUSTOM, vars);
 }
 
-/** Registra una notificacion en el sistema (canal interno, sin APIs externas). */
+export interface NotifyResult {
+  channel: string;
+  status: string;
+  provider: string;
+  error: string | null;
+  toAddress: string | null;
+}
+
+/** Registra una notificacion en el sistema y, si hay proveedor, la envia. */
 export async function notifyEvent(
   organizationId: string,
   memberId: string | null,
   event: NotificationEvent,
   context: Record<string, string | number | object>,
-): Promise<void> {
+  options?: { channel?: string; templateId?: string },
+): Promise<NotifyResult> {
   try {
-    const template = await prisma.notificationTemplate.findFirst({
-      where: { organizationId, event, isActive: true },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const template = options?.templateId
+      ? await prisma.notificationTemplate.findFirst({
+          where: { id: options.templateId, organizationId },
+        })
+      : await prisma.notificationTemplate.findFirst({
+          where: {
+            organizationId,
+            event,
+            isActive: true,
+            ...(options?.channel ? { channel: options.channel } : {}),
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
 
     const member = memberId ? await prisma.member.findUnique({ where: { id: memberId } }) : null;
     const org = organizationId
@@ -58,7 +76,7 @@ export async function notifyEvent(
           : String(context.endDate ?? ''),
     };
 
-    const channel = template?.channel ?? 'WHATSAPP';
+    const channel = options?.channel ?? template?.channel ?? 'WHATSAPP';
     const body = template ? renderTemplate(template.body, vars) : renderDefault(event, vars);
     const subject = template?.subject ? renderTemplate(template.subject, vars) : null;
     const toAddress = channel === 'EMAIL' ? member?.email ?? null : member?.phone ?? null;
@@ -132,9 +150,18 @@ export async function notifyEvent(
         sentAt: status === 'SENT' ? new Date() : null,
       },
     });
+
+    return { channel, status, provider, error, toAddress };
   } catch (err) {
     // Nunca debe romper el flujo principal
     console.error('error al registrar notificacion', err);
+    return {
+      channel: options?.channel ?? 'WHATSAPP',
+      status: 'FAILED',
+      provider: 'SYSTEM',
+      error: (err as Error).message,
+      toAddress: null,
+    };
   }
 }
 

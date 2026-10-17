@@ -321,8 +321,18 @@ function SendModal({
     e.preventDefault();
     setSaving(true);
     try {
-      await http.post('/notifications/send', { memberId, channel, event, body });
-      toast.success('Notificación enviada');
+      const res = await http.post<{ channel: string; status: string; error: string | null }>(
+        '/notifications/send',
+        { memberId, channel, event, body },
+      );
+      if (res.status === 'SENT') {
+        toast.success('Notificación enviada');
+      } else {
+        const label = NOTIFICATION_CHANNEL_LABELS[res.channel] ?? res.channel;
+        toast.error(
+          `No se envió por ${label}${res.error ? `: ${res.error}` : ''}. Revisá la configuración en Ajustes.`,
+        );
+      }
       onSent();
       onClose();
     } catch (error) {
