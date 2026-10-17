@@ -3,7 +3,6 @@ import { renderTemplate, fullName, startOfDay } from '@fitsystem/utils';
 import type { NotificationEvent } from '@fitsystem/types';
 import { whatsappLink, sendWhatsAppCloud } from './whatsapp.js';
 import { sendWhatsAppLinked } from './whatsapp-client.js';
-import { sendEmail } from './email.js';
 import { sendPushToMember } from './push.js';
 
 const DEFAULT_SE_VARIANTS: Record<NotificationEvent, string> = {
@@ -79,7 +78,7 @@ export async function notifyEvent(
     const channel = options?.channel ?? template?.channel ?? 'WHATSAPP';
     const body = template ? renderTemplate(template.body, vars) : renderDefault(event, vars);
     const subject = template?.subject ? renderTemplate(template.subject, vars) : null;
-    const toAddress = channel === 'EMAIL' ? member?.email ?? null : member?.phone ?? null;
+    const toAddress = member?.phone ?? null;
 
     let status = 'SENT';
     let provider = 'SYSTEM';
@@ -109,16 +108,6 @@ export async function notifyEvent(
             error = linked.error ?? cloud.error ?? null;
           }
         }
-      }
-    } else if (channel === 'EMAIL') {
-      const result = await sendEmail(organizationId, member?.email ?? null, subject, body);
-      if (result.ok) {
-        provider = 'SMTP';
-        status = 'SENT';
-      } else {
-        provider = 'SYSTEM';
-        status = 'PENDING';
-        error = result.error ?? null;
       }
     } else if (channel === 'PUSH') {
       const result = await sendPushToMember(organizationId, memberId, subject ?? 'Novedad de tu gimnasio', body);

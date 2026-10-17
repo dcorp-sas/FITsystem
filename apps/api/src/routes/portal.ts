@@ -6,6 +6,7 @@ import {
   portalLoginSchema,
   portalActivateSchema,
   portalPushTokenSchema,
+  portalWebPushSchema,
   portalPaymentIntentSchema,
   portalProofSchema,
   portalCheckinSchema,
@@ -17,6 +18,7 @@ import { env } from '../env.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { getRawSetting } from '../services/settings.js';
 import { openTurnstile } from '../services/turnstile.js';
+import { getVapidPublicKey } from '../services/push.js';
 import { parseAccessQr } from '../lib/member-qr.js';
 import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
 
@@ -658,6 +660,53 @@ export function portalRoutes(app: FastifyInstance) {
         update: { portalAccountId: req.portalAccount.id, platform: input.platform, lastSeenAt: new Date() },
       });
       return ok(reply, { registered: true });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Clave publica VAPID para que la PWA pueda suscribirse al Web Push.
+  app.get('/portal/push-key', async (_request, reply) => {
+    return ok(reply, { publicKey: getVapidPublicKey() });
+  });
+
+  // Registrar (o actualizar) una suscripcion de Web Push de la PWA.
+  app.post('/portal/push-subscribe', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const input = validate(portalWebPushSchema, request.body);
+      const userAgent = input.userAgent || (request.headers['user-agent'] as string | undefined) || null;
+      await prisma.webPushSubscription.upsert({
+        where: { endpoint: input.endpoint },
+        create: {
+          portalAccountId: req.portalAccount.id,
+          endpoint: input.endpoint,
+          p256dh: input.keys.p256dh,
+          auth: input.keys.auth,
+          userAgent,
+        },
+        update: {
+          portalAccountId: req.portalAccount.id,
+          p256dh: input.keys.p256dh,
+          auth: input.keys.auth,
+          userAgent,
+          lastSeenAt: new Date(),
+        },
+      });
+      return ok(reply, { subscribed: true });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Dar de baja una suscripcion de Web Push (al desactivar notificaciones).
+  app.delete('/portal/push-subscribe', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const input = (request.body ?? {}) as { endpoint?: string };
+      if (input.endpoint) {
+        await prisma.webPushSubscription.deleteMany({ where: { endpoint: input.endpoint } });
+      }
+      return ok(reply, { unsubscribed: true });
     } catch (error) {
       return fail(reply, error);
     }

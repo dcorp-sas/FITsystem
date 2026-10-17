@@ -849,6 +849,7 @@ model PortalAccount {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
   pushTokens   PushToken[]
+  webPushSubscriptions WebPushSubscription[]
 
   @@index([organizationId])
   @@map("portal_accounts")
@@ -866,6 +867,24 @@ model PushToken {
   portalAccount PortalAccount @relation(fields: [portalAccountId], references: [id], onDelete: Cascade)
 
   @@map("push_tokens")
+}
+
+// Suscripciones de Web Push (PWA del socio, VAPID). Se crean al aceptar el
+// permiso de notificaciones en el navegador. El endpoint es unico por navegador.
+model WebPushSubscription {
+  id              String   @id @default(cuid())
+  portalAccountId String
+  endpoint        String   @unique
+  p256dh          String
+  auth            String
+  userAgent       String?
+  createdAt       DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+
+  portalAccount PortalAccount @relation(fields: [portalAccountId], references: [id], onDelete: Cascade)
+
+  @@index([portalAccountId])
+  @@map("web_push_subscriptions")
 }
 
 // Rutinas de entrenamiento (plantilla o asignada a un socio).

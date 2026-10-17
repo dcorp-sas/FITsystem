@@ -1,15 +1,65 @@
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import * as SecureStore from 'expo-secure-store';
 import { colors, spacing } from '../theme';
 import { Badge, Card, Muted, PrimaryButton, Subtitle } from '../components/ui';
 import { portal, ApiError, type CheckinResult } from '../lib/api';
 
+// Bandera para no volver a pedir la cámara si el navegador no sabe recordarlo.
+const CAMERA_KEY = 'fitsystem.socios.camera-granted';
+
+async function readCameraFlag(): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web') {
+      return typeof localStorage !== 'undefined' && localStorage.getItem(CAMERA_KEY) === '1';
+    }
+    return (await SecureStore.getItemAsync(CAMERA_KEY)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+async function writeCameraFlag(): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(CAMERA_KEY, '1');
+    } else {
+      await SecureStore.setItemAsync(CAMERA_KEY, '1');
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }) {
   const [permission, requestPermission] = useCameraPermissions();
+  const [knownGranted, setKnownGranted] = useState(false);
+  const [asked, setAsked] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CheckinResult | null>(null);
+
+  // Recuerda que el socio ya habilitó la cámara, para no volver a preguntar.
+  useEffect(() => {
+    void readCameraFlag().then(setKnownGranted);
+  }, []);
+
+  useEffect(() => {
+    if (!permission) return;
+    if (permission.granted) {
+      if (!knownGranted) {
+        setKnownGranted(true);
+        void writeCameraFlag();
+      }
+      return;
+    }
+    // Se pide una sola vez, de forma automática, si nunca se preguntó.
+    if (!asked && permission.status === 'undetermined' && permission.canAskAgain) {
+      setAsked(true);
+      void requestPermission();
+    }
+  }, [permission, knownGranted, asked, requestPermission]);
 
   async function handleScan({ data }: BarcodeScanningResult) {
     if (scanned || busy) return;
@@ -32,7 +82,12 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
     }
   }
 
-  if (!permission) {
+  const denied = permission?.status === 'denied';
+  // En la web el navegador puede no exponer el estado real: si ya se habilitó
+  // antes, se muestra la cámara directamente sin volver a pedir.
+  const cameraUsable = permission?.granted || (knownGranted && !denied);
+
+  if (!cameraUsable && !permission && !knownGranted) {
     return (
       <View style={styles.center}>
         <Muted>Cargando cámara…</Muted>
@@ -40,18 +95,30 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
     );
   }
 
-  if (!permission.granted) {
+  if (!cameraUsable) {
     return (
       <View style={styles.container}>
         <Card>
           <Subtitle>Escaneá el QR de la entrada</Subtitle>
           <Muted style={{ marginTop: spacing.sm }}>
-            Para registrar tu ingreso, la app necesita usar la cámara. Apuntá al cartel con el QR que está en la puerta
-            del gimnasio.
+            {denied
+              ? 'El acceso a la cámara está bloqueado. Habilitalo desde los ajustes del navegador y volvé a intentar.'
+              : 'Para registrar tu ingreso, la app necesita usar la cámara. Apuntá al cartel con el QR que está en la puerta del gimnasio.'}
           </Muted>
-          <View style={{ marginTop: spacing.md }}>
-            <PrimaryButton label="Habilitar cámara" onPress={requestPermission} />
-          </View>
+          {permission?.canAskAgain !== false && (
+            <View style={{ marginTop: spacing.md }}>
+              <PrimaryButton
+                label="Habilitar cámara"
+                onPress={async () => {
+                  const res = await requestPermission();
+                  if (res.granted) {
+                    setKnownGranted(true);
+                    void writeCameraFlag();
+                  }
+                }}
+              />
+            </View>
+          )}
         </Card>
       </View>
     );
@@ -65,6 +132,10 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
           onBarcodeScanned={scanned || busy ? undefined : handleScan}
+          onMountError={(e) => {
+            // La cámara no pudo iniciar (permiso revocado o sin dispositivo).
+            Alert.alert('Cámara no disponible', e.message || 'Revisá los permisos de la cámara.');
+          }}
         />
         <View pointerEvents="none" style={styles.overlay}>
           <View style={styles.frame} />

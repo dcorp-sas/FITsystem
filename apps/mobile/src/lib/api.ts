@@ -329,4 +329,11 @@ export const portal = {
 
   registerPush: (pushToken: string, platform: 'ANDROID' | 'IOS') =>
     request<{ registered: boolean }>('/api/portal/push-token', { method: 'POST', body: { token: pushToken, platform } }),
+
+  // Web Push (PWA): clave pública VAPID y alta/baja de la suscripción.
+  pushKey: () => request<{ publicKey: string }>('/api/portal/push-key', { auth: false }),
+  subscribeWebPush: (sub: { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string }) =>
+    request<{ subscribed: boolean }>('/api/portal/push-subscribe', { method: 'POST', body: sub }),
+  unsubscribeWebPush: (endpoint: string) =>
+    request<{ unsubscribed: boolean }>('/api/portal/push-subscribe', { method: 'DELETE', body: { endpoint } }),
 };

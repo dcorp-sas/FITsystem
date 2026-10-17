@@ -4,6 +4,7 @@ import { newsPostSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { assertBranchInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
+import { broadcastPushToOrg } from '../services/push.js';
 
 export function newsRoutes(app: FastifyInstance) {
   const auth = app.authenticate;
@@ -52,6 +53,11 @@ export function newsRoutes(app: FastifyInstance) {
         },
       });
       await logActivity(req, 'CREATE', 'NEWS', post.id, undefined, { title: post.title });
+      // Aviso push a los socios con la app: contenido nuevo.
+      if (post.isPublished) {
+        const preview = post.body.length > 140 ? `${post.body.slice(0, 137)}...` : post.body;
+        void broadcastPushToOrg(req.user.organizationId, post.title, preview).catch(() => undefined);
+      }
       return ok(reply, post, 201);
     } catch (error) {
       return fail(reply, error);

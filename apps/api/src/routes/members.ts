@@ -258,9 +258,9 @@ export function memberRoutes(app: FastifyInstance) {
       const portal = await autoProvisionPortalAccount({ organizationId: orgId, member });
 
       let emailSent: boolean | undefined;
-      if (input.notify && portal.created && portal.password && member.email) {
+      if (input.notify && portal.created && portal.password && member.phone) {
         const org = await prisma.organization.findUnique({ where: { id: orgId } });
-        const sent = await sendCredentials(orgId, member.email, {
+        const sent = await sendCredentials(orgId, member.phone, {
           memberName: fullName(member.firstName, member.lastName),
           gymName: org?.name ?? 'tu gimnasio',
           username: portal.username,

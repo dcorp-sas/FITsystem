@@ -4,6 +4,7 @@ import { routineSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { assertMemberInOrg } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
+import { sendPushToMember } from '../services/push.js';
 import { fullName } from '@fitsystem/utils';
 
 export function routineRoutes(app: FastifyInstance) {
@@ -90,6 +91,15 @@ export function routineRoutes(app: FastifyInstance) {
         include: { days: { orderBy: { dayIndex: 'asc' }, include: { exercises: true } } },
       });
       await logActivity(req, 'CREATE', 'ROUTINE', routine.id, undefined, { name: routine.name });
+      // Si la rutina se asigna a un socio, se le avisa por push.
+      if (routine.memberId) {
+        void sendPushToMember(
+          req.user.organizationId,
+          routine.memberId,
+          'Nueva rutina disponible',
+          `Tu profesor te asignó "${routine.name}". Abrila en la app.`,
+        ).catch(() => undefined);
+      }
       return ok(reply, routine, 201);
     } catch (error) {
       return fail(reply, error);

@@ -157,8 +157,8 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
         {},
       );
       setCreds((c) => (c ? { ...c, username: res.username, password: res.password, email: res.email, emailSent: res.emailSent } : c));
-      if (res.emailSent) toast.success('Credenciales enviadas');
-      else toast.error(res.emailError || 'No se pudo enviar el email');
+      if (res.emailSent) toast.success('Credenciales enviadas por WhatsApp');
+      else toast.error(res.emailError || 'No se pudo enviar por WhatsApp');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'No se pudo enviar');
     } finally {
@@ -221,13 +221,11 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-text-muted">
-              {creds.emailSent ? `Enviado a ${creds.email}` : creds.email ? `Sin enviar a ${creds.email}` : 'El socio no tiene email cargado'}
+              {creds.emailSent ? 'Enviadas por WhatsApp al socio.' : 'No se pudieron enviar por WhatsApp (revisá el WhatsApp vinculado).'}
             </span>
-            {creds.email && (
-              <Button variant="secondary" size="sm" onClick={resend} loading={resending} type="button">
-                <Icon name="mail" size={15} /> Reenviar por email
-              </Button>
-            )}
+            <Button variant="secondary" size="sm" onClick={resend} loading={resending} type="button">
+              <Icon name="whatsapp" size={15} /> Reenviar por WhatsApp
+            </Button>
           </div>
         </div>
       </Modal>
@@ -326,7 +324,7 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
         {!member && (
           <label className="flex items-center gap-2 text-sm text-text sm:col-span-2">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="h-4 w-4" />
-            Enviar credenciales de acceso a la app por email
+            Enviar credenciales de acceso a la app por WhatsApp
           </label>
         )}
       </form>

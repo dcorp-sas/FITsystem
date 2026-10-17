@@ -35,7 +35,8 @@ export type IconName =
   | 'routines'
   | 'card'
   | 'copy'
-  | 'mail';
+  | 'mail'
+  | 'whatsapp';
 
 const PATHS: Record<IconName, string> = {
   dashboard: 'M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6ZM13 9h8V3h-8v6Z',
@@ -73,6 +74,7 @@ const PATHS: Record<IconName, string> = {
   card: 'M2 5h20v14H2V5Zm0 5h20M6 15h4',
   copy: 'M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2ZM5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1',
   mail: 'M2 5h20v14H2V5Zm0 0 10 7 10-7',
+  whatsapp: 'M12 3a9 9 0 0 0-7.7 13.6L3 21l4.5-1.2A9 9 0 1 0 12 3Zm4.3 12.4c-.2.5-1 1-1.4 1-.4.1-.9.1-1.4-.1-.5-.2-1.7-.7-2.9-1.8-1.1-1-1.8-2.2-2-2.7-.2-.5-.2-1-.1-1.4 0-.4.5-1.2 1-1.4.2-.1.4-.1.6 0l.7 1.3c.1.2 0 .4-.1.5l-.5.6c-.1.1-.2.3-.1.5.2.4.6.9 1 1.3.4.4.9.8 1.3 1 .2.1.4 0 .5-.1l.6-.5c.1-.1.3-.2.5-.1l1.3.7c.1.1.2.3.1.6Z',
 };
 
 export function Icon({ name, size = 18, className }: { name: IconName; size?: number; className?: string }) {

@@ -105,9 +105,7 @@ export const MAINTENANCE_PRIORITY_LABELS: Record<string, string> = {
 
 export const NOTIFICATION_CHANNEL_LABELS: Record<string, string> = {
   WHATSAPP: 'WhatsApp',
-  EMAIL: 'Email',
-  PUSH: 'Push',
-  SMS: 'SMS',
+  PUSH: 'App del socio',
 };
 
 export const NOTIFICATION_EVENT_LABELS: Record<string, string> = {

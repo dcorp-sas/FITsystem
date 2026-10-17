@@ -8,8 +8,8 @@
      conexión. No se cachean los endpoints de login/activación ni las respuestas
      de error. La caché de API se limpia al cerrar sesión (mensaje de la app). */
 
-const CACHE = 'fitsystem-socios-v2';
-const API_CACHE = 'fitsystem-socios-api-v2';
+const CACHE = 'fitsystem-socios-v3';
+const API_CACHE = 'fitsystem-socios-api-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -79,6 +79,39 @@ self.addEventListener('fetch', (event) => {
         if (shell) return shell;
       }
       return new Response('Sin conexión', { status: 503, statusText: 'Offline' });
+    }),
+  );
+});
+
+// Notificaciones push (Web Push): muestra el aviso que envía el servidor.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const title = (data && data.title) || 'FIT system™';
+  const options = {
+    body: (data && data.body) || '',
+    icon: './logo192.png',
+    badge: './logo192.png',
+    data: { url: (data && data.url) || './' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Al tocar la notificación: enfoca la app (o la abre en la URL indicada).
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+      return undefined;
     }),
   );
 });

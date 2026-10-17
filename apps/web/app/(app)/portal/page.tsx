@@ -186,8 +186,8 @@ function PortalModal({
         { email: email || null },
       );
       setInvite(res);
-      if (res.emailSent) toast.success('Credenciales enviadas por email');
-      else toast.error(res.emailError || 'No se pudo enviar el email');
+      if (res.emailSent) toast.success('Credenciales enviadas por WhatsApp');
+      else toast.error(res.emailError || 'No se pudo enviar por WhatsApp');
       onSaved();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al enviar');
@@ -229,8 +229,8 @@ function PortalModal({
           <Button variant="ghost" onClick={onClose}>
             Cerrar
           </Button>
-          <Button variant="secondary" onClick={sendInvite} loading={inviting} disabled={!email}>
-            <Icon name="mail" size={15} /> Enviar credenciales
+          <Button variant="secondary" onClick={sendInvite} loading={inviting}>
+            <Icon name="whatsapp" size={15} /> Enviar por WhatsApp
           </Button>
           <Button onClick={submit} loading={saving}>
             Guardar
@@ -283,7 +283,7 @@ function PortalModal({
                 <span className="font-mono text-text">{invite.password}</span>
               </div>
               <p className="pt-1 text-xs text-text-muted">
-                {invite.emailSent ? `Enviado a ${invite.email}.` : `No se pudo enviar a ${invite.email}.`} Compartilas manualmente si hace falta.
+                {invite.emailSent ? 'Enviadas por WhatsApp al teléfono del socio.' : 'No se pudieron enviar por WhatsApp (revisá el WhatsApp vinculado).'} Compartilas manualmente si hace falta.
               </p>
             </div>
           </Card>

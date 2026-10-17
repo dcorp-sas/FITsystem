@@ -99,6 +99,16 @@ export const env = {
   WHATSAPP_AUTH_DIR: process.env.WHATSAPP_AUTH_DIR || path.join(resolveDataDir(), 'whatsapp'),
 
   // ---------------------------------------------------------------------------
+  // Notificaciones push de la app del socio (web push con VAPID).
+  // Se generan una vez con: npx web-push generate-vapid-keys
+  // La clave publica tambien se expone a la PWA para suscribirse.
+  // ---------------------------------------------------------------------------
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
+  // Contacto del emisor (mailto:). Requerido por los servicios de push.
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contacto.fitsystem@gmail.com',
+
+  // ---------------------------------------------------------------------------
   // Tienda del sitio (landing): formulario de contacto y pasarela de pago.
   // Es la cuenta del PROVEEDOR, distinta de la de cada gimnasio.
   // ---------------------------------------------------------------------------

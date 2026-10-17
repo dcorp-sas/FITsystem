@@ -202,8 +202,8 @@ export default function LicensePage() {
       {isDesktop && (
         <Card title="Actualización del sistema" className="mt-5">
           <p className="mb-4 text-sm text-text-muted">
-            FIT system™ se actualiza solo: descarga en segundo plano y se reinicia e instala automáticamente apenas hay
-            una versión nueva.
+            FIT system™ se actualiza solo: descarga la versión nueva en segundo plano. Para instalarla, te va a pedir
+            reiniciar la aplicación (nunca la reinicia sola mientras trabajás).
           </p>
 
           {update?.state === 'checking' && <p className="mb-3 text-sm text-text-muted">Buscando actualizaciones…</p>}
@@ -211,7 +211,8 @@ export default function LicensePage() {
           {update?.state === 'available' && (
             <div className="mb-3 rounded-lg border border-line bg-surface-alt p-3 text-sm">
               <p className="font-medium">
-                Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}. Se está descargando sola.
+                Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}. Se está descargando en
+                segundo plano; cuando termine vas a poder reiniciar para instalarla.
               </p>
               <Button variant="secondary" className="mt-3" onClick={descargarActualizacion}>
                 <Icon name="import" size={16} /> Descargar ahora
@@ -228,7 +229,7 @@ export default function LicensePage() {
           )}
           {update?.state === 'downloaded' && (
             <div className="mb-3 rounded-lg border border-line bg-surface-alt p-3 text-sm">
-              <p className="font-medium">Actualización lista. Reiniciando e instalando automáticamente…</p>
+              <p className="font-medium">Actualización lista. Reiniciá la aplicación para instalarla.</p>
               <Button className="mt-3" onClick={instalarActualizacion}>
                 <Icon name="check" size={16} /> Reiniciar e instalar
               </Button>

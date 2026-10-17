@@ -439,7 +439,7 @@ export const maintenanceOrderSchema = z.object({
 
 export const notificationTemplateSchema = z.object({
   name: z.string().min(1),
-  channel: z.enum(['WHATSAPP', 'EMAIL', 'PUSH', 'SMS']),
+  channel: z.enum(['WHATSAPP', 'PUSH']),
   event: z.enum([
     'WELCOME',
     'MEMBERSHIP_EXPIRING',
@@ -456,7 +456,7 @@ export const notificationTemplateSchema = z.object({
 
 export const sendNotificationSchema = z.object({
   memberId: cuid,
-  channel: z.enum(['WHATSAPP', 'EMAIL', 'PUSH', 'SMS']),
+  channel: z.enum(['WHATSAPP', 'PUSH']),
   event: z.enum([
     'WELCOME',
     'MEMBERSHIP_EXPIRING',
@@ -580,6 +580,15 @@ export const portalActivateSchema = z.object({
 export const portalPushTokenSchema = z.object({
   token: z.string().min(4),
   platform: z.enum(['ANDROID', 'IOS']).default('ANDROID'),
+});
+
+export const portalWebPushSchema = z.object({
+  endpoint: z.string().url(),
+  keys: z.object({
+    p256dh: z.string().min(4),
+    auth: z.string().min(4),
+  }),
+  userAgent: optionalString,
 });
 
 export const portalPaymentIntentSchema = z.object({

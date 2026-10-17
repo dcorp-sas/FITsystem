@@ -158,6 +158,15 @@ services:
       # Demo socios: gimnasio "fit-demo", email "juan@mail.com" / "socio123".
       - key: SEED_DEMO
         value: "1"
+      # --- Notificaciones push de la app del socio (Web Push / VAPID) ---
+      # Generá el par de claves con: npx web-push generate-vapid-keys
+      # La pública se entrega a la PWA para suscribirse; la privada firma los envíos.
+      - key: VAPID_PUBLIC_KEY
+        value: BHjzLxuWqNeVAw0yS2K07Ou9zz99DRFrW6Rg65ozTg0Px7rScvvQyB1dlpSIIUDIxr6KM1zFJGlJLC7G0FrA03k
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:contacto.fitsystem@gmail.com
       # URL pública de la API (para webhooks de MercadoPago). Ej: https://fitsystem-api.onrender.com
       - key: PUBLIC_URL
         sync: false

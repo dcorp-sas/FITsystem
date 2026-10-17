@@ -50,7 +50,7 @@ interface IntegrationStatus {
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
 
-type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face' | 'turnstile' | 'network';
+type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'print' | 'face' | 'turnstile' | 'network';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -58,7 +58,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'cobros', label: 'Cobros (MercadoPago)' },
   { key: 'arca', label: 'ARCA (Facturación)' },
   { key: 'whatsapp', label: 'WhatsApp' },
-  { key: 'email', label: 'Email (SMTP)' },
   { key: 'print', label: 'Impresión' },
   { key: 'face', label: 'Reconocimiento facial' },
   { key: 'turnstile', label: 'Molinetes / acceso' },
@@ -334,35 +333,6 @@ export default function SettingsPage() {
               ]}
               onSaved={load}
               extra={<WhatsappCard status={status} />}
-            />
-          )}
-
-          {tab === 'email' && (
-            <CategoryForm
-              title="Email"
-              category="SMTP"
-              values={settings.SMTP ?? {}}
-              intro={
-                <p className="text-xs text-text-muted">
-                  Sirve para enviar la bienvenida y los avisos de vencimiento al correo de tus socios. En Gmail:
-                  primero activá la «Verificación en 2 pasos», después creá una «Contraseña de aplicación» (16 letras)
-                  en myaccount.google.com/apppasswords y pegala acá. No uses la contraseña normal de tu cuenta.
-                </p>
-              }
-              presets={[
-                { label: 'Gmail', values: { SMTP_HOST: 'smtp.gmail.com', SMTP_PORT: '587', SMTP_SECURE: 'false' } },
-                { label: 'Outlook / Hotmail', values: { SMTP_HOST: 'smtp.office365.com', SMTP_PORT: '587', SMTP_SECURE: 'false' } },
-              ]}
-              fields={[
-                { key: 'SMTP_USER', label: 'Correo desde el que enviás', placeholder: 'gimnasio@gmail.com' },
-                { key: 'SMTP_PASS', label: 'Contraseña de la aplicación', type: 'password', secret: true, help: 'Gmail: activá la Verificación en 2 pasos en myaccount.google.com/security y generá la contraseña en myaccount.google.com/apppasswords. Outlook/Hotmail: usá una «contraseña de aplicación» de tu cuenta Microsoft.' },
-                { key: 'SMTP_FROM', label: 'Nombre y correo que ve el socio', placeholder: 'Mi Gimnasio <gimnasio@gmail.com>' },
-                { key: 'SMTP_HOST', label: 'Servidor de correo', placeholder: 'smtp.gmail.com', advanced: true },
-                { key: 'SMTP_PORT', label: 'Puerto', placeholder: '587', advanced: true },
-                { key: 'SMTP_SECURE', label: 'Conexión segura (true/false)', placeholder: 'false', advanced: true },
-              ]}
-              onSaved={load}
-              extra={<EmailCard status={status} />}
             />
           )}
 
@@ -1422,28 +1392,6 @@ function WhatsappCard({ status }: { status: IntegrationStatus | null }) {
   );
 }
 
-function EmailCard({ status }: { status: IntegrationStatus | null }) {
-  return (
-    <Card title="Estado del correo">
-      <div className="flex items-center gap-2 text-sm">
-        <Badge color={status?.email.configured ? 'green' : 'gray'}>
-          {status?.email.configured ? 'Configurado' : 'Sin configurar'}
-        </Badge>
-      </div>
-      {status?.email.configured ? (
-        <p className="mt-3 text-sm text-text-muted">
-          Enviando desde <span className="text-text">{status.email.from}</span> vía {status.email.host}:
-          {status.email.port}.
-        </p>
-      ) : (
-        <p className="mt-3 text-sm text-text-muted">
-          Cargá los datos SMTP para enviar emails reales (bienvenida, avisos de vencimiento, etc.). Si no está
-          configurado, los avisos quedan registrados como pendientes.
-        </p>
-      )}
-    </Card>
-  );
-}
 function StaticQrCard({ status }: { status: IntegrationStatus | null }) {
   const toast = useToast();
   const { branches, activeBranchId } = useAuth();

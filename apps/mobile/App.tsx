@@ -12,6 +12,7 @@ import { PaymentsScreen } from './src/screens/PaymentsScreen';
 import { ClassesScreen } from './src/screens/ClassesScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
 import { InstallPrompt } from './src/components/install-prompt';
+import { NotificationPrompt } from './src/components/notification-prompt';
 
 type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments';
 
@@ -98,6 +99,7 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
       <InstallPrompt />
+      <NotificationPrompt />
       <View style={styles.header}>
         <View>
           <Text style={styles.brand}>FIT system™</Text>

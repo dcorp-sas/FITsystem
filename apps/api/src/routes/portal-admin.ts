@@ -171,7 +171,6 @@ export function portalAdminRoutes(app: FastifyInstance) {
       }
 
       const email = input.email || member.email || existing?.email || null;
-      if (!email) throw new HttpError(400, 'El socio no tiene email cargado');
 
       const username = member.documentNumber || member.memberCode;
       const password = generatePassword(8);
@@ -192,20 +191,20 @@ export function portalAdminRoutes(app: FastifyInstance) {
       });
 
       const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
-      const sent = await sendCredentials(req.user.organizationId, email, {
+      const sent = await sendCredentials(req.user.organizationId, member.phone, {
         memberName: fullName(member.firstName, member.lastName),
         gymName: org?.name ?? 'tu gimnasio',
         username,
         password,
       });
 
-      await logActivity(req, 'INVITE', 'PORTAL_ACCOUNT', account.id, undefined, { memberId: id, emailSent: sent.ok });
+      await logActivity(req, 'INVITE', 'PORTAL_ACCOUNT', account.id, undefined, { memberId: id, sent: sent.ok });
       return ok(reply, {
         username,
         password,
         email,
         emailSent: sent.ok,
-        emailError: sent.ok ? null : sent.error ?? 'No se pudo enviar el email',
+        emailError: sent.ok ? null : sent.error ?? 'No se pudo enviar el mensaje por WhatsApp',
       });
     } catch (error) {
       return fail(reply, error);
