@@ -329,6 +329,23 @@ export const faceCheckinSchema = z.object({
   descriptor: descriptor512,
 });
 
+// Control de molinete / barrera: al registrar un ingreso válido se dispara una
+// apertura configurable (HTTP o TCP). Genérico para adaptarse a distintos
+// controladores sin cambiar el código.
+export const turnstileConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  protocol: z.enum(['http', 'tcp']).default('http'),
+  url: optionalString,
+  method: z.enum(['GET', 'POST']).default('POST'),
+  headers: z.record(z.string()).optional(),
+  body: optionalString,
+  host: optionalString,
+  port: z.coerce.number().int().min(1).max(65535).optional(),
+  payload: optionalString,
+  timeoutMs: z.coerce.number().int().min(200).max(10000).default(1500),
+  branchId: optionalString,
+});
+
 // ---------------------------------------------------------------------------
 // Clases / profesores
 // ---------------------------------------------------------------------------

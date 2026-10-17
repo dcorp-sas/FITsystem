@@ -16,6 +16,7 @@ import { validate, ok, fail, HttpError, type PortalAuthedRequest } from '../lib/
 import { env } from '../env.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { getRawSetting } from '../services/settings.js';
+import { openTurnstile } from '../services/turnstile.js';
 import { parseAccessQr } from '../lib/member-qr.js';
 import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
 
@@ -540,6 +541,9 @@ export function portalRoutes(app: FastifyInstance) {
       if (todays <= 1) {
         await prisma.member.update({ where: { id: memberId }, data: { totalVisits: { increment: 1 }, lastVisitAt: new Date() } });
       }
+
+      // El socio ingresó escaneando el QR de la puerta: abrir el molinete/barrera.
+      void openTurnstile(organizationId, finalBranchId);
 
       return ok(
         reply,

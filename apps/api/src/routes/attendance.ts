@@ -7,6 +7,7 @@ import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 import { getRawSetting } from '../services/settings.js';
 import { matchFace, parseThreshold } from '../services/face.js';
 import { getDeviceProfile, saveDeviceProfile, enabledMethods } from '../services/devices.js';
+import { openTurnstile } from '../services/turnstile.js';
 import { parseMemberQr, signAccessQr, type AccessRotation } from '../lib/member-qr.js';
 
 const ACCESS_ROTATIONS: AccessRotation[] = ['NEVER', 'DAILY', 'WEEKLY'];
@@ -164,6 +165,10 @@ async function performCheckin(req: AuthedRequest, memberId: string, branchId: st
   }
 
   await logActivity(req, 'CHECKIN', 'ATTENDANCE', attendance.id, undefined, { member: member.id, method, distance: 0 });
+
+  // Ingreso válido: abrir el molinete/barrera configurado (si lo hay). Se hace
+  // sin bloquear ni demorar la respuesta; un hardware caído no afecta el check-in.
+  void openTurnstile(orgId, branchId);
 
   const plan = membership.plan;
   return {

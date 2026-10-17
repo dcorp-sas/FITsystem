@@ -50,7 +50,7 @@ interface IntegrationStatus {
   print: { configured: boolean; defaultPrinter: string; destUrl: string; ticketTemplate: string; printOnPayment: boolean; destination: string; pointDeviceId: string };
 }
 
-type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face' | 'network';
+type Tab = 'general' | 'attendance' | 'cobros' | 'arca' | 'whatsapp' | 'email' | 'print' | 'face' | 'turnstile' | 'network';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'General' },
@@ -61,6 +61,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'email', label: 'Email (SMTP)' },
   { key: 'print', label: 'ImpresiÃ³n' },
   { key: 'face', label: 'Reconocimiento facial' },
+  { key: 'turnstile', label: 'Molinetes / acceso' },
   { key: 'network', label: 'Red local' },
 ];
 
@@ -431,6 +432,8 @@ export default function SettingsPage() {
             />
           )}
 
+          {tab === 'turnstile' && <TurnstileCard />}
+
           {tab === 'network' && <NetworkCard />}
         </>
       )}
@@ -692,6 +695,216 @@ function NetworkCard() {
         Cambiar el modo reinicia la aplicaciÃ³n. La impresiÃ³n local desde terminales de red se configura por
         equipo.
       </p>
+    </Card>
+  );
+}
+
+interface TurnstileConfigUI {
+  enabled: boolean;
+  protocol: 'http' | 'tcp';
+  url: string;
+  method: 'GET' | 'POST';
+  headers: string;
+  body: string;
+  host: string;
+  port: string;
+  payload: string;
+  timeoutMs: string;
+}
+
+function TurnstileCard() {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [form, setForm] = useState<TurnstileConfigUI>({
+    enabled: false,
+    protocol: 'http',
+    url: '',
+    method: 'POST',
+    headers: '',
+    body: '',
+    host: '',
+    port: '',
+    payload: '',
+    timeoutMs: '1500',
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const cfg = await http.get<Record<string, unknown>>('/integrations/turnstile/config');
+      setForm({
+        enabled: Boolean(cfg.enabled),
+        protocol: (cfg.protocol as 'http' | 'tcp') ?? 'http',
+        url: String(cfg.url ?? ''),
+        method: (cfg.method as 'GET' | 'POST') ?? 'POST',
+        headers: cfg.headers && Object.keys(cfg.headers as object).length ? JSON.stringify(cfg.headers) : '',
+        body: String(cfg.body ?? ''),
+        host: String(cfg.host ?? ''),
+        port: cfg.port != null ? String(cfg.port) : '',
+        payload: String(cfg.payload ?? ''),
+        timeoutMs: cfg.timeoutMs != null ? String(cfg.timeoutMs) : '1500',
+      });
+      setConfigured(Boolean(cfg.configured));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al cargar la configuración');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function set<K extends keyof TurnstileConfigUI>(key: K, value: TurnstileConfigUI[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function onSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let headers: Record<string, string> = {};
+      if (form.headers.trim()) {
+        try {
+          headers = JSON.parse(form.headers) as Record<string, string>;
+        } catch {
+          throw new ApiError(400, 'Los encabezados deben ser un JSON válido');
+        }
+      }
+      const res = await http.put<{ configured: boolean }>('/integrations/turnstile/config', {
+        enabled: form.enabled,
+        protocol: form.protocol,
+        url: form.url || '',
+        method: form.method,
+        headers,
+        body: form.body || '',
+        host: form.host || '',
+        port: form.port ? Number(form.port) : undefined,
+        payload: form.payload || '',
+        timeoutMs: form.timeoutMs ? Number(form.timeoutMs) : 1500,
+      });
+      setConfigured(Boolean(res.configured));
+      toast.success('Configuración guardada');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onTest() {
+    setTesting(true);
+    try {
+      const res = await http.post<{ ok: boolean; skipped?: boolean; reason?: string; status?: number }>(
+        '/integrations/turnstile/open',
+        {},
+      );
+      if (res.ok) toast.success('El molinete respondió correctamente');
+      else toast.error(res.reason ? `No se abrió: ${res.reason}` : `El molinete no respondió${res.status ? ` (HTTP ${res.status})` : ''}`);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo probar el molinete');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20 text-text-muted">
+        <Spinner className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  return (
+    <Card title="Molinetes / barreras de acceso" className="max-w-2xl">
+      <p className="text-sm text-text-muted">
+        Cuando un socio registra un ingreso válido (por QR, rostro o en recepción), FIT system™ puede
+        abrir automáticamente el molinete, la barrera o la puerta. Funciona con cualquier controlador que
+        se maneje por <strong className="text-text">HTTP</strong> (Shelly, Tasmota, ESP32, relés de red…)
+        o por <strong className="text-text">TCP</strong> (comando de texto a un host/puerto).
+      </p>
+
+      <form onSubmit={onSave} className="mt-4 space-y-4">
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.enabled}
+            disabled={saving}
+            onChange={(e) => set('enabled', e.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium text-text">Abrir el molinete en cada ingreso válido</span>
+            <span className="mt-0.5 block text-xs text-text-muted">
+              Si está desactivado, el sistema registra el ingreso pero no acciona el hardware.
+            </span>
+          </span>
+        </label>
+
+        <Field label="Tipo de conexión">
+          <Select value={form.protocol} onChange={(e) => set('protocol', e.target.value as 'http' | 'tcp')}>
+            <option value="http">HTTP (URL del controlador)</option>
+            <option value="tcp">TCP (host y puerto)</option>
+          </Select>
+        </Field>
+
+        {form.protocol === 'http' ? (
+          <>
+            <Field label="URL de apertura" hint="Ej: http://192.168.1.50/relay/0?turn=on">
+              <Input
+                value={form.url}
+                placeholder="http://192.168.1.50/open"
+                onChange={(e) => set('url', e.target.value)}
+              />
+            </Field>
+            <Field label="Método">
+              <Select value={form.method} onChange={(e) => set('method', e.target.value as 'GET' | 'POST')}>
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+              </Select>
+            </Field>
+            {form.method === 'POST' && (
+              <Field label="Cuerpo (opcional)" hint="Texto o JSON que espera el controlador.">
+                <Input value={form.body} placeholder='{"on":true}' onChange={(e) => set('body', e.target.value)} />
+              </Field>
+            )}
+            <Field label="Encabezados (opcional)" hint='JSON, por ejemplo {"Authorization":"Bearer ..."}.'
+            >
+              <Input value={form.headers} placeholder='{"X-Token":"..."}' onChange={(e) => set('headers', e.target.value)} />
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Host / IP">
+              <Input value={form.host} placeholder="192.168.1.50" onChange={(e) => set('host', e.target.value)} />
+            </Field>
+            <Field label="Puerto">
+              <Input value={form.port} placeholder="5000" onChange={(e) => set('port', e.target.value)} />
+            </Field>
+            <Field label="Comando (opcional)" hint="Texto que se envía al conectar. Vacío = OPEN.">
+              <Input value={form.payload} placeholder="OPEN" onChange={(e) => set('payload', e.target.value)} />
+            </Field>
+          </>
+        )}
+
+        <Field label="Tiempo de espera (ms)" hint="Máximo a esperar la respuesta del controlador.">
+          <Input value={form.timeoutMs} placeholder="1500" onChange={(e) => set('timeoutMs', e.target.value)} />
+        </Field>
+
+        <div className="flex items-center gap-3">
+          <Button type="submit" loading={saving}>
+            Guardar
+          </Button>
+          <Button type="button" variant="secondary" loading={testing} onClick={onTest} disabled={!configured}>
+            Probar apertura
+          </Button>
+        </div>
+      </form>
     </Card>
   );
 }

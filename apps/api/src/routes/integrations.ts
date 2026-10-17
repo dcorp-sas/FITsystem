@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 import { prisma } from '../db.js';
-import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, arcaCreditNoteSchema, arcaPointOfSaleSchema, mpPointPollSchema } from '@fitsystem/validators';
+import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, arcaCreditNoteSchema, arcaPointOfSaleSchema, mpPointPollSchema, turnstileConfigSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { getRawSetting, getSettings } from '../services/settings.js';
@@ -27,6 +27,7 @@ import {
 } from '../services/arca.js';
 import { getMpConfig, mpPing, getPosTerminals, createPointIntent, getPointIntent } from '../services/mercadopago.js';
 import { printTicket, listPrinters, printTicketAuto, printViaPoint, buildReceiptTicket } from '../services/print.js';
+import { getTurnstileConfig, saveTurnstileConfig, openTurnstile, turnstileConfigured } from '../services/turnstile.js';
 import { env } from '../env.js';
 
 /**
@@ -244,11 +245,94 @@ export function integrationRoutes(app: FastifyInstance) {
           port: smtp?.port ?? 587,
           from: smtp?.from ?? '',
         },
+        turnstile: await (async () => {
+          const cfg = await getTurnstileConfig(req.user.organizationId, req.user.branchId);
+          return {
+            configured: turnstileConfigured(cfg),
+            enabled: Boolean(cfg?.enabled),
+            protocol: cfg?.protocol ?? 'http',
+            target: cfg?.protocol === 'tcp' ? (cfg?.host ? `${cfg.host}:${cfg.port ?? ''}` : '') : cfg?.url ?? '',
+          };
+        })(),
       });
     } catch (error) {
       return fail(reply, error);
     }
   });
+
+  // Control de molinete / barrera: configuracion por organizacion (o sede).
+  app.get('/integrations/turnstile/config', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const query = request.query as { branchId?: string };
+      const branchId = query.branchId ?? req.user.branchId ?? null;
+      const cfg = await getTurnstileConfig(req.user.organizationId, branchId);
+      return ok(reply, {
+        enabled: Boolean(cfg?.enabled),
+        protocol: cfg?.protocol ?? 'http',
+        url: cfg?.url ?? '',
+        method: cfg?.method ?? 'POST',
+        headers: cfg?.headers ?? {},
+        body: cfg?.body ?? '',
+        host: cfg?.host ?? '',
+        port: cfg?.port ?? null,
+        payload: cfg?.payload ?? '',
+        timeoutMs: cfg?.timeoutMs ?? 1500,
+        branchId: cfg?.branchId ?? null,
+        configured: turnstileConfigured(cfg),
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.put(
+    '/integrations/turnstile/config',
+    { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] },
+    async (request, reply) => {
+      try {
+        const req = request as AuthedRequest;
+        const input = validate(turnstileConfigSchema, request.body ?? {});
+        const saved = await saveTurnstileConfig(req.user.organizationId, {
+          enabled: input.enabled ?? false,
+          protocol: input.protocol ?? 'http',
+          url: input.url ?? '',
+          method: input.method ?? 'POST',
+          headers: input.headers ?? {},
+          body: input.body ?? '',
+          host: input.host ?? '',
+          port: input.port,
+          payload: input.payload ?? '',
+          timeoutMs: input.timeoutMs,
+          branchId: input.branchId ?? null,
+        });
+        await logActivity(req, 'UPDATE', 'TURNSTILE', saved.branchId ?? 'DEFAULT', undefined, {
+          enabled: saved.enabled,
+          protocol: saved.protocol,
+        });
+        return ok(reply, { saved: true, configured: turnstileConfigured(saved) });
+      } catch (error) {
+        return fail(reply, error);
+      }
+    },
+  );
+
+  // Prueba de apertura del molinete con la config actual.
+  app.post(
+    '/integrations/turnstile/open',
+    { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] },
+    async (request, reply) => {
+      try {
+        const req = request as AuthedRequest;
+        const body = (request.body ?? {}) as { branchId?: string };
+        const branchId = body.branchId ?? req.user.branchId ?? null;
+        const result = await openTurnstile(req.user.organizationId, branchId);
+        return ok(reply, result, result.ok ? 200 : 202);
+      } catch (error) {
+        return fail(reply, error);
+      }
+    },
+  );
 
   // Configuracion de MercadoPago (sin secretos) + estado de la conexion.
   app.get('/integrations/mercadopago/config', { onRequest: [auth] }, async (request, reply) => {
