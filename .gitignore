@@ -74,3 +74,6 @@ desktop.ini
 # Misc
 coverage/
 .vercel/
+
+# Paquetes de assets de releases anteriores
+*-assets.zip
