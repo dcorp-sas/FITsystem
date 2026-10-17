@@ -563,6 +563,7 @@ async function checkForUpdates(silent = false): Promise<UpdateInfo | null> {
   // Releases; el progreso llega a la UI por eventos 'update:event'.
   if (updater) {
     try {
+      log('Consultando actualizaciones (electron-updater)…');
       await updater.checkForUpdates();
     } catch (err) {
       log('Auto-update falló:', (err as Error).message);
@@ -715,16 +716,26 @@ async function initAutoUpdater() {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.on('checking-for-update', () => emitUpdate({ state: 'checking' }));
-    autoUpdater.on('update-available', (info) => emitUpdate({ state: 'available', version: info.version }));
+    autoUpdater.on('update-available', (info) => {
+      log('Actualización disponible:', info.version, '(descarga automática:', autoUpdater.autoDownload, ')');
+      emitUpdate({ state: 'available', version: info.version });
+    });
     autoUpdater.on('update-not-available', () => emitUpdate({ state: 'up-to-date' }));
-    autoUpdater.on('download-progress', (p) => emitUpdate({ state: 'downloading', percent: Math.round(p.percent) }));
+    autoUpdater.on('download-progress', (p) => {
+      log(`Descargando actualización: ${Math.round(p.percent)}%`);
+      emitUpdate({ state: 'downloading', percent: Math.round(p.percent) });
+    });
     autoUpdater.on('update-downloaded', (info) => {
+      log('Actualización descargada:', info.version);
       emitUpdate({ state: 'downloaded', version: info.version });
       // No se instala sola: se abre una ventana aparte para que el usuario
       // confirme el reinicio ("Reiniciar e instalar") o lo deje para más tarde.
       showUpdateWindow(info.version);
     });
-    autoUpdater.on('error', (err) => emitUpdate({ state: 'error', message: String((err as Error)?.message || err) }));
+    autoUpdater.on('error', (err) => {
+      log('Error de auto-actualización:', String((err as Error)?.message || err));
+      emitUpdate({ state: 'error', message: String((err as Error)?.message || err) });
+    });
     updater = autoUpdater;
     log('Auto-updater (electron-updater) inicializado.');
   } catch (err) {

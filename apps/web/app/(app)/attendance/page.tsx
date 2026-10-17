@@ -354,14 +354,6 @@ export default function AttendancePage() {
   );
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 function AccessQrCard({ branchId }: { branchId: string }) {
   const toast = useToast();
   const [data, setData] = useState<AccessQrData | null>(null);
@@ -385,21 +377,13 @@ function AccessQrCard({ branchId }: { branchId: string }) {
   }, [load]);
 
   function print() {
-    if (!data?.image) return;
-    const win = window.open('', '_blank', 'width=820,height=920');
-    if (!win) return;
-    win.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"><title>QR de ingreso</title><style>` +
-        `body{font-family:system-ui,Arial,sans-serif;text-align:center;padding:48px;color:#0b1120}` +
-        `h1{font-size:28px;margin:0 0 10px}p{color:#475569;margin:6px 0;font-size:16px}` +
-        `img{width:380px;height:380px;margin:28px auto;display:block}` +
-        `.footer{margin-top:24px;font-size:14px;color:#64748b}</style></head><body>` +
-        `<h1>${escapeHtml(data.title)}</h1><p>${escapeHtml(data.subtitle)}</p>` +
-        `<img src="${data.image}" alt="QR" /><div class="footer">${escapeHtml(data.footer)}</div>` +
-        `<script>window.onload=function(){setTimeout(function(){window.print();},400);};</script>` +
-        `</body></html>`,
-    );
-    win.document.close();
+    if (!data?.image) {
+      toast.error('El QR todavía no está listo. Probá "Actualizar".');
+      return;
+    }
+    // Se imprime sólo la sección .qr-print-root (ver globals.css). No usamos
+    // window.open porque el escritorio (Electron) lo bloquea.
+    window.print();
   }
 
   const rotationLabel =
@@ -430,10 +414,19 @@ function AccessQrCard({ branchId }: { branchId: string }) {
           <Badge color={data?.enabled ? 'green' : 'gray'}>{data?.enabled ? 'Activo' : 'Desactivado'}</Badge>
           {data && <span className="text-xs text-text-muted">QR {rotationLabel}</span>}
         </div>
-        <Button onClick={print} disabled={!data?.image} className="w-full">
+        <Button onClick={print} disabled={loading} className="w-full">
           <Icon name="activity" size={16} /> Imprimir QR
         </Button>
       </div>
+
+      {data?.image && (
+        <div className="qr-print-root" aria-hidden="true">
+          <h1>{data.title}</h1>
+          <p>{data.subtitle}</p>
+          <img src={data.image} alt="QR de ingreso" />
+          <div className="qr-print-footer">{data.footer}</div>
+        </div>
+      )}
     </Card>
   );
 }

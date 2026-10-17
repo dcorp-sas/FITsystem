@@ -40,3 +40,50 @@ input[type='time']::-webkit-calendar-picker-indicator {
   filter: invert(0.7);
   cursor: pointer;
 }
+
+/* Impresión del QR de ingreso.
+   La sección .qr-print-root está oculta en pantalla y sólo se imprime ella:
+   así funciona igual en el navegador y dentro del escritorio (Electron), donde
+   window.open está bloqueado. */
+.qr-print-root {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .qr-print-root,
+  .qr-print-root * {
+    visibility: visible !important;
+  }
+  .qr-print-root {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    padding: 48px 24px;
+    background: #ffffff;
+    color: #0b1120;
+    text-align: center;
+  }
+  .qr-print-root h1 {
+    font-size: 28px;
+    margin: 0 0 10px;
+  }
+  .qr-print-root p {
+    margin: 6px 0;
+    font-size: 16px;
+    color: #475569;
+  }
+  .qr-print-root img {
+    display: block;
+    width: 380px;
+    height: 380px;
+    margin: 28px auto;
+  }
+  .qr-print-root .qr-print-footer {
+    margin-top: 24px;
+    font-size: 14px;
+    color: #64748b;
+  }
+}

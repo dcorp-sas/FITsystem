@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
 import { Card, Muted, PrimaryButton, Badge } from '../components/ui';
 import { portal, ApiError, type PortalClass } from '../lib/api';
+import { showToast } from '../lib/toast';
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);
@@ -28,14 +29,18 @@ export function ClassesScreen() {
     try {
       if (item.myStatus && item.myStatus !== 'CANCELLED') {
         await portal.cancelReserve(item.id);
-        Alert.alert('Reserva cancelada', `${item.name}`);
+        showToast('Reserva cancelada', item.name, 'info');
       } else {
         const res = await portal.reserve(item.id);
-        Alert.alert(res.waitlisted ? 'En lista de espera' : 'Reserva confirmada', `${item.name}`);
+        if (res.waitlisted) {
+          showToast('Estás en lista de espera', `${item.name} · te avisamos si se libera un lugar.`, 'info');
+        } else {
+          showToast('¡Listo! Ya estás anotado/a', `${item.name} · te esperamos.`, 'success');
+        }
       }
       await load();
     } catch (error) {
-      Alert.alert('No se pudo completar', error instanceof ApiError ? error.message : 'Intentá de nuevo');
+      showToast('No se pudo completar', error instanceof ApiError ? error.message : 'Intentá de nuevo.', 'error');
     } finally {
       setBusyId(null);
     }

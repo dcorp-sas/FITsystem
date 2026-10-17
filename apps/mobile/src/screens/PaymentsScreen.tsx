@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
 import { Badge, Card, Muted, PrimaryButton, Subtitle } from '../components/ui';
 import { portal, type Payment, type PaymentIntent, type Quota } from '../lib/api';
+import { showToast } from '../lib/toast';
 
 function money(amount: number, currency = 'ARS') {
   const rounded = Math.round(amount);
@@ -38,11 +39,11 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
       if (res.checkoutUrl && /^https?:\/\//i.test(res.checkoutUrl)) {
         await Linking.openURL(res.checkoutUrl);
       } else {
-        Alert.alert('MercadoPago', 'Se genero la intencion de pago. El gimnasio aun no tiene configurado MercadoPago online; acercate a recepcion.');
+        showToast('MercadoPago', 'Se generó la intención de pago. El gimnasio aún no tiene configurado MercadoPago online; acercate a recepción.', 'info');
       }
       await load();
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo iniciar el pago');
+      showToast('Error', err instanceof Error ? err.message : 'No se pudo iniciar el pago', 'error');
     } finally {
       setBusy(null);
     }

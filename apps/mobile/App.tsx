@@ -13,6 +13,7 @@ import { ClassesScreen } from './src/screens/ClassesScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
 import { InstallPrompt } from './src/components/install-prompt';
 import { NotificationPrompt } from './src/components/notification-prompt';
+import { ToastHost } from './src/components/toast';
 
 type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments';
 
@@ -140,6 +141,8 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+
+      <ToastHost />
     </SafeAreaView>
   );
 }

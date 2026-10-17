@@ -50,7 +50,7 @@ export function UpdateBanner() {
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
       <span className="min-w-0">
         {update.state === 'available' && (
-          <>Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}. Se está descargando en segundo plano; luego te vamos a pedir reiniciar para instalarla.</>
+          <>Hay una versión nueva disponible{update.version ? ` (${update.version})` : ''}. Se descarga en segundo plano; también podés descargarla ahora.</>
         )}
         {update.state === 'downloading' && (
           <span className="flex flex-wrap items-center gap-3">
@@ -64,7 +64,16 @@ export function UpdateBanner() {
         {update.state === 'error' && <>No se pudo actualizar: {update.message ?? 'error desconocido'}.</>}
       </span>
       <div className="flex items-center gap-3">
-        {update.state === 'available' && <span className="text-sky-200/80">En segundo plano…</span>}
+        {update.state === 'available' && (
+          <button
+            type="button"
+            onClick={descargar}
+            disabled={busy}
+            className="rounded-lg bg-sky-400 px-3 py-1.5 font-semibold text-sky-950 hover:bg-sky-300 disabled:opacity-60"
+          >
+            Descargar ahora
+          </button>
+        )}
         {update.state === 'downloading' && <span className="text-sky-200/80">Un momento…</span>}
         {(update.state === 'downloaded' || update.state === 'error') && (
           <button

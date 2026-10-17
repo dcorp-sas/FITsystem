@@ -1,6 +1,6 @@
 {
-  "version": "0.3.9",
+  "version": "0.3.10",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Panel de clases: las reservas hechas en la app ya aparecen en el panel.\n\nEn Clases > Agenda ahora podes navegar semana a semana (‹ Semana / Hoy / Semana ›)\no elegir el rango de fechas con \"Desde\" y \"Hasta\". Antes el panel solo mostraba\nlos proximos 7 dias, por eso una reserva para una clase mas adelante no aparecia.\n\nAdemas, el contador de reservas ya no incluye las reservas canceladas.",
+  "notes": "Correcciones de la app del socio y del panel.\n\n- App del socio: al reservar una clase ahora aparece el mensaje de confirmacion\n  (\"¡Listo! Ya estas anotado/a\") y, si algo falla, se ve el error. Antes en la PWA\n  no se mostraba ningun aviso (el aviso nativo no funciona en la web). Lo mismo al\n  marcar el ingreso con el QR.\n\n- Panel: el boton \"Imprimir QR\" de Acceso y asistencia ya funciona (antes no hacia\n  nada dentro del escritorio, porque el navegador embebido bloquea las ventanas\n  emergentes).\n\n- Check-in por rostro: corregido un error que dejaba la camara en \"Preparando...\"\n  sin iniciar. Ahora carga bien y, si falla, muestra el motivo y permite reintentar.\n\n- Actualizaciones del escritorio: se agrego un boton \"Descargar ahora\" y un mejor\n  registro para poder diagnosticar la descarga en segundo plano.",
   "mandatory": false
 }

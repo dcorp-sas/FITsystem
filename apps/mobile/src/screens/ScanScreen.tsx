@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as SecureStore from 'expo-secure-store';
 import { colors, spacing } from '../theme';
 import { Badge, Card, Muted, PrimaryButton, Subtitle } from '../components/ui';
 import { portal, ApiError, type CheckinResult } from '../lib/api';
+import { showToast } from '../lib/toast';
 
 // Bandera para no volver a pedir la cámara si el navegador no sabe recordarlo.
 const CAMERA_KEY = 'fitsystem.socios.camera-granted';
@@ -68,15 +69,14 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
     try {
       const res = await portal.checkin(data);
       setResult(res);
-      Alert.alert(
-        res.allowed ? 'Ingreso registrado' : 'No se pudo registrar',
-        res.allowed
-          ? `¡Bienvenido/a!${res.plan ? ` Plan: ${res.plan}` : ''}`
-          : res.message ?? 'Tu membresía no permite el ingreso.',
-      );
+      if (res.allowed) {
+        showToast('Ingreso registrado', `¡Bienvenido/a!${res.plan ? ` Plan: ${res.plan}` : ''}`, 'success');
+      } else {
+        showToast('No se pudo registrar', res.message ?? 'Tu membresía no permite el ingreso.', 'error');
+      }
       onDone?.(res);
     } catch (error) {
-      Alert.alert('Error', error instanceof ApiError ? error.message : 'Intentá de nuevo.');
+      showToast('Error', error instanceof ApiError ? error.message : 'Intentá de nuevo.', 'error');
     } finally {
       setBusy(false);
     }
@@ -134,7 +134,7 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
           onBarcodeScanned={scanned || busy ? undefined : handleScan}
           onMountError={(e) => {
             // La cámara no pudo iniciar (permiso revocado o sin dispositivo).
-            Alert.alert('Cámara no disponible', e.message || 'Revisá los permisos de la cámara.');
+            showToast('Cámara no disponible', e.message || 'Revisá los permisos de la cámara.', 'error');
           }}
         />
         <View pointerEvents="none" style={styles.overlay}>
