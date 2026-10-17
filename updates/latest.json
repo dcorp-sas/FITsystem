@@ -1,6 +1,6 @@
 {
-  "version": "0.3.8",
+  "version": "0.3.9",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Notificaciones push en la app del socio (Web Push/VAPID)\n- La app ahora puede avisarte cuando tu gimnasio publica una novedad o te asigna una rutina nueva.\n- Se pide permiso una sola vez y podés desactivarlo desde el navegador.\n\nApp del socio\n- La camara pide permiso una sola vez y lo recuerda: no vuelve a preguntar en cada ingreso.\n\nEscritorio\n- Aclarado el aviso de actualizacion: se descarga en segundo plano y se te pide reiniciar para instalar (nunca se reinicia sola).\n\nNotificaciones por email\n- Se quito el canal de email de las notificaciones y los ajustes. Las credenciales de acceso del socio ahora se envian por WhatsApp.",
+  "notes": "Panel de clases: las reservas hechas en la app ya aparecen en el panel.\n\nEn Clases > Agenda ahora podes navegar semana a semana (‹ Semana / Hoy / Semana ›)\no elegir el rango de fechas con \"Desde\" y \"Hasta\". Antes el panel solo mostraba\nlos proximos 7 dias, por eso una reserva para una clase mas adelante no aparecia.\n\nAdemas, el contador de reservas ya no incluye las reservas canceladas.",
   "mandatory": false
 }

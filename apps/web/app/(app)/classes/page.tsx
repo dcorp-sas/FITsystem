@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { http, ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth';
-import { formatDateTime, formatDate } from '@fitsystem/utils';
+import { formatDateTime, formatDate, addDays } from '@fitsystem/utils';
 import type { GymClass, ClassSession, Instructor } from '@/lib/types';
 import {
   Badge,
@@ -29,6 +29,14 @@ interface ReservationWithMember {
   member: { id: string; firstName: string; lastName: string; memberCode: string; phone: string | null } | null;
 }
 
+// Fecha local en formato YYYY-MM-DD para los <input type="date">.
+function toInputDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export default function ClassesPage() {
   const toast = useToast();
   const { branches, activeBranchId } = useAuth();
@@ -46,6 +54,22 @@ export default function ClassesPage() {
   const [rosterSession, setRosterSession] = useState<ClassSession | null>(null);
   const [roster, setRoster] = useState<ReservationWithMember[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
+  // Rango de la agenda: por defecto, la semana actual (hoy → +7 días). La app del
+  // socio muestra todas las clases futuras, así que el panel permite navegar para
+  // ver reservas de cualquier semana.
+  const [from, setFrom] = useState(() => toInputDate(new Date()));
+  const [to, setTo] = useState(() => toInputDate(addDays(new Date(), 7)));
+
+  function shiftWeek(delta: number) {
+    setFrom((f) => toInputDate(addDays(new Date(`${f}T00:00:00`), delta * 7)));
+    setTo((t) => toInputDate(addDays(new Date(`${t}T00:00:00`), delta * 7)));
+  }
+
+  function goToday() {
+    const now = new Date();
+    setFrom(toInputDate(now));
+    setTo(toInputDate(addDays(now, 7)));
+  }
 
   const openRoster = useCallback(
     async (session: ClassSession) => {
@@ -70,7 +94,7 @@ export default function ClassesPage() {
     try {
       const [cls, ses, ins] = await Promise.all([
         http.get<GymClass[]>('/classes'),
-        http.get<ClassSession[]>('/sessions'),
+        http.get<ClassSession[]>(`/sessions?from=${from}&to=${to}`),
         http.get<Instructor[]>('/instructors'),
       ]);
       setClasses(cls);
@@ -81,7 +105,7 @@ export default function ClassesPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, from, to]);
 
   useEffect(() => {
     load();
@@ -168,46 +192,63 @@ export default function ClassesPage() {
           )}
         </div>
       ) : (
-        <Card padded={false}>
-          {loading ? (
-            <div className="flex justify-center py-16 text-text-muted">
-              <Spinner className="h-6 w-6" />
-            </div>
-          ) : (
-            <Table head={['Clase', 'Profesor', 'Sala', 'Inicio', 'Reservas', '']} empty="Sin clases programadas">
-              {sessions.map((s) => (
-                <tr key={s.id} className="hover:bg-surface-alt/40">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full" style={{ background: s.gymClass?.color || '#2563eb' }} />
-                      <span className="font-medium text-text">{s.gymClass?.name ?? '—'}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-text-muted">{s.instructor?.name || '—'}</td>
-                  <td className="px-4 py-3 text-text-muted">{s.room || '—'}</td>
-                  <td className="px-4 py-3 text-text-muted">{formatDateTime(s.startAt)}</td>
-                  <td className="px-4 py-3 text-text-muted">{s._count?.reservations ?? 0} / {s.capacity}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openRoster(s)}
-                        title="Ver inscriptos"
-                        aria-label="Ver inscriptos"
-                      >
-                        <Icon name="users" size={15} />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)}>
-                        <Icon name="trash" size={15} />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </Card>
+        <div>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={() => shiftWeek(-1)}>
+              ‹ Semana
+            </Button>
+            <Button size="sm" variant="ghost" onClick={goToday}>
+              Hoy
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => shiftWeek(1)}>
+              Semana ›
+            </Button>
+            <span className="ml-2 text-xs text-text-muted">Desde</span>
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-8 w-40 py-0 text-xs" />
+            <span className="text-xs text-text-muted">hasta</span>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-8 w-40 py-0 text-xs" />
+          </div>
+          <Card padded={false}>
+            {loading ? (
+              <div className="flex justify-center py-16 text-text-muted">
+                <Spinner className="h-6 w-6" />
+              </div>
+            ) : (
+              <Table head={['Clase', 'Profesor', 'Sala', 'Inicio', 'Reservas', '']} empty="Sin clases programadas">
+                {sessions.map((s) => (
+                  <tr key={s.id} className="hover:bg-surface-alt/40">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full" style={{ background: s.gymClass?.color || '#2563eb' }} />
+                        <span className="font-medium text-text">{s.gymClass?.name ?? '—'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-text-muted">{s.instructor?.name || '—'}</td>
+                    <td className="px-4 py-3 text-text-muted">{s.room || '—'}</td>
+                    <td className="px-4 py-3 text-text-muted">{formatDateTime(s.startAt)}</td>
+                    <td className="px-4 py-3 text-text-muted">{s._count?.reservations ?? 0} / {s.capacity}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openRoster(s)}
+                          title="Ver inscriptos"
+                          aria-label="Ver inscriptos"
+                        >
+                          <Icon name="users" size={15} />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)}>
+                          <Icon name="trash" size={15} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </Card>
+        </div>
       )}
 
       <ClassModal open={classOpen} onClose={() => setClassOpen(false)} gymClass={editing} branchId={branchId} instructors={instructors} onSaved={load} />

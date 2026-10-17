@@ -169,7 +169,7 @@ export function classRoutes(app: FastifyInstance) {
         include: {
           gymClass: { select: { id: true, name: true, color: true, description: true } },
           instructor: { select: { id: true, name: true, color: true } },
-          _count: { select: { reservations: true } },
+          _count: { select: { reservations: { where: { status: { in: ['RESERVED', 'WAITLIST'] } } } } },
         },
       });
       return ok(reply, sessions);
