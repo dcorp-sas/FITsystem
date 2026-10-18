@@ -1,0 +1,154 @@
+# FIT System - despliegue en VPS propio con Caddy (HTTPS automatico por Let's Encrypt).
+#
+#   cp .env.vps.example .env      # y edita los valores (ver docs/VPS.md)
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Solo Caddy publica puertos (80/443). Postgres, API, web, socios y licensador
+# quedan en la red interna del compose y se llega a ellos por subdominio:
+#   fitsystem.com.ar    -> web:3000      (landing + panel)
+#   api.<dominio>       -> api:3001
+#   socios.<dominio>    -> socios:80     (PWA del socio)
+#   licensador.<dominio>-> licensador:3000
+#
+# Guia completa: docs/VPS.md
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?defini SITE_DOMAIN en .env}
+      ACME_EMAIL: ${ACME_EMAIL:?defini ACME_EMAIL en .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+      - socios
+      - licensador
+
+  # Solo loopback (127.0.0.1): el backup sale por ahi y el puerto NO se expone
+  # a Internet. Copias de seguridad via ./scripts/backup-db.sh
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fitsystem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defini POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: fitsystem
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Solo loopback: Postgres queda accesible desde el propio VPS (copias,
+    # migracion, tuneo) pero NUNCA desde Internet.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitsystem -d fitsystem"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fitsystem:${POSTGRES_PASSWORD}@db:5432/fitsystem
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:?defini JWT_SECRET en .env min 32 caracteres}
+      SETTINGS_ENC_KEY: ${SETTINGS_ENC_KEY:-}
+      # URL publica de la API: webhook de MercadoPago, onboarding, etc.
+      PUBLIC_URL: ${PUBLIC_URL:?defini PUBLIC_URL https://api.<dominio>}
+      # URL publica de la app del socio (retorno de MercadoPago).
+      SOCIOS_URL: ${SOCIOS_URL:?defini SOCIOS_URL https://socios.<dominio>}
+      # Origen CORS. Debe incluir el dominio principal, www y la PWA.
+      WEB_ORIGIN: ${WEB_ORIGIN:?defini WEB_ORIGIN con los origenes permitidos}
+      # El licensador corre en la red interna del compose, sin TLS.
+      LICENSE_SERVER: ${LICENSE_SERVER:-http://licensador:3000}
+      LICENSE_TRIAL_DAYS: ${LICENSE_TRIAL_DAYS:-7}
+      LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY:-}
+      LICENSE_SECRET: ${LICENSE_SECRET:-}
+      LICENSE_PRIVATE_KEY: ${LICENSE_PRIVATE_KEY:-}
+      PROVIDER_BACKUP_TOKEN: ${PROVIDER_BACKUP_TOKEN:-}
+      # Credenciales del Licensador para emitir la clave al aprobarse un pago.
+      LICENSOR_ADMIN_USER: ${LICENSOR_ADMIN_USER:-admin}
+      LICENSOR_ADMIN_PASS: ${LICENSOR_ADMIN_PASS:-}
+      # MercadoPago de la cuenta del PROVEEDOR (pago embebido en el sitio).
+      PLATFORM_MP_ACCESS_TOKEN: ${PLATFORM_MP_ACCESS_TOKEN:-}
+      PLATFORM_MP_PUBLIC_KEY: ${PLATFORM_MP_PUBLIC_KEY:-}
+      PLATFORM_MP_WEBHOOK_SECRET: ${PLATFORM_MP_WEBHOOK_SECRET:-}
+      # Email del sitio (contacto y alta de compra).
+      PLATFORM_CONTACT_TO: ${PLATFORM_CONTACT_TO:-}
+      PLATFORM_SMTP_HOST: ${PLATFORM_SMTP_HOST:-}
+      PLATFORM_SMTP_PORT: ${PLATFORM_SMTP_PORT:-587}
+      PLATFORM_SMTP_SECURE: ${PLATFORM_SMTP_SECURE:-}
+      PLATFORM_SMTP_USER: ${PLATFORM_SMTP_USER:-}
+      PLATFORM_SMTP_PASS: ${PLATFORM_SMTP_PASS:-}
+      PLATFORM_SMTP_FROM: ${PLATFORM_SMTP_FROM:-}
+      PLATFORM_BREVO_API_KEY: ${PLATFORM_BREVO_API_KEY:-}
+      # Notificaciones push de la app de socios.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Se incrustan en el bundle de Next.js: hay que pasarlos como build-args.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?defini NEXT_PUBLIC_API_URL https://api.<dominio>}
+        NEXT_PUBLIC_SOCIOS_URL: ${NEXT_PUBLIC_SOCIOS_URL:-}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      - api
+
+  socios:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile
+      args:
+        # Se incrusta en el bundle de Expo en tiempo de build.
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:?defini EXPO_PUBLIC_API_URL https://api.<dominio>}
+    restart: unless-stopped
+
+  licensador:
+    build:
+      context: ./apps/licensador
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      # Corre detras de Caddy (proxy): permite leer la IP real del cliente.
+      TRUST_PROXY: "1"
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:?defini ADMIN_PASS en .env min 8 caracteres}
+      # Firma: definir LICENSE_PRIVATE_KEY (Ed25519, preferido) o LICENSE_SECRET.
+      LICENSE_PRIVATE_KEY: ${LICENSE_PRIVATE_KEY:-}
+      LICENSE_SECRET: ${LICENSE_SECRET:-}
+      # Respaldo remoto del estado en Postgres. BACKUP_URL es la base de la API
+      # + /api (las rutas del API van bajo ese prefijo) y DEBE coincidir con el
+      # PROVIDER_BACKUP_TOKEN del API.
+      BACKUP_URL: ${BACKUP_URL:-http://api:3001/api}
+      BACKUP_TOKEN: ${PROVIDER_BACKUP_TOKEN:-}
+    volumes:
+      - licensador-data:/app/data
+
+volumes:
+  pgdata:
+  licensador-data:
+  caddy_data:
+  caddy_config:

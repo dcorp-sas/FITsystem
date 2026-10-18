@@ -1,11 +1,14 @@
 name: backup
 
-# Backup semanal de la base PostgreSQL (export JSON) como artefacto del workflow.
-# El plan free de Render no da backups, asi que esto guarda copias fuera de Render.
+# Backup semanal de la base PostgreSQL del VPS. Corre scripts/backup-db.sh en el
+# VPS y sube el volcado (.sql.gz) como artefacto del workflow, de modo que queda
+# una copia fuera del propio servidor.
 #
-# Requiere el secreto del repositorio RENDER_API_KEY (Settings > Secrets > Actions).
-# Si no esta definido, el workflow se saltea sin fallar.
-# Restaurar: node scripts/db-import.mjs --file <dump.json> --url "<DATABASE_URL>"
+# Requiere los secretos del repositorio: VPS_HOST, VPS_USER (opcional), VPS_SSH_KEY,
+# VPS_PORT (opcional). Si faltan VPS_HOST o VPS_SSH_KEY, el workflow se omite.
+# Restaurar:
+#   gunzip -c db-XXXX.sql.gz | docker compose -f docker-compose.prod.yml exec -T db \
+#     psql -U fitsystem -d fitsystem
 
 on:
   schedule:
@@ -19,38 +22,57 @@ jobs:
   db-backup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Comprobar si hay RENDER_API_KEY
+      - name: Comprobar si estan los secretos
         id: check
         run: |
-          if [ -n "${{ secrets.RENDER_API_KEY }}" ]; then
+          if [ -n "${{ secrets.VPS_HOST }}" ] && [ -n "${{ secrets.VPS_SSH_KEY }}" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Falta el secreto RENDER_API_KEY; se omite el backup."
+            echo "::warning::Faltan los secretos VPS_HOST/VPS_SSH_KEY; se omite el backup."
           fi
 
-      - uses: actions/setup-node@v4
+      - name: Preparar la clave SSH
         if: steps.check.outputs.enabled == 'true'
-        with:
-          node-version: 22
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Instalar dependencias
-        if: steps.check.outputs.enabled == 'true'
-        run: corepack enable && pnpm install --frozen-lockfile
-
-      - name: Exportar la base
+      - name: Generar el backup en el VPS
         if: steps.check.outputs.enabled == 'true'
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-        run: node scripts/db-export.mjs
+          HOST: ${{ secrets.VPS_HOST }}
+          SSHUSER: ${{ secrets.VPS_USER }}
+          PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          PORT="${PORT:-22}"
+          SSHUSER="${SSHUSER:-root}"
+          ssh -i ~/.ssh/id_ed25519 -p "$PORT" "$SSHUSER@$HOST" '
+            set -e
+            cd /opt/fitsystem
+            ./scripts/backup-db.sh
+          '
+
+      - name: Descargar el ultimo backup
+        if: steps.check.outputs.enabled == 'true'
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          SSHUSER: ${{ secrets.VPS_USER }}
+          PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          PORT="${PORT:-22}"
+          SSHUSER="${SSHUSER:-root}"
+          mkdir -p backups
+          LATEST=$(ssh -i ~/.ssh/id_ed25519 -p "$PORT" "$SSHUSER@$HOST" 'ls -1t /opt/fitsystem/backups/db-*.sql.gz | head -1')
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" "$SSHUSER@$HOST:$LATEST" backups/
 
       - name: Publicar el backup como artefacto
         if: steps.check.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ github.run_number }}
-          path: backups/*.json
+          path: backups/*.sql.gz
           retention-days: 30
           if-no-files-found: error

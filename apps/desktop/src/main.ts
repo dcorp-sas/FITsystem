@@ -26,8 +26,8 @@ const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 // proveedor (la MISMA base de datos que la app del socio). El equipo del
 // gimnasio abre el panel remoto; el proceso local solo administra la licencia y
 // la impresión de tickets. Se puede apuntar a otro entorno con estas variables.
-const CLOUD_PANEL_URL = (process.env.CLOUD_PANEL_URL || 'https://fitsystem-web.onrender.com').replace(/\/+$/, '');
-const CLOUD_API_URL = (process.env.CLOUD_API_URL || 'https://fitsystem-api.onrender.com').replace(/\/+$/, '');
+const CLOUD_PANEL_URL = (process.env.CLOUD_PANEL_URL || 'https://fitsystem.com.ar').replace(/\/+$/, '');
+const CLOUD_API_URL = (process.env.CLOUD_API_URL || 'https://api.fitsystem.com.ar').replace(/\/+$/, '');
 // Auto-actualizador (electron-updater). Se inicializa solo en la app instalada
 // (app.isPackaged). El build portable no puede auto-actualizarse.
 let updater: import('electron-updater').AppUpdater | null = null;

@@ -291,7 +291,7 @@ La licencia se administra desde la pantalla de **Licencia** (o desde el bloqueo
 de activación, si la prueba venció).
 
 1. Copiá el **ID de instalación** que muestra el sistema.
-2. Enviá ese ID al proveedor (contacto: `contacto.fitsystem@gmail.com`) para que
+2. Enviá ese ID al proveedor (contacto: `contacto@fitsystem.com.ar`) para que
    te genere el código.
 3. Pegá el **código de licencia** y activá.
 
@@ -313,11 +313,11 @@ gimnasio, archivo `.env`). En la app de escritorio muchas se generan solas.
 | `WEB_ORIGIN` | Orígenes permitidos (panel + app de socios), separados por coma. | Las URLs de tus servicios. |
 | `PUBLIC_URL` | URL pública de la API (webhook de MercadoPago). | La URL de tu API en la nube. |
 | `SOCIOS_URL` | URL de la app de socios (retorno de pago). | La URL de la PWA de socios. |
-| `CLOUD_URL` | Nube a la que el escritorio se conecta solo (app del socio). | `https://fitsystem-api.onrender.com` por defecto. |
+| `CLOUD_URL` | Nube a la que el escritorio se conecta solo (app del socio). | `https://api.fitsystem.com.ar` por defecto. |
 | `WHATSAPP_AUTH_DIR` | Carpeta donde se guarda la sesión de WhatsApp vinculada. | Por defecto, junto a la base de datos. |
 | `LICENSE_SERVER` | URL del Licensador. | La provee el proveedor. |
 | `LICENSE_PUBLIC_KEY` | Clave pública para verificar licencias. | Viene embebida. |
-| `LICENSE_CONTACT` | Correo para pedir el código de licencia. | `contacto.fitsystem@gmail.com`. |
+| `LICENSE_CONTACT` | Correo para pedir el código de licencia. | `contacto@fitsystem.com.ar`. |
 | `PROVIDER_BACKUP_TOKEN` | Respaldo del estado del Licensador. | La provee el proveedor. |
 
 Referencia completa con comentarios: `apps/api/.env.example` y
@@ -333,7 +333,7 @@ el panel: van como variables de entorno de la API (Render / `.env`).
 
 | Variable | Para qué sirve |
 | --- | --- |
-| `PLATFORM_CONTACT_TO` | Correo que recibe el formulario de contacto de la landing. Por defecto `contacto.fitsystem@gmail.com`. |
+| `PLATFORM_CONTACT_TO` | Correo que recibe el formulario de contacto de la landing. Por defecto `contacto@fitsystem.com.ar`. |
 | `PLATFORM_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASS` / `_FROM` | SMTP propio del sitio para el contacto y el aviso de compra. Si falta el host, esos emails no salen (la compra igual se registra). |
 | `PLATFORM_MP_ACCESS_TOKEN` | **Access Token** de la cuenta de MercadoPago del proveedor. Se obtiene en el panel de MercadoPago del proveedor. |
 | `PLATFORM_MP_PUBLIC_KEY` | **Public Key** de la misma cuenta. Necesaria para mostrar el formulario de pago embebido (tarjeta) en la landing. |

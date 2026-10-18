@@ -6,23 +6,23 @@
 // Se puede probar localmente:  node scripts/uptime-check.mjs
 
 const targets = [
-  { name: 'web', url: process.env.WEB_URL || 'https://fitsystem-web.onrender.com/', expect: 200 },
-  { name: 'socios', url: process.env.SOCIOS_URL || 'https://fitsystem-socios.onrender.com/', expect: 200 },
+  { name: 'web', url: process.env.WEB_URL || 'https://fitsystem.com.ar/', expect: 200 },
+  { name: 'socios', url: process.env.SOCIOS_URL || 'https://socios.fitsystem.com.ar/', expect: 200 },
   {
     name: 'api',
-    url: (process.env.API_URL || 'https://fitsystem-api.onrender.com') + '/health',
+    url: (process.env.API_URL || 'https://api.fitsystem.com.ar') + '/health',
     expect: 200,
     contains: 'fitsystem-api',
   },
   {
     name: 'licensador',
-    url: (process.env.LICENSOR_URL || 'https://fitsystem-licensador.onrender.com') + '/api/health',
+    url: (process.env.LICENSOR_URL || 'https://licensador.fitsystem.com.ar') + '/api/health',
     expect: 200,
     contains: 'fitsystem-licensador',
   },
 ];
 
-const TIMEOUT_MS = 60_000; // los servicios free de Render pueden tardar en despertar
+const TIMEOUT_MS = 60_000;
 const RETRIES = 2;
 const RETRY_DELAY_MS = 15_000;
 

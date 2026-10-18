@@ -1,9 +1,9 @@
 name: uptime
 
-# Monitoreo de disponibilidad: chequea web, socios, api y licensador cada 15 min.
-# Si algo falla, el workflow falla (GitHub notifica al dueno del repo) y se
-# abre/actualiza un issue con la etiqueta "uptime". Tambien sirve para mantener
-# despiertos los servicios free de Render.
+# Monitoreo de disponibilidad: chequea web, socios, api y licensador cada 15 min
+# contra el VPS de produccion (fitsystem.com.ar). Si algo falla, el workflow falla
+# (GitHub notifica al dueno del repo) y se abre/actualiza un issue con la etiqueta
+# "uptime".
 
 on:
   schedule:

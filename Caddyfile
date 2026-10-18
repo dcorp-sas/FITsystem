@@ -1,0 +1,61 @@
+# FIT System - Caddy: proxy inverso + HTTPS automatico (Let's Encrypt por HTTP-01).
+# Se monta como /etc/caddy/Caddyfile en el contenedor caddy (docker-compose.prod.yml).
+#
+# {$SITE_DOMAIN} y {$ACME_EMAIL} llegan por el entorno del contenedor.
+# Requiere puertos 80 y 443 abiertos en el VPS (y en el firewall de seguridad del
+# proveedor) para que Caddy pueda validar el dominio y emitir el certificado.
+{
+	email {$ACME_EMAIL}
+}
+
+# Cabeceras comunes a todos los dominios.
+(security) {
+	encode gzip
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=15552000; includeSubDomains"
+	}
+}
+
+# Cabeceras propias de la PWA del socio (espejo de las que pone Render).
+(socios-security) {
+	encode gzip
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
+		Strict-Transport-Security "max-age=15552000; includeSubDomains"
+		X-DNS-Prefetch-Control "off"
+	}
+}
+
+# --- Web (landing + panel) en el dominio principal ---
+{$SITE_DOMAIN} {
+	import security
+	reverse_proxy web:3000
+}
+
+# --- www redirige al dominio principal (301) ---
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# --- API del gimnasio ---
+api.{$SITE_DOMAIN} {
+	import security
+	reverse_proxy api:3001
+}
+
+# --- App del socio (PWA instalable) ---
+socios.{$SITE_DOMAIN} {
+	import socios-security
+	reverse_proxy socios:80
+}
+
+# --- Licensador (proveedor). Su autenticacion es ADMIN_USER/ADMIN_PASS propia. ---
+licensador.{$SITE_DOMAIN} {
+	import security
+	reverse_proxy licensador:3000
+}

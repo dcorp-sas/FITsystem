@@ -6,17 +6,49 @@ import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://fitsystem.com.ar'),
   title: 'FIT system™ — Software de gestión para gimnasios',
   description:
-    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio para tu PC con app móvil para tus socios.',
+    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio para tu PC que funciona sin internet, con app móvil para tus socios.',
+  keywords: [
+    'software para gimnasios',
+    'sistema de gestión de gimnasios',
+    'control de socios y cuotas',
+    'app para gimnasios',
+    'caja y cobros',
+    'control de acceso',
+    'MercadoPago',
+    'Argentina',
+  ],
+  alternates: { canonical: '/' },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: 'website',
+    locale: 'es_AR',
+    url: 'https://fitsystem.com.ar',
+    siteName: 'FIT system™',
+    title: 'FIT system™ — Software de gestión para gimnasios',
+    description:
+      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet, con app móvil para tus socios.',
+    images: [{ url: '/logo.png', width: 1254, height: 1254, alt: 'FIT system™' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FIT system™ — Software de gestión para gimnasios',
+    description:
+      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema, con app móvil para tus socios.',
+    images: ['/logo.png'],
+  },
 };
 
-const CONTACT_EMAIL = 'contacto.fitsystem@gmail.com';
+const CONTACT_EMAIL = 'contacto@fitsystem.com.ar';
+const SALES_EMAIL = 'ventas@fitsystem.com.ar';
+const SUPPORT_EMAIL = 'soporte@fitsystem.com.ar';
 const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
 const TRIAL_DAYS = 15;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
 const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
-const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://fitsystem-socios.onrender.com';
+const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
 const STATS = [
@@ -52,7 +84,23 @@ const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses', amount: 60
 
 const MP_KIT = { price: '$50.000', period: 'pago único', amount: 50000 };
 
-const FAQS = [
+const TESTIMONIALS: Array<{ quote: string; author: string; role: string }> = [
+  {
+    quote: 'Revolucionamos la gestión: ahora cobramos más rápido y sabemos exactamente qué debe cada socio.',
+    author: 'Leo Martino',
+    role: 'Dueño · SportFit Buenos Aires',
+  },
+  {
+    quote: 'La app del socio nos ahorra tiempo en recepción. Los turnos y la cuota se manejan solos.',
+    author: 'María González',
+    role: 'Recepcionista · GymVital Rosario',
+  },
+  {
+    quote: 'Funciona sin internet y eso nos salva los días de corte. Muy práctico y estable.',
+    author: 'Julio Rivas',
+    role: 'Administrador · IronBox Córdoba',
+  },
+];
   {
     q: '¿Necesito internet para usar el sistema?',
     a: 'Para la operación diaria no: el sistema corre en la PC del gimnasio y sigue funcionando aunque se corte internet (socios, cuotas, caja, clases, asistencia y tienda). La conexión se usa para la app móvil de los socios, los pagos online, las novedades, el envío de recordatorios y la sincronización del consolidado para reportes.',
@@ -92,13 +140,13 @@ export default function LandingPage() {
       <section id="inicio" className="relative scroll-mt-20 overflow-hidden pt-32 pb-20">
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-primary/20 blur-[120px]" />
         <div className="pointer-events-none absolute right-0 top-40 h-72 w-72 rounded-full bg-sky/10 blur-[100px]" />
-        <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary-light">
               <span className="h-1.5 w-1.5 rounded-full bg-primary-light" />
               Software integral para gimnasios
             </span>
-            <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-text sm:text-5xl">
+            <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-text sm:text-5xl lg:text-6xl">
               Gestioná tu gimnasio <span className="text-primary-light">de punta a punta</span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted">
@@ -114,10 +162,17 @@ export default function LandingPage() {
                 <Icon name="dashboard" size={18} />
                 Pedir una demo
               </a>
+              <a
+                href="#planes"
+                className="inline-flex h-12 items-center gap-2 rounded-lg border border-line px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
+              >
+                <Icon name="plans" size={18} />
+                Ver planes
+              </a>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-text-muted">
-              {['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida'].map((item) => (
+              {['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida', 'Sin permanencia'].map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">
                   <Icon name="check" size={16} className="text-success" />
                   {item}
@@ -144,7 +199,8 @@ export default function LandingPage() {
       <section id="producto" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Producto</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
               Todo tu gimnasio, en una pantalla
             </h2>
             <p className="mt-4 text-base text-text-muted">
@@ -231,7 +287,8 @@ export default function LandingPage() {
       <section id="modulos" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Módulos</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
               Todo lo que tu gimnasio necesita
             </h2>
             <p className="mt-4 text-base text-text-muted">
@@ -261,7 +318,8 @@ export default function LandingPage() {
       <section className="border-y border-line bg-surface/40 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Cómo funciona</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
               Empezar es muy simple
             </h2>
             <p className="mt-4 text-base text-text-muted">En cuatro pasos tenés tu gimnasio funcionando.</p>
@@ -281,11 +339,39 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Testimonios / Confianza */}
+      <section className="border-y border-line bg-surface/40 py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Confianza</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
+              Lo que dicen quienes ya lo usan
+            </h2>
+            <p className="mt-4 text-base text-text-muted">
+              Prueba social en evolución — reemplazá estos testimonios por los reales de tu gimnasio.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {TESTIMONIALS.map((t) => (
+              <div key={t.author} className="rounded-xl border border-line bg-base p-6 transition-colors hover:border-primary/40">
+                <p className="text-base italic leading-relaxed text-text-muted">“{t.quote}”</p>
+                <div className="mt-6">
+                  <div className="text-sm font-semibold text-text">{t.author}</div>
+                  <div className="text-xs text-text-muted">{t.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Planes */}
       <section id="planes" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Planes</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
               Planes que crecen con vos
             </h2>
             <p className="mt-4 text-base text-text-muted">
@@ -395,7 +481,8 @@ export default function LandingPage() {
       <section id="descargas" className="scroll-mt-20 border-y border-line bg-surface/40 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Descargas</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
               Llevalo a todos lados
             </h2>
             <p className="mt-4 text-base text-text-muted">
@@ -479,7 +566,8 @@ export default function LandingPage() {
       <section id="faq" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-text sm:text-4xl">Preguntas frecuentes</h2>
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Preguntas</span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">Preguntas frecuentes</h2>
             <p className="mt-4 text-base text-text-muted">Las dudas más comunes antes de empezar.</p>
           </div>
 
@@ -507,15 +595,21 @@ export default function LandingPage() {
       {/* Contacto */}
       <section id="contacto" className="scroll-mt-20 pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <LandingContact contactEmail={CONTACT_EMAIL} />
+          <LandingContact
+            contacts={[
+              { label: 'Contacto general', email: CONTACT_EMAIL },
+              { label: 'Ventas', email: SALES_EMAIL },
+              { label: 'Soporte', email: SUPPORT_EMAIL },
+            ]}
+          />
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-line bg-surface/40">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-          <div className="grid gap-8 md:grid-cols-4">
-            <div className="md:col-span-2">
+          <div className="grid gap-8 md:grid-cols-5">
+            <div className="md:col-span-3">
               <div className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/logo.png" alt="FIT system™" className="h-9 w-9 rounded-xl object-cover" />
@@ -525,22 +619,14 @@ export default function LandingPage() {
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
                 y app móvil para tus socios.
               </p>
+              <p className="mt-4 text-xs text-text-muted">Datos en tu equipo · Opera sin internet · Sin permanencia</p>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-text">Producto</h4>
+            <div className="md:col-span-2">
+              <h4 className="text-sm font-semibold text-text">Contacto</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-text-muted">
-                <li><a href="#producto" className="transition-colors hover:text-text">Vista general</a></li>
-                <li><a href="#modulos" className="transition-colors hover:text-text">Módulos</a></li>
-                <li><a href="#planes" className="transition-colors hover:text-text">Planes</a></li>
-                <li><a href="#descargas" className="transition-colors hover:text-text">Descargas</a></li>
-                <li><a href="#faq" className="transition-colors hover:text-text">Preguntas</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-text">Acceso</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-text-muted">
-                <li><a href="#contacto" className="transition-colors hover:text-text">Contacto</a></li>
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
+                <li><a href={`mailto:${SALES_EMAIL}`} className="transition-colors hover:text-text">{SALES_EMAIL}</a></li>
+                <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
             </div>
           </div>

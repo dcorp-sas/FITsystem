@@ -80,7 +80,10 @@ services:
       LICENSE_PRIVATE_KEY: ${LICENSE_PRIVATE_KEY:-}
       LICENSE_SECRET: ${LICENSE_SECRET:-}
       # Respaldo remoto del estado en Postgres (la API lo persiste).
-      BACKUP_URL: ${BACKUP_URL:-http://api:3001}
+      # Respaldo remoto del estado en Postgres. DEBE terminar en /api: las rutas
+      # del API viven bajo ese prefijo (index.ts registra /api/provider/backup),
+      # por lo que sin /api el licensador pegaria a /provider/backup y recibiria 404.
+      BACKUP_URL: ${BACKUP_URL:-http://api:3001/api}
       BACKUP_TOKEN: ${PROVIDER_BACKUP_TOKEN:-}
     volumes:
       - licensador-data:/app/data

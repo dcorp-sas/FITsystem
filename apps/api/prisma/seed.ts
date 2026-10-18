@@ -15,7 +15,7 @@ async function main() {
       name: 'FIT system™ Demo',
       slug: 'fit-demo',
       taxId: '30-12345678-9',
-      email: 'contacto.fitsystem@gmail.com',
+      email: 'contacto@fitsystem.com.ar',
       phone: '+54 11 1234 5678',
       address: 'Av. Corrientes 1234',
       currency: 'ARS',

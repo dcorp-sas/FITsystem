@@ -16,7 +16,19 @@ function validationMessage(details: unknown): string | null {
 }
 
 
-export function LandingContact({ contactEmail }: { contactEmail: string }) {
+export function LandingContact({
+  contacts,
+  contactEmail,
+}: {
+  contacts?: Array<{ label: string; email: string }>;
+  contactEmail?: string;
+}) {
+  const items = contacts?.length
+    ? contacts
+    : contactEmail
+    ? [{ label: 'Contacto general', email: contactEmail }]
+    : [{ label: 'Contacto general', email: '' }];
+  const primary = items[0];
   const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -42,20 +54,23 @@ export function LandingContact({ contactEmail }: { contactEmail: string }) {
   return (
     <div className="grid gap-8 rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/20 via-surface to-base p-6 text-left sm:p-10 lg:grid-cols-2">
       <div className="flex flex-col justify-center">
-        <h2 className="text-2xl font-bold tracking-tight text-text sm:text-3xl">Hablemos de tu gimnasio</h2>
+        <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Contacto</span>
+        <h2 className="mt-2 text-2xl font-bold tracking-tight text-text sm:text-3xl">Hablemos de tu gimnasio</h2>
         <p className="mt-4 text-base leading-relaxed text-text-muted">
           Contanos qué necesitás y te ayudamos a arrancar: demo del sistema, activación de la licencia o
           migración de tus datos. Te respondemos a la brevedad.
         </p>
         <ul className="mt-6 space-y-3 text-sm text-text-muted">
-          <li className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary-light">
-              <Icon name="mail" size={18} />
-            </span>
-            <a href={`mailto:${contactEmail}`} className="transition-colors hover:text-text">
-              {contactEmail}
-            </a>
-          </li>
+          {items.map((c) => (
+            <li key={c.email} className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary-light">
+                <Icon name="mail" size={18} />
+              </span>
+              <a href={`mailto:${c.email}`} className="transition-colors hover:text-text">
+                {c.email}
+              </a>
+            </li>
+          ))}
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
             Respuesta en el día

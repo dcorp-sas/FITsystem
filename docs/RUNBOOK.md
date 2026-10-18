@@ -6,20 +6,20 @@ las credenciales y claves viven fuera del repositorio (ver
 
 ## Arquitectura
 
-Monorepo con pnpm + Turborepo.
+Monorepo con pnpm + Turborepo. Producción corre en un VPS (Ubuntu 24.04) con
+Docker Compose y Caddy como reverse proxy / TLS (Let's Encrypt).
 
 | App / paquete | Rol | URL de producción |
 | --- | --- | --- |
-| `apps/api` | API REST (Fastify + Prisma) | https://fitsystem-api.onrender.com |
-| `apps/web` | Panel del gimnasio (Next.js) | https://fitsystem-web.onrender.com |
-| `apps/mobile` | App/PWA del socio (Expo) | https://fitsystem-socios.onrender.com |
+| `apps/api` | API REST (Fastify + Prisma) | https://api.fitsystem.com.ar |
+| `apps/web` | Panel del gimnasio + landing (Next.js) | https://fitsystem.com.ar |
+| `apps/mobile` | App/PWA del socio (Expo) | https://socios.fitsystem.com.ar |
 | `apps/desktop` | App de escritorio (Electron) | GitHub Releases |
-| `apps/licensador` | Licenciamiento (Node + Ed25519) | https://fitsystem-licensador.onrender.com |
+| `apps/licensador` | Licenciamiento (Node + Ed25519) | https://licensador.fitsystem.com.ar |
 | `packages/*` | `config`, `license`, `types`, `ui`, `utils`, `validators` | — |
 
-Base de datos: PostgreSQL en Render (`fitsystem-db`). El plan free no incluye
-backups ni export por API, por eso se usa el export propio (ver
-[Backups](#backups-y-restauración)).
+Base de datos: PostgreSQL en el VPS (contenedor `db`). El detalle de la
+infraestructura (rutas, puertos, Caddy, TLS) está en [VPS.md](./VPS.md).
 
 ## Comandos
 
@@ -32,93 +32,109 @@ pnpm test             # tests (packages/license, packages/validators)
 pnpm --filter @fitsystem/api start   # API en local
 ```
 
-## Despliegue (Render)
+## Despliegue (VPS)
 
-El archivo `render.yaml` define los servicios. Un `git push` a `main` redeploya
-automáticamente los servicios con auto-deploy; si no, se dispara a mano.
+El deploy es automático: `.github/workflows/deploy-vps.yml` entra por SSH al VPS
+en cada `push` a `main`, actualiza el clon en `/opt/fitsystem`
+(`git fetch && git reset --hard origin/main`) y reconstruye los contenedores
+(`docker compose -f docker-compose.prod.yml up -d --build`).
 
-Variables de entorno sensibles (`sync: false` en `render.yaml`) se configuran en
-el panel de Render del servicio, o por API:
+Requiere los secretos del repositorio `VPS_HOST`, `VPS_USER` y `VPS_SSH_KEY`
+(`VPS_PORT` opcional). Si faltan, el workflow se saltea sin fallar.
+
+Manual (si hace falta):
 
 ```bash
-# Definir/actualizar una variable (valor PLANO, no base64)
-curl -X PUT "https://api.render.com/v1/services/<SERVICE_ID>/env-vars/<KEY>" \
-  -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" \
-  -d '{"value":"<valor>"}'
-
-# Disparar un deploy (cambiar variables NO redeploya solo)
-curl -X POST "https://api.render.com/v1/services/<SERVICE_ID>/deploys" \
-  -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" \
-  -d '{"clearCache":"do_not_clear"}'
+ssh root@<VPS_HOST>
+cd /opt/fitsystem
+git fetch --prune origin main && git reset --hard origin/main
+COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-IDs de servicio (Render): API `srv-db65sgg473hc73d871c0`, socios
-`srv-db5sk4navr4c739ub6d0`, web `srv-db5hj80473hc73b6teqg`, licensador
-`srv-db5h3p0473hc73b54vt0`. **No tocar** los servicios `gastroone*`.
+El archivo `/opt/fitsystem/.env` **no** está en el repo (está en `.gitignore`):
+se conserva entre despliegues. Variables nuevas se agregan ahí y, si el
+contenedor las necesita, se declaran en el bloque `environment` de
+`docker-compose.prod.yml` (si no, `docker compose` no las inyecta).
 
-> El plan free “duerme” por inactividad: el primer request puede tardar ~50 s.
+> El VPS tiene 2 vCPU / 2 GiB: los builds van secuenciales
+> (`COMPOSE_PARALLEL_LIMIT=1`). Evitar builds simultáneos.
 
 ## Secretos y claves
 
-Se guardan **fuera del repositorio** (archivo local seguro del responsable).
-Nunca se versionan.
+Se guardan **fuera del repositorio** (el `.env` del VPS y el archivo local seguro
+del responsable). Nunca se versionan.
 
-- `JWT_SECRET` (API): genera con `generateValue: true` en Render. Debe tener ≥32
-  caracteres; la API rechaza valores débiles en producción.
+- `JWT_SECRET` (API): debe tener ≥32 caracteres; la API rechaza valores débiles
+  en producción.
+- `POSTGRES_PASSWORD`: contraseña del usuario `fitsystem` de Postgres.
 - `ADMIN_USER` / `ADMIN_PASS` (licensador): acceso al panel de licencias.
 - `LICENSE_PRIVATE_KEY` / `LICENSE_PUBLIC_KEY` (Ed25519): firma/verificación de
   licencias. La pública está embebida como fallback en la API/apps.
 - `PROVIDER_BACKUP_TOKEN`: token compartido entre API y licensador para el
   respaldo remoto del estado del licensador.
-- `RENDER_API_KEY`: para la API de Render y el workflow de backup.
+- `PLATFORM_MP_*`: credenciales de MercadoPago de la plataforma (pago de
+  licencias desde la landing).
+- `PLATFORM_SMTP_*` / `PLATFORM_BREVO_API_KEY`: correo saliente del contacto de
+  la landing.
+- `VAPID_*`: claves de Web Push para el panel.
 
 ### Rotación de credenciales
 
 1. Generar un valor nuevo (ej. `openssl rand -hex 24`).
-2. `PUT /services/<ID>/env-vars/<KEY>` con el valor **plano**.
-2. Disparar un deploy y esperar estado `live`.
-3. Verificar el login/uso con el valor nuevo y confirmar que el viejo falla.
-4. Actualizar el archivo de claves local.
+2. Actualizar la variable en `/opt/fitsystem/.env` (para el licensador, además
+   `LICENSOR_*` en el bloque `environment` de `docker-compose.prod.yml`).
+3. Redesplegar (`git push` a `main` o el comando manual) para recrear los
+   contenedores.
+4. Verificar el login/uso con el valor nuevo y confirmar que el viejo falla.
+5. Actualizar el archivo de claves local.
 
 > El licensador bloquea el login tras 10 intentos fallidos en 15 min por IP
 > (`LOGIN_MAX_FAILS`, `LOGIN_WINDOW_MS`). Para desbloquear antes de tiempo,
-   reiniciar el servicio (`POST /services/<ID>/restart`).
+> reiniciar el contenedor (`docker compose -f docker-compose.prod.yml restart licensador`).
 
 ## Backups y restauración
 
-Export/import propio (funciona en el plan free, que no da backups):
+Volcado de Postgres del VPS:
 
 ```bash
-# Exportar toda la base a un JSON
-RENDER_API_KEY=<clave> node scripts/db-export.mjs
-# o con la URL directa:
-DATABASE_URL="postgres://..." node scripts/db-export.mjs
-
-# Restaurar (upsert por PK, idempotente: se puede repetir)
-node scripts/db-import.mjs --file backups/fitsystem-<fecha>.json --url "postgres://..."
+# Desde el VPS, con el stack levantado
+cd /opt/fitsystem && ./scripts/backup-db.sh        # backups/db-<fecha>.sql.gz
+KEEP=30 ./scripts/backup-db.sh                      # conserva las ultimas 30 copias
 ```
 
-- Salida en `backups/` (ignorado por git).
-- El workflow `.github/workflows/backup.yml` corre semanalmente y sube el dump
-  como artefacto. Requiere el secreto de repositorio `RENDER_API_KEY`; si no
-  está, se saltea sin fallar.
-- El licensador, además, respalda su estado en Postgres vía `PROVIDER_BACKUP_TOKEN`
-  (su disco es efímero en el plan free).
+Restaurar:
+
+```bash
+gunzip -c backups/db-XXXX.sql.gz | \
+  docker compose -f docker-compose.prod.yml exec -T db psql -U fitsystem -d fitsystem
+```
+
+- El workflow `.github/workflows/backup.yml` corre semanalmente, ejecuta el script
+  en el VPS por SSH y sube el `.sql.gz` como artefacto (copia fuera del VPS).
+  Requiere los mismos secretos `VPS_HOST` / `VPS_USER` / `VPS_SSH_KEY`.
+- Export/import JSON (migración o copia lógica) sigue disponible:
+
+  ```bash
+  DATABASE_URL="postgres://..." node scripts/db-export.mjs
+  node scripts/db-import.mjs --file backups/fitsystem-<fecha>.json --url "postgres://..."
+  ```
+
+- El licensador, además, respalda su estado en Postgres vía `PROVIDER_BACKUP_TOKEN`.
 
 ## Observabilidad
 
 - `scripts/uptime-check.mjs` verifica web, socios, `api/health` y
   `licensador/api/health`. El workflow `.github/workflows/uptime.yml` lo corre
-  cada 15 min y abre/actualiza un issue con la etiqueta `uptime` si algo falla
-  (también mantiene despiertos los servicios free).
+  cada 15 min y abre/actualiza un issue con la etiqueta `uptime` si algo falla.
 - Health: API `GET /health`; licensador `GET /api/health`.
 
 ## Auto-update de la app de escritorio
 
 - Configurado con `electron-updater` (provider GitHub). El manifiesto
   `latest.yml` y el `.blockmap` los publica `.github/workflows/release.yml`.
-- Para publicar una versión: subir la versión en `apps/desktop/package.json` y
-  crear un tag `vX.Y.Z` (ej. `v0.3.0`).
+- Para publicar una versión: `pnpm release <patch|minor|major>` (sube la versión
+  en los 3 lugares, commitea, pushea y crea el tag `vX.Y.Z`), lo que dispara el
+  workflow de release.
 - Sin firma de código, Windows mostrará avisos de SmartScreen (el auto-update
   funciona igual).
 
@@ -147,4 +163,4 @@ node scripts/db-import.mjs --file backups/fitsystem-<fecha>.json --url "postgres
   `MERCADOPAGO.WEBHOOK_SECRET` y que el pago esté aprobado en MP.
 - **Restaurar la base**: ver [Backups](#backups-y-restauración).
 - **Auditoría rápida de cabeceras de seguridad**:
-  `curl -sI https://fitsystem-licensador.onrender.com/api/health`.
+  `curl -sI https://licensador.fitsystem.com.ar/api/health`.

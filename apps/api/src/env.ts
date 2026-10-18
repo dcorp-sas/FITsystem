@@ -79,8 +79,8 @@ export const env = {
   // producto distribuido, vive en el Licensador). Opcional.
   LICENSE_PRIVATE_KEY: process.env.LICENSE_PRIVATE_KEY || '',
   // Contacto para solicitar el código de licencia (se muestra en la app).
-  LICENSE_CONTACT: process.env.LICENSE_CONTACT || 'contacto.fitsystem@gmail.com',
-  LICENSE_SITE: process.env.LICENSE_SITE || 'https://fitsystem.onrender.com',
+  LICENSE_CONTACT: process.env.LICENSE_CONTACT || 'contacto@fitsystem.com.ar',
+  LICENSE_SITE: process.env.LICENSE_SITE || 'https://fitsystem.com.ar',
   // ID de instalación (solo en el producto de escritorio). Cuando está presente,
   // la licencia de la instalación se administra desde Configuración > Licencia.
   LICENSE_INSTALLATION_ID: process.env.LICENSE_INSTALLATION_ID || '',
@@ -88,7 +88,7 @@ export const env = {
   // que la app del socio vea los mismos datos. Es fija: la conexión es
   // automática (se aprovisiona la clave de sincronización sola), sin pestaña de
   // configuración en el panel.
-  CLOUD_URL: (process.env.CLOUD_URL || 'https://fitsystem-api.onrender.com').replace(/\/+$/, ''),
+  CLOUD_URL: (process.env.CLOUD_URL || 'https://api.fitsystem.com.ar').replace(/\/+$/, ''),
   // Token compartido con el Licensador para respaldar/restaurar su estado en
   // Postgres (su disco es efímero en el plan free). Si está vacío, el respaldo
   // remoto queda deshabilitado.
@@ -106,7 +106,7 @@ export const env = {
   VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
   VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
   // Contacto del emisor (mailto:). Requerido por los servicios de push.
-  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contacto.fitsystem@gmail.com',
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contacto@fitsystem.com.ar',
 
   // ---------------------------------------------------------------------------
   // Tienda del sitio (landing): formulario de contacto y pasarela de pago.
@@ -114,7 +114,7 @@ export const env = {
   // ---------------------------------------------------------------------------
   // Destinatario del formulario de contacto del sitio. Por defecto, el mismo
   // contacto de licencias.
-  PLATFORM_CONTACT_TO: process.env.PLATFORM_CONTACT_TO || process.env.LICENSE_CONTACT || 'contacto.fitsystem@gmail.com',
+  PLATFORM_CONTACT_TO: process.env.PLATFORM_CONTACT_TO || process.env.LICENSE_CONTACT || 'contacto@fitsystem.com.ar',
   // SMTP propio del sitio para enviar el contacto y el alta de compra. Si
   // PLATFORM_SMTP_HOST está vacío, se cae al SMTP del gimnasio demo/owner o no
   // se envía (según disponibilidad).

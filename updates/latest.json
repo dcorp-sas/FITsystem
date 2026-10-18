@@ -1,6 +1,6 @@
 {
-  "version": "0.3.12",
+  "version": "0.3.13",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Correccion de las reservas de clases en la app del socio.\n\n- La app enviaba las peticiones de reservar y cancelar clase con el encabezado de\n  JSON pero sin cuerpo, y el servidor las rechazaba (\"body cannot be empty when\n  content-type is set to application/json\"). Por eso aparecia \"No se pudo\n  completar\" y la reserva no quedaba registrada ni se veia en el panel. Ahora\n  reservar y cancelar clase funcionan correctamente.",
+  "notes": "URL a fitsystem.com.ar, deploy GitHub->VPS, logos de socios (PWA/nativo), landing modernizada + nuevos contactos, mejoras de documentación y utilidades (BACKUP_URL, workflows)",
   "mandatory": false
 }
