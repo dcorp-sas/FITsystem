@@ -247,7 +247,10 @@ async function maybeRevalidate(license: {
 }) {
   if (!env.LICENSE_SERVER || !license.cert || !license.licenseKey) return;
   const last = license.lastCheckAt ? license.lastCheckAt.getTime() : 0;
-  if (Date.now() - last < 15 * 86400000) return;
+  // Ventana de revalidación: corta a propósito para detectar a tiempo el corte
+  // por falta de pago de una suscripción. Configurable con LICENSE_REVALIDATE_HOURS.
+  const windowMs = Math.max(1, Number(process.env.LICENSE_REVALIDATE_HOURS || 3)) * 3600000;
+  if (Date.now() - last < windowMs) return;
   try {
     const res = await fetch(`${env.LICENSE_SERVER}/api/license/revalidate`, {
       method: 'POST',

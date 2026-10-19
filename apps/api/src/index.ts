@@ -41,6 +41,7 @@ import billingRoutes from './routes/billing.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
 import { startCloudSyncScheduler } from './services/cloud-sync.js';
+import { startSubscriptionEnforcement } from './services/subscriptions.js';
 import { shutdownWhatsApp } from './services/whatsapp-client.js';
 import { recordError } from './services/observability.js';
 import { licensePublicKeyFingerprint } from './services/license.js';
@@ -224,6 +225,7 @@ async function start() {
     console.log(`FIT System API escuchando en http://localhost:${env.API_PORT}`);
     startReminderScheduler();
     startCloudSyncScheduler();
+    startSubscriptionEnforcement();
   } catch (error) {
     app.log.error(error);
     process.exit(1);

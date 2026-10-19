@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Icon } from '@/components/icon';
 import { CheckoutModal, type CheckoutTarget } from '@/components/landing-checkout';
+import { SubscribeModal, type SubscribeTarget } from '@/components/landing-subscribe';
 
 type Period = 'MONTHLY' | 'ANNUAL';
 type PlanTag = 'BASIC' | 'PRO' | 'ENTERPRISE';
@@ -55,6 +56,7 @@ const ars = new Intl.NumberFormat('es-AR', {
 export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialDays: number }) {
   const [period, setPeriod] = useState<Period>('ANNUAL');
   const [checkout, setCheckout] = useState<CheckoutTarget | null>(null);
+  const [subscribe, setSubscribe] = useState<SubscribeTarget | null>(null);
 
   function openCheckout(plan: PlanDef, period: Period) {
     const amount = period === 'ANNUAL' ? plan.annual : plan.monthly;
@@ -65,6 +67,11 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
       subtitle: `${period === 'ANNUAL' ? 'Anual (2 meses gratis)' : 'Mensual'} · ${ars.format(amount)}`,
       amount,
     });
+  }
+
+  function buy(plan: PlanDef) {
+    if (period === 'MONTHLY') setSubscribe({ plan: plan.tag, name: plan.name });
+    else openCheckout(plan, period);
   }
 
   return (
@@ -155,7 +162,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
               </ul>
               <button
                 type="button"
-                onClick={() => openCheckout(plan, period)}
+                onClick={() => buy(plan)}
                 className={`mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors ${
                   plan.popular
                     ? 'bg-primary text-white hover:bg-primary-dark'
@@ -163,7 +170,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
                 }`}
               >
                 <Icon name="card" size={16} />
-                Comprar {period === 'ANNUAL' ? 'anual' : 'mensual'}
+                {period === 'ANNUAL' ? 'Comprar anual' : 'Suscribirme'}
               </button>
             </div>
           );
@@ -171,6 +178,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
       </div>
 
       {checkout && <CheckoutModal target={checkout} onClose={() => setCheckout(null)} />}
+      {subscribe && <SubscribeModal plan={subscribe} onClose={() => setSubscribe(null)} />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.18",
+  "version": "0.3.19",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Deploy VPS: se construyen las imagenes de a una (el VPS tiene 2 GB de RAM y compilar en paralelo mataba el build con OOM). Nuevo script scripts/vps-deploy.sh.\nDeploy VPS: el build corre en segundo plano con polling y keepalive SSH, para que no se corte por inactividad.\nAPI (Docker): se instala openssl en la imagen; sin el, prisma db push fallaba y la API quedaba reiniciandose.",
+  "notes": "Tienda: nuevo carrito con suscripcion mensual automatica (MercadoPago, debito recurrente). Podes sumar el plan + packs de asientos y se cobra solo todos los meses.\nSuscripciones: cada cobro aprobado renueva la licencia; si el debito falla y pasa la tolerancia, la licencia se revoca (corte total).\nPanel > Licencia: nueva tarjeta de Suscripcion con boton \"Dar de baja\" (cancela el debito; seguis activo hasta el fin del periodo) y \"Reactivar\" cuando el pago no se debito.\nEscritorio: revalida la licencia en segundo plano (cada 3 h) y bloquea el panel si la revocan por falta de pago, sin necesidad de reiniciar.",
   "mandatory": false
 }

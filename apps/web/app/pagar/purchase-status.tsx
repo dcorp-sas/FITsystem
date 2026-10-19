@@ -30,7 +30,83 @@ function formatArs(currency: string, amount: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }
 
-export function PurchaseStatus({ externalRef, estado }: { externalRef: string; estado: string }) {
+interface Subscription {
+  plan: string;
+  status: string;
+  amount: number;
+  currency: string;
+  seats: number;
+  seatPacks: number;
+  nextPaymentAt: string | null;
+  licenseKey: string | null;
+}
+
+const SUB_STATUS: Record<string, string> = {
+  PENDING: 'Pendiente de autorización',
+  ACTIVE: 'Activa',
+  PAST_DUE: 'Vencida',
+  CANCELLED: 'Cancelada',
+};
+
+function SubscriptionStatus({ externalRef }: { externalRef: string }) {
+  const [sub, setSub] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api<Subscription>(`/billing/subscription/${externalRef}`)
+      .then((data) => {
+        if (active) setSub(data);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof ApiError ? err.message : 'No pudimos leer tu suscripción.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [externalRef]);
+
+  if (loading) return <p className="text-sm text-text-muted">Consultando tu suscripción…</p>;
+  if (error || !sub) return <p className="text-sm text-danger">{error ?? 'No pudimos leer tu suscripción.'}</p>;
+
+  const active = sub.status === 'ACTIVE';
+  return (
+    <div className="space-y-3">
+      <h1 className="text-2xl font-bold text-text">
+        {active ? '¡Suscripción activa!' : sub.status === 'CANCELLED' ? 'El débito no se autorizó' : 'Autorizando tu débito'}
+      </h1>
+      <p className="text-sm text-text-muted">
+        {PLAN_LABEL[sub.plan] ?? sub.plan} · {SUB_STATUS[sub.status] ?? sub.status} ·{' '}
+        {formatArs(sub.currency, sub.amount)}/mes
+      </p>
+      <p className="text-sm text-text-muted">
+        {sub.seats} socios con app{sub.seatPacks > 0 ? ` (${sub.seatPacks} pack(s) de asientos)` : ''}.
+      </p>
+
+      {active && sub.licenseKey ? (
+        <div className="mt-4 rounded-xl border border-line bg-base p-4">
+          <p className="text-xs uppercase tracking-wide text-text-muted">Tu clave de licencia</p>
+          <p className="mt-1 break-all font-mono text-sm text-text">{sub.licenseKey}</p>
+          <p className="mt-2 text-xs text-text-muted">
+            Activála en la app del gimnasio: Configuración &gt; Licencia. El débito se renueva todos los meses.
+          </p>
+        </div>
+      ) : active ? (
+        <p className="mt-4 text-sm text-text-muted">Estamos emitiendo tu clave de licencia. Te la enviamos por email en breve.</p>
+      ) : (
+        <p className="mt-4 text-sm text-text-muted">
+          Si no autorizaste el débito, podés volver a intentarlo desde la sección de planes o escribirnos.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function PurchaseStatus({ externalRef, estado, susc }: { externalRef: string; estado: string; susc?: string }) {
   const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [loading, setLoading] = useState(Boolean(externalRef));
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +129,9 @@ export function PurchaseStatus({ externalRef, estado }: { externalRef: string; e
     };
   }, [externalRef]);
 
+  if (susc) {
+    return <SubscriptionStatus externalRef={susc} />;
+  }
   if (!externalRef) {
     return (
       <p className="text-sm text-text-muted">

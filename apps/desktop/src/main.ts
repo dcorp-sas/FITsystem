@@ -22,6 +22,9 @@ const UPDATE_FEED_URL =
   process.env.UPDATE_FEED_URL ||
   'https://raw.githubusercontent.com/dcorp-sas/FITsystem/main/updates/latest.json';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Revalidación de licencia en segundo plano. Detecta (sin reiniciar) que la
+// licencia fue revocada por falta de pago de la suscripción y bloquea el panel.
+const LICENSE_RECHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
 // Modo "nube": el panel y la API se sirven desde la infraestructura del
 // proveedor (la MISMA base de datos que la app del socio). El equipo del
 // gimnasio abre el panel remoto; el proceso local solo administra la licencia y
@@ -1255,6 +1258,19 @@ app.whenReady().then(async () => {
     } catch (err) {
       log('No se pudo validar la licencia:', (err as Error).message);
     }
+
+    // Revalidación periódica: si la licencia se revoca en el servidor (p. ej. por
+    // falta de pago de la suscripción), el panel se bloquea sin esperar reinicio.
+    setInterval(() => {
+      void (async () => {
+        try {
+          const info = await checkLicense();
+          if (info && !info.isUsable) await showActivationInMain(info);
+        } catch {
+          /* sin internet: se conserva el estado local */
+        }
+      })();
+    }, LICENSE_RECHECK_INTERVAL_MS);
   }
 
   // Auto-actualización (electron-updater): consulta GitHub Releases al iniciar

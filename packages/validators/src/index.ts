@@ -801,3 +801,21 @@ export const embeddedPaymentSchema = z.object({
 });
 
 export type EmbeddedPaymentInput = z.infer<typeof embeddedPaymentSchema>;
+
+/** Suscripción mensual de la tienda: plan + packs de asientos (recurrentes). */
+export const subscriptionSchema = z.object({
+  plan: z.enum(['BASIC', 'PRO', 'ENTERPRISE']),
+  seatPacks: z.coerce.number().int().min(0).max(50).optional(),
+  buyerName: z.string().trim().min(2, 'Ingresá tu nombre'),
+  buyerEmail: looseEmail,
+  buyerPhone: z.string().trim().max(40).optional().nullable(),
+  gymName: z.string().trim().max(120).optional().nullable(),
+});
+
+export type SubscriptionInput = z.infer<typeof subscriptionSchema>;
+
+export const subscriptionRefSchema = z.object({
+  externalRef: z.string().trim().min(4).max(80),
+});
+
+export type SubscriptionRefInput = z.infer<typeof subscriptionRefSchema>;

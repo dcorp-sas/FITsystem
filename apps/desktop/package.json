@@ -1,7 +1,7 @@
 {
   "name": "@fitsystem/desktop",
   "productName": "FIT System",
-  "version": "0.3.18",
+  "version": "0.3.19",
   "private": true,
   "main": "dist/main.js",
   "type": "module",

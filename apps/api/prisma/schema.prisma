@@ -1144,3 +1144,38 @@ model PlanPurchase {
   @@index([providerPaymentId])
   @@map("plan_purchases")
 }
+
+// Suscripcion de la tienda: pago recurrente mensual (MercadoPago preapproval).
+// El carrito arma un plan + packs de asientos (todos recurrentes) y MP debita
+// todos los meses. Si el debito falla, la licencia se corta (corte total).
+// status: PENDING | ACTIVE | PAST_DUE | CANCELLED
+model PlanSubscription {
+  id             String    @id @default(cuid())
+  organizationId String? // se enlaza cuando el gym activa la licencia de la suscripcion
+  plan          String // BASIC | PRO | ENTERPRISE
+  seats         Int // asientos base del plan + packs
+  seatPacks     Int       @default(0) // cantidad de packs de +100
+  amount        Float // importe mensual total (ARS)
+  currency      String    @default("ARS")
+  status        String    @default("PENDING")
+  buyerName     String
+  buyerEmail    String
+  buyerPhone    String?
+  gymName       String?
+  externalRef   String    @unique
+  items         String? // JSON: detalle del carrito
+  providerId    String? // id del preapproval de MercadoPago
+  payerId       String?
+  lastPaymentId String?
+  lastPaymentAt DateTime?
+  nextPaymentAt DateTime?
+  licenseKey    String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([providerId])
+  @@index([organizationId])
+  @@map("plan_subscriptions")
+}

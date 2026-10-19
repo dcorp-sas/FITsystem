@@ -27,6 +27,19 @@ interface LicenseResponse {
   config: { trialDays: number; contact: string; site: string; online: boolean };
 }
 
+interface SubscriptionInfo {
+  hasSubscription: boolean;
+  externalRef?: string;
+  plan?: string;
+  seats?: number;
+  seatPacks?: number;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  nextPaymentAt?: string | null;
+  lastPaymentAt?: string | null;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Activa',
   TRIAL: 'Prueba',
@@ -35,9 +48,20 @@ const STATUS_LABELS: Record<string, string> = {
   UNACTIVATED: 'Sin activar',
 };
 
+const SUB_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente',
+  ACTIVE: 'Al día',
+  PAST_DUE: 'Vencida',
+  CANCELLED: 'Cancelada',
+};
+
+const ars = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+
 export default function LicensePage() {
   const toast = useToast();
   const [data, setData] = useState<LicenseResponse | null>(null);
+  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+  const [subBusy, setSubBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [key, setKey] = useState('');
   const [saving, setSaving] = useState(false);
@@ -73,6 +97,7 @@ export default function LicensePage() {
     setLoading(true);
     try {
       setData(await http.get<LicenseResponse>('/license/current'));
+      setSub(await http.get<SubscriptionInfo>('/billing/subscription').catch(() => null));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al cargar la licencia');
     } finally {
@@ -83,6 +108,32 @@ export default function LicensePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function cancelarSuscripcion() {
+    setSubBusy(true);
+    try {
+      await http.post('/billing/subscription/cancel', {});
+      toast.success('Suscripción dada de baja. Seguís activo hasta el fin del período pago.');
+      load();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo dar de baja la suscripción');
+    } finally {
+      setSubBusy(false);
+    }
+  }
+
+  async function reactivarSuscripcion() {
+    setSubBusy(true);
+    try {
+      const r = await http.post<{ initPoint?: string }>('/billing/subscription/reactivate', {});
+      if (r.initPoint) window.location.assign(r.initPoint);
+      else toast.error('No se pudo iniciar la reactivación');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'No se pudo reactivar la suscripción');
+    } finally {
+      setSubBusy(false);
+    }
+  }
 
   async function activate(e: React.FormEvent) {
     e.preventDefault();
@@ -136,6 +187,50 @@ export default function LicensePage() {
           accent={info?.isUsable ? 'green' : 'red'}
         />
       </div>
+
+      {sub?.hasSubscription && (
+        <Card title="Suscripción mensual" className="mb-5">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <span className="text-text">
+              Plan <strong>{sub.plan}</strong>
+              {sub.seatPacks ? ` + ${sub.seatPacks} pack(s)` : ''}
+            </span>
+            <span className="text-text-muted">{sub.seats} socios con app</span>
+            <span className="text-text-muted">{sub.amount != null ? `${ars.format(sub.amount)}/mes` : ''}</span>
+            <Badge color={sub.status === 'ACTIVE' ? 'green' : sub.status === 'PAST_DUE' ? 'red' : 'blue'}>
+              {SUB_STATUS_LABELS[sub.status ?? ''] ?? sub.status}
+            </Badge>
+            {sub.nextPaymentAt && sub.status === 'ACTIVE' && (
+              <span className="text-text-muted">Próximo débito: {formatDate(sub.nextPaymentAt)}</span>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+            {sub.status === 'ACTIVE' && (
+              <Button variant="secondary" onClick={cancelarSuscripcion} loading={subBusy}>
+                <Icon name="close" size={16} /> Dar de baja
+              </Button>
+            )}
+            {(sub.status === 'PAST_DUE' || sub.status === 'CANCELLED') && (
+              <Button onClick={reactivarSuscripcion} loading={subBusy}>
+                <Icon name="check" size={16} /> Reactivar suscripción
+              </Button>
+            )}
+            {sub.status === 'PENDING' && (
+              <span className="text-xs text-text-muted">
+                Esperando la autorización del débito en MercadoPago. Si no se autorizó, escribinos.
+              </span>
+            )}
+            <span className="text-xs text-text-muted">
+              {sub.status === 'ACTIVE'
+                ? 'La baja cancela el débito automático; el servicio sigue hasta el fin del período pago.'
+                : sub.status === 'PAST_DUE'
+                  ? 'El débito no se pudo cobrar. Reactivá para restablecer el servicio.'
+                  : ''}
+            </span>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Uso de asientos de la app">

@@ -54,6 +54,46 @@ export async function testLicensorLogin(): Promise<{ ok: boolean; status: number
   }
 }
 
+/**
+ * Revoca (baja) una licencia en el Licensador. Al revocarla, el escritorio la
+ * detecta en la próxima revalidación y suspende el panel (corte por falta de pago).
+ * Devuelve ok=true si el Licensador la dio de baja o si no está configurado.
+ */
+export async function revokeLicense(key: string, installId?: string): Promise<{ ok: boolean; error?: string }> {
+  if (!env.LICENSE_SERVER || !env.LICENSOR_ADMIN_PASS) return { ok: true };
+  try {
+    const token = await login();
+    if (!token) return { ok: false, error: 'No se pudo autenticar con el Licensador' };
+    const res = await fetch(`${env.LICENSE_SERVER}/api/license/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ key, installId: installId ?? '' }),
+    });
+    if (!res.ok) return { ok: false, error: `El Licensador respondió HTTP ${res.status}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+/** Reactiva una licencia previamente revocada en el Licensador. */
+export async function unrevokeLicense(key: string): Promise<{ ok: boolean; error?: string }> {
+  if (!env.LICENSE_SERVER || !env.LICENSOR_ADMIN_PASS) return { ok: true };
+  try {
+    const token = await login();
+    if (!token) return { ok: false, error: 'No se pudo autenticar con el Licensador' };
+    const res = await fetch(`${env.LICENSE_SERVER}/api/license/unrevoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ key }),
+    });
+    if (!res.ok) return { ok: false, error: `El Licensador respondió HTTP ${res.status}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
 export async function issueLicense(input: {
   client: string;
   plan: string;

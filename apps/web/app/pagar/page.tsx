@@ -9,13 +9,13 @@ export const metadata = {
 export default async function PagarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string; estado?: string }>;
+  searchParams: Promise<{ ref?: string; estado?: string; susc?: string }>;
 }) {
   const sp = await searchParams;
   return (
     <main className="flex min-h-screen items-center justify-center bg-base px-4 py-16">
       <div className="w-full max-w-lg rounded-2xl border border-line bg-surface p-8 text-center shadow-2xl">
-        <PurchaseStatus externalRef={sp.ref ?? ''} estado={sp.estado ?? ''} />
+        <PurchaseStatus externalRef={sp.ref ?? ''} estado={sp.estado ?? ''} susc={sp.susc ?? ''} />
         <Link href="/" className="mt-6 inline-block text-sm font-medium text-primary-light transition-colors hover:text-primary">
           Volver al inicio
         </Link>

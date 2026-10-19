@@ -200,6 +200,10 @@ export function licenseRoutes(app: FastifyInstance) {
           lastCheckAt: new Date(),
         },
       });
+      await prisma.planSubscription.updateMany({
+        where: { licenseKey: input.licenseKey, organizationId: null },
+        data: { organizationId: req.user.organizationId },
+      });
       await prisma.licenseEvent.create({
         data: { licenseId: license.id, type: 'ACTIVATED', seats: license.seats, detail: `Plan ${parsed.plan} (web)` },
       });
@@ -287,6 +291,10 @@ export function licenseRoutes(app: FastifyInstance) {
           expiresAt: parsed.expiresAt,
           lastCheckAt: new Date(),
         },
+      });
+      await prisma.planSubscription.updateMany({
+        where: { licenseKey: input.licenseKey, organizationId: null },
+        data: { organizationId: req.user.organizationId },
       });
       await prisma.licenseEvent.create({
         data: { licenseId: license.id, type: 'ACTIVATED', seats: license.seats, detail: `Plan ${parsed.plan} (config)` },

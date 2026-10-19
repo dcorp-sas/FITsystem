@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { checkoutSchema, embeddedPaymentSchema } from '@fitsystem/validators';
-import { validate, ok, fail, HttpError } from '../lib/http.js';
+import { checkoutSchema, embeddedPaymentSchema, subscriptionSchema, subscriptionRefSchema } from '@fitsystem/validators';
+import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
 import {
@@ -12,6 +12,14 @@ import {
   fulfillPurchase,
   verifyPlatformWebhookSignature,
 } from '../services/billing.js';
+import {
+  createSubscription,
+  subscriptionStatus,
+  cancelSubscription,
+  reactivateSubscription,
+  syncPreapproval,
+  syncAuthorizedPayment,
+} from '../services/subscriptions.js';
 import { isLicensorIssueConfigured, testLicensorLogin } from '../services/licensing-client.js';
 
 export function billingRoutes(app: FastifyInstance) {
@@ -74,6 +82,91 @@ export function billingRoutes(app: FastifyInstance) {
     }
   });
 
+  // Alta de suscripción mensual (carrito: plan + packs de asientos). Devuelve el
+  // init_point de MercadoPago para autorizar el débito recurrente.
+  app.post('/billing/subscribe', async (request, reply) => {
+    try {
+      const input = validate(subscriptionSchema, request.body);
+      const result = await createSubscription(input);
+      if (!result.ok || !result.externalRef) throw new HttpError(502, result.error || 'No se pudo crear la suscripción');
+      return ok(reply, { externalRef: result.externalRef, initPoint: result.initPoint, amount: result.amount });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Estado de una suscripción (para la página de retorno).
+  app.get('/billing/subscription/:ref', async (request, reply) => {
+    try {
+      const { ref } = request.params as { ref: string };
+      const status = await subscriptionStatus(ref);
+      if (!status) throw new HttpError(404, 'Suscripción no encontrada');
+      return ok(reply, status);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Suscripción de la organización del gym (panel: sección Licencia).
+  app.get('/billing/subscription', { onRequest: [app.authenticate] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const sub = await prisma.planSubscription.findFirst({
+        where: { organizationId: req.user.organizationId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!sub) return ok(reply, { hasSubscription: false });
+      return ok(reply, {
+        hasSubscription: true,
+        externalRef: sub.externalRef,
+        plan: sub.plan,
+        seats: sub.seats,
+        seatPacks: sub.seatPacks,
+        amount: sub.amount,
+        currency: sub.currency,
+        status: sub.status,
+        nextPaymentAt: sub.nextPaymentAt,
+        lastPaymentAt: sub.lastPaymentAt,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Baja: cancela la suscripción en MercadoPago (sigue activa hasta el fin del período).
+  app.post('/billing/subscription/cancel', { onRequest: [app.authenticate, app.requireRoles(['OWNER', 'ADMIN'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const sub = await prisma.planSubscription.findFirst({
+        where: { organizationId: req.user.organizationId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!sub) throw new HttpError(404, 'No hay una suscripción para dar de baja');
+      const result = await cancelSubscription(sub.externalRef);
+      if (!result.ok) throw new HttpError(502, result.error || 'No se pudo dar de baja la suscripción');
+      return ok(reply, { cancelled: true });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Reactivación: crea un nuevo débito y devuelve el init_point para autorizarlo.
+  app.post('/billing/subscription/reactivate', { onRequest: [app.authenticate, app.requireRoles(['OWNER', 'ADMIN'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const sub = await prisma.planSubscription.findFirst({
+        where: { organizationId: req.user.organizationId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!sub) throw new HttpError(404, 'No hay una suscripción para reactivar');
+      const result = await reactivateSubscription(sub.externalRef);
+      if (!result.ok) throw new HttpError(502, result.error || 'No se pudo reactivar la suscripción');
+      return ok(reply, { initPoint: result.initPoint, externalRef: result.externalRef });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   // Webhook público de MercadoPago de la cuenta del proveedor.
   app.post('/billing/webhook', async (request, reply) => {
     try {
@@ -88,6 +181,17 @@ export function billingRoutes(app: FastifyInstance) {
       }
 
       if (!env.PLATFORM_MP_ACCESS_TOKEN) return ok(reply, { received: true, pending: true });
+
+      // Suscripciones (débito automático): alta/baja del preapproval y cada cobro.
+      const type = (body.type ?? '').toLowerCase();
+      if (type === 'subscription_preapproval') {
+        await syncPreapproval(paymentId);
+        return ok(reply, { received: true, subscription: true });
+      }
+      if (type === 'subscription_authorized_payment') {
+        await syncAuthorizedPayment(paymentId);
+        return ok(reply, { received: true, payment: true });
+      }
 
       // Nunca completar sin confirmar el pago contra la API de MercadoPago.
       const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
