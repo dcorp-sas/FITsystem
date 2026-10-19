@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, shadow, spacing } from './src/theme';
 import { setToken, portal, bootstrapToken, type LoginResponse } from './src/lib/api';
@@ -109,13 +109,24 @@ export default function App() {
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.brandMark}>
-            <Text style={styles.brandMarkText}>FIT</Text>
+          <View style={[styles.brandMark, session.organization.logoUrl ? styles.brandMarkLogo : null]}>
+            {session.organization.logoUrl ? (
+              <Image
+                source={{ uri: session.organization.logoUrl }}
+                style={styles.brandLogo}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={styles.brandMarkText}>FIT</Text>
+            )}
           </View>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.brandSub} numberOfLines={1}>
-              {session.organization.name}
-            </Text>
+            <View style={styles.brandRow}>
+              <Text style={styles.brandSub} numberOfLines={1}>
+                {session.organization.name}
+              </Text>
+              <Text style={styles.brandTag}>FIT system</Text>
+            </View>
             <Text style={styles.headerHello} numberOfLines={1}>
               Hola, {session.member.name.split(' ')[0]}
             </Text>
@@ -229,8 +240,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadow.card,
   },
+  brandMarkLogo: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border },
   brandMarkText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
-  brandSub: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  brandLogo: { width: 34, height: 34 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  brandTag: {
+    color: colors.textMuted,
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    overflow: 'hidden',
+  },
+  brandSub: { color: colors.text, fontSize: 15, fontWeight: '700', flexShrink: 1 },
   headerHello: { color: colors.textMuted, fontSize: 12.5 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   loadingMark: {

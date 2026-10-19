@@ -35,7 +35,7 @@ const PLANS: PlanDef[] = [
     monthly: 75000,
     annual: 750000,
     popular: true,
-    features: ['Todos los módulos', 'App del socio incluida', 'Reportes por sede', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Reportes por sede', 'Soporte prioritario'],
   },
   {
     tag: 'ENTERPRISE',
@@ -43,7 +43,7 @@ const PLANS: PlanDef[] = [
     seats: 'Hasta 500 socios con app',
     monthly: 140000,
     annual: 1400000,
-    features: ['Sedes y reportes avanzados', 'Onboarding acompañado', 'Soporte dedicado', 'Migración asistida'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Sedes y reportes avanzados', 'Soporte prioritario'],
   },
 ];
 

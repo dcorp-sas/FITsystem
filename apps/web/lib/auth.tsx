@@ -32,6 +32,7 @@ interface AuthState {
   registerOrg: (input: RegisterInput) => Promise<void>;
   logout: () => void;
   setActiveBranchId: (id: string | null) => void;
+  refresh: () => Promise<void>;
 }
 
 export interface TwoFactorPrompt {
@@ -166,6 +167,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Relee la sesion para reflejar cambios en la organizacion (nombre, logo...).
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api<{ user: AuthUser; organization: Organization; branches: Branch[] }>('/auth/me');
+      setUser(data.user);
+      setOrganization(data.organization);
+      setBranches(data.branches);
+    } catch {
+      /* sin sesion valida: se ignora */
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -178,8 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerOrg,
       logout,
       setActiveBranchId,
+      refresh,
     }),
-    [user, organization, branches, activeBranchId, ready, login, completeTwoFactorLogin, registerOrg, logout, setActiveBranchId],
+    [user, organization, branches, activeBranchId, ready, login, completeTwoFactorLogin, registerOrg, logout, setActiveBranchId, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

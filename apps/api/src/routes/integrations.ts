@@ -26,7 +26,7 @@ import {
   CBTE_LABEL,
 } from '../services/arca.js';
 import { getMpConfig, mpPing, getPosTerminals, createPointIntent, getPointIntent } from '../services/mercadopago.js';
-import { printTicket, listPrinters, printTicketAuto, printViaPoint, buildReceiptTicket } from '../services/print.js';
+import { printTicket, listPrinters, printTicketAuto, printViaPoint, buildPaymentReceipt, getTicketBranding } from '../services/print.js';
 import { getTurnstileConfig, saveTurnstileConfig, openTurnstile, turnstileConfigured } from '../services/turnstile.js';
 import { env } from '../env.js';
 
@@ -96,14 +96,15 @@ async function completeMpOrder(orgId: string, paymentId: string, userId?: string
       const m = await prisma.member.findUnique({ where: { id: order.memberId } });
       memberName = m ? `${m.firstName} ${m.lastName}` : null;
     }
-    await printTicketAuto(orgId, buildReceiptTicket({
-      organization: org?.name ?? 'FIT system™',
+    await printTicketAuto(orgId, await buildPaymentReceipt(orgId, org, {
       member: memberName,
-      concept: order.concept,
-      method: order.method,
-      amount: order.amount,
-      reference: order.invoiceNumber ?? order.reference,
-      date: new Date(),
+      concept: payment.concept,
+      method: payment.method,
+      amount: payment.amount,
+      reference: payment.invoiceNumber ?? payment.reference,
+      invoiceNumber: payment.invoiceNumber,
+      providerData: payment.providerData,
+      date: payment.paidAt ?? new Date(),
     }));
   }
   return payment;
@@ -1055,8 +1056,16 @@ export function integrationRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
+      const branding = await getTicketBranding(req.user.organizationId);
       const result = await printTicket(req.user.organizationId, {
         organization: org?.name ?? 'FIT system™',
+        headerLines: [
+          branding.headerText,
+          org?.address,
+          org?.phone ? `Tel: ${org.phone}` : undefined,
+          org?.taxId ? `CUIT: ${org.taxId}` : undefined,
+        ].filter((x): x is string => Boolean(x)),
+        logo: branding.showLogo ? org?.logoUrl ?? null : null,
         title: 'PRUEBA DE IMPRESION',
         date: new Date().toISOString(),
         lines: [
@@ -1064,7 +1073,7 @@ export function integrationRoutes(app: FastifyInstance) {
           { label: 'Sede:', value: req.user.branchId ?? '-' },
         ],
         total: '$0.00',
-        footer: 'Si ves este ticket, la impresora funciona',
+        footer: branding.footerText ?? 'Si ves este ticket, la impresora funciona',
       });
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir');
       await logActivity(req, 'CREATE', 'PRINT_TEST', null, undefined, {});
@@ -1084,15 +1093,17 @@ export function integrationRoutes(app: FastifyInstance) {
         include: { member: { select: { firstName: true, lastName: true } }, organization: true },
       });
       if (!payment) throw new HttpError(404, 'Pago no encontrado');
-      const result = await printTicket(req.user.organizationId, buildReceiptTicket({
-        organization: payment.organization?.name ?? 'FIT system™',
+      const ticket = await buildPaymentReceipt(req.user.organizationId, payment.organization, {
         member: payment.member ? `${payment.member.firstName} ${payment.member.lastName}` : null,
         concept: payment.concept,
         method: payment.method,
         amount: payment.amount,
         reference: payment.invoiceNumber ?? payment.reference,
+        invoiceNumber: payment.invoiceNumber,
+        providerData: payment.providerData,
         date: payment.paidAt ?? payment.createdAt,
-      }));
+      }, { fiscal: (request.body as { fiscal?: boolean } | undefined)?.fiscal });
+      const result = await printTicket(req.user.organizationId, ticket);
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir');
       return ok(reply, { ok: true });
     } catch (error) {
@@ -1110,15 +1121,17 @@ export function integrationRoutes(app: FastifyInstance) {
         include: { member: { select: { firstName: true, lastName: true } }, organization: true },
       });
       if (!payment) throw new HttpError(404, 'Pago no encontrado');
-      const result = await printViaPoint(req.user.organizationId, buildReceiptTicket({
-        organization: payment.organization?.name ?? 'FIT system™',
+      const ticket = await buildPaymentReceipt(req.user.organizationId, payment.organization, {
         member: payment.member ? `${payment.member.firstName} ${payment.member.lastName}` : null,
         concept: payment.concept,
         method: payment.method,
         amount: payment.amount,
         reference: payment.invoiceNumber ?? payment.reference,
+        invoiceNumber: payment.invoiceNumber,
+        providerData: payment.providerData,
         date: payment.paidAt ?? payment.createdAt,
-      }), (request.body as { deviceId?: string } | undefined)?.deviceId);
+      });
+      const result = await printViaPoint(req.user.organizationId, ticket, (request.body as { deviceId?: string } | undefined)?.deviceId);
       if (!result.ok) throw new HttpError(502, result.error ?? 'No se pudo imprimir en la terminal Point');
       return ok(reply, { ok: true });
     } catch (error) {
@@ -1131,8 +1144,15 @@ export function integrationRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
+      const branding = await getTicketBranding(req.user.organizationId);
       const result = await printViaPoint(req.user.organizationId, {
         organization: org?.name ?? 'FIT system™',
+        headerLines: [
+          branding.headerText,
+          org?.address,
+          org?.phone ? `Tel: ${org.phone}` : undefined,
+          org?.taxId ? `CUIT: ${org.taxId}` : undefined,
+        ].filter((x): x is string => Boolean(x)),
         title: 'PRUEBA POINT',
         date: new Date().toISOString(),
         lines: [

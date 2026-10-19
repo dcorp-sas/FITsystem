@@ -9,6 +9,10 @@ export interface TicketLine {
 
 export interface Ticket {
   organization?: string;
+  /** Lineas centradas bajo el nombre (direccion, telefono, CUIT...). */
+  headerLines?: string[];
+  /** Logo del gimnasio: data URL (base64) o URL http(s). Solo imagen. */
+  logo?: string | null;
   title?: string;
   date?: string | number;
   lines: TicketLine[];
@@ -71,6 +75,7 @@ export function ticketToText(ticket: Ticket): string {
   const lines: string[] = [];
   const width = 32;
   if (ticket.organization) lines.push(center(ticket.organization, width));
+  for (const hl of ticket.headerLines ?? []) lines.push(center(hl, width));
   if (ticket.title) {
     lines.push('-'.repeat(width));
     lines.push(center(ticket.title, width));
@@ -146,30 +151,176 @@ export async function listPrinters(orgId: string): Promise<{ ok: boolean; printe
   }
 }
 
+export interface ReceiptFiscal {
+  typeLabel: string;
+  number: string;
+  cae?: string | null;
+  caeVenc?: string | null;
+  net?: number;
+  iva?: number;
+  customerTaxId?: string | null;
+  qrUrl?: string | null;
+}
+
 export interface ReceiptData {
   organization: string;
+  address?: string | null;
+  phone?: string | null;
+  taxId?: string | null;
+  logo?: string | null;
+  headerText?: string | null;
   member?: string | null;
   concept: string;
   method: string;
   amount: number;
   reference?: string | null;
   date: Date;
-  footer?: string;
+  footer?: string | null;
+  fiscal?: ReceiptFiscal | null;
 }
 
-/** Arma el ticket de un comprobante de pago. */
+/** Arma el ticket de un comprobante de pago (simple o fiscal). */
 export function buildReceiptTicket(data: ReceiptData): Ticket {
+  const headerLines: string[] = [];
+  if (data.headerText) headerLines.push(data.headerText);
+  if (data.address) headerLines.push(data.address);
+  if (data.phone) headerLines.push(`Tel: ${data.phone}`);
+  if (data.taxId) headerLines.push(`CUIT: ${data.taxId}`);
+
   const lines: TicketLine[] = [];
   if (data.member) lines.push({ label: 'Socio:', value: data.member });
   lines.push({ label: 'Concepto:', value: data.concept });
   lines.push({ label: 'Medio:', value: data.method });
   if (data.reference) lines.push({ label: 'Comprobante:', value: data.reference });
+
+  let title = 'COMPROBANTE DE PAGO';
+  if (data.fiscal) {
+    title = data.fiscal.typeLabel || 'COMPROBANTE';
+    lines.push({ label: 'Nro:', value: data.fiscal.number });
+    if (data.fiscal.customerTaxId) lines.push({ label: 'Doc:', value: data.fiscal.customerTaxId });
+    if (data.fiscal.cae) lines.push({ label: 'CAE:', value: data.fiscal.cae });
+    if (data.fiscal.caeVenc) lines.push({ label: 'Vto CAE:', value: data.fiscal.caeVenc });
+    if (typeof data.fiscal.net === 'number') lines.push({ label: 'Neto:', value: `$${data.fiscal.net.toFixed(2)}` });
+    if (typeof data.fiscal.iva === 'number') lines.push({ label: 'IVA 21%:', value: `$${data.fiscal.iva.toFixed(2)}` });
+  }
+
   return {
     organization: data.organization,
-    title: 'COMPROBANTE DE PAGO',
+    headerLines,
+    logo: data.logo ?? null,
+    title,
     date: data.date.toISOString(),
     lines,
     total: `$${data.amount.toFixed(2)}`,
     footer: data.footer ?? 'Gracias por su pago',
+  };
+}
+
+export interface ReceiptOrgInfo {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  taxId?: string | null;
+  logoUrl?: string | null;
+}
+
+export interface ReceiptPaymentInfo {
+  member?: string | null;
+  concept: string;
+  method: string;
+  amount: number;
+  reference?: string | null;
+  invoiceNumber?: string | null;
+  providerData?: string | null;
+  date: Date;
+}
+
+/** Formatea la fecha de vencimiento del CAE (AFIP la entrega como AAAAMMDD). */
+function formatCaeVenc(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  const m = /^(\d{4})(\d{2})(\d{2})$/.exec(String(raw));
+  if (!m) return String(raw);
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/**
+ * Arma el ticket de un pago aplicando la configuracion del gimnasio: logo,
+ * encabezado/pie y, si el ticket es fiscal y el pago ya tiene comprobante
+ * ARCA emitido, el bloque con CAE, numero y neto/IVA.
+ */
+export async function buildPaymentReceipt(
+  orgId: string,
+  org: ReceiptOrgInfo | null,
+  payment: ReceiptPaymentInfo,
+  opts?: { fiscal?: boolean },
+): Promise<Ticket> {
+  const branding = await getTicketBranding(orgId);
+  const wantFiscal = opts?.fiscal ?? branding.fiscalEnabled;
+
+  let arca: Record<string, unknown> | null = null;
+  if (wantFiscal && payment.invoiceNumber && payment.providerData) {
+    try {
+      const parsed = JSON.parse(payment.providerData) as { arca?: Record<string, unknown> };
+      arca = parsed.arca ?? null;
+    } catch {
+      arca = null;
+    }
+  }
+
+  const iva = payment.amount * 0.21;
+  const fiscal: ReceiptFiscal | null =
+    arca && payment.invoiceNumber
+      ? {
+          typeLabel: String(arca.tipoLabel ?? 'COMPROBANTE'),
+          number: payment.invoiceNumber,
+          cae: (arca.cae as string | null) ?? null,
+          caeVenc: formatCaeVenc(arca.caeVenc as string | null),
+          net: payment.amount - iva,
+          iva,
+          qrUrl: (arca.qrUrl as string | null) ?? null,
+        }
+      : null;
+
+  return buildReceiptTicket({
+    organization: org?.name ?? 'FIT system™',
+    address: org?.address ?? null,
+    phone: org?.phone ?? null,
+    taxId: org?.taxId ?? null,
+    logo: branding.showLogo ? org?.logoUrl ?? null : null,
+    headerText: branding.headerText ?? null,
+    member: payment.member ?? null,
+    concept: payment.concept,
+    method: payment.method,
+    amount: payment.amount,
+    reference: payment.reference ?? payment.invoiceNumber ?? null,
+    date: payment.date,
+    footer: branding.footerText ?? null,
+    fiscal,
+  });
+}
+
+export interface TicketBranding {
+  showLogo: boolean;
+  headerText?: string;
+  footerText?: string;
+  fiscalEnabled: boolean;
+}
+
+/**
+ * Lee la configuracion del ticket del gimnasio (Ajustes > Impresion): si se
+ * imprime el logo, un texto de encabezado/pie y si el ticket es fiscal.
+ */
+export async function getTicketBranding(orgId: string): Promise<TicketBranding> {
+  const [logo, header, footer, type] = await Promise.all([
+    getRawSetting(orgId, 'PRINT', 'SHOW_LOGO'),
+    getRawSetting(orgId, 'PRINT', 'TICKET_HEADER'),
+    getRawSetting(orgId, 'PRINT', 'TICKET_FOOTER'),
+    getRawSetting(orgId, 'PRINT', 'TICKET_TYPE'),
+  ]);
+  return {
+    showLogo: (logo ?? 'true') !== 'false',
+    headerText: header || undefined,
+    footerText: footer || undefined,
+    fiscalEnabled: type === 'FISCAL',
   };
 }

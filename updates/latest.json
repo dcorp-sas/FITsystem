@@ -1,6 +1,6 @@
 {
-  "version": "0.3.19",
+  "version": "0.3.20",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Tienda: nuevo carrito con suscripcion mensual automatica (MercadoPago, debito recurrente). Podes sumar el plan + packs de asientos y se cobra solo todos los meses.\nSuscripciones: cada cobro aprobado renueva la licencia; si el debito falla y pasa la tolerancia, la licencia se revoca (corte total).\nPanel > Licencia: nueva tarjeta de Suscripcion con boton \"Dar de baja\" (cancela el debito; seguis activo hasta el fin del periodo) y \"Reactivar\" cuando el pago no se debito.\nEscritorio: revalida la licencia en segundo plano (cada 3 h) y bloquea el panel si la revocan por falta de pago, sin necesidad de reiniciar.",
+  "notes": "Branding del gimnasio, ticket configurable y planes rebalanceados\n\n- Logo del gimnasio: se configura en Ajustes > Datos del gimnasio y se muestra en el panel, en la app de socios y en el ticket.\n- Ticket configurable: tipo (comprobante simple o ticket fiscal con datos de ARCA), logo on/off, encabezado y pie de ticket.\n- Botón \"Factura\" en Cobranzas para imprimir el comprobante con los datos fiscales de ARCA.\n- La app de socios muestra el nombre y el logo del gimnasio junto a la marca FIT system.\n- Planes rebalanceados: Pro y Empresa con las prestaciones base equivalentes.\n- Suscripciones usando las credenciales de producción de MercadoPago.",
   "mandatory": false
 }

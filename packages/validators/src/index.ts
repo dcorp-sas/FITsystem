@@ -12,6 +12,19 @@ const dateInput = z.coerce.date();
 // propios o internos). No exige punto en el dominio.
 export const looseEmail = z.string().trim().regex(/^[^\s@]+@[^\s@]+$/, 'Email inválido');
 
+// Logo del gimnasio: URL http(s) o imagen embebida como data URL (base64).
+// Tope ~350 KB para no inflar la base ni el ticket.
+export const logoUrlField = z
+  .string()
+  .refine(
+    (v) =>
+      v === '' ||
+      /^data:image\/(png|jpe?g|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/i.test(v) ||
+      /^https?:\/\/[^\s]+$/i.test(v),
+    'Logo inválido (png, jpg, webp o una URL)',
+  )
+  .refine((v) => v.length <= 500_000, 'El logo es muy grande (máx. ~350 KB)');
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -48,7 +61,7 @@ export const organizationUpdateSchema = z.object({
   email: optionalString,
   phone: optionalString,
   address: optionalString,
-  logoUrl: optionalString,
+  logoUrl: logoUrlField.nullish(),
   currency: z.string().optional(),
   timezone: z.string().optional(),
 });

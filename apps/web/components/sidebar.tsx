@@ -87,10 +87,14 @@ export function Sidebar() {
     <div className="flex h-full w-64 flex-col border-r border-line bg-surface">
       <div className="flex items-center gap-3 border-b border-line px-5 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="FIT system™" className="h-9 w-9 rounded-lg object-cover" />
+        <img
+          src={organization?.logoUrl || '/logo.png'}
+          alt={organization?.name || 'FIT system™'}
+          className="h-9 w-9 rounded-lg bg-white object-contain"
+        />
         <div className="min-w-0">
-          <div className="truncate text-sm font-bold text-text">FIT system™</div>
-          <div className="truncate text-[11px] text-text-muted">{organization?.name || 'Gestión'}</div>
+          <div className="truncate text-sm font-bold text-text">{organization?.name || 'FIT system™'}</div>
+          <div className="truncate text-[11px] text-text-muted">FIT system™</div>
         </div>
       </div>
 

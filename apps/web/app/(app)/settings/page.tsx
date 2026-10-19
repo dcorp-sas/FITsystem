@@ -368,6 +368,28 @@ export default function SettingsPage() {
                     { value: 'false', label: 'No' },
                   ],
                 },
+                {
+                  key: 'TICKET_TYPE',
+                  label: 'Tipo de ticket',
+                  type: 'select',
+                  options: [
+                    { value: 'SIMPLE', label: 'Comprobante simple' },
+                    { value: 'FISCAL', label: 'Ticket fiscal (datos de ARCA)' },
+                  ],
+                  help: 'El ticket fiscal imprime CAE, número y neto/IVA cuando el cobro se facturó con ARCA.',
+                },
+                {
+                  key: 'SHOW_LOGO',
+                  label: 'Imprimir el logo del gimnasio',
+                  type: 'select',
+                  options: [
+                    { value: 'true', label: 'Sí (impresoras que aceptan imágenes)' },
+                    { value: 'false', label: 'No (solo texto)' },
+                  ],
+                  help: 'Depende de la impresora. Si el ticket sale mal, probá Desactivado.',
+                },
+                { key: 'TICKET_HEADER', label: 'Encabezado del ticket (opcional)', placeholder: 'Ej: Gimnasio Central · Sucursal Centro' },
+                { key: 'TICKET_FOOTER', label: 'Pie del ticket (opcional)', placeholder: 'Ej: ¡Gracias por entrenar con nosotros!' },
                 { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999', advanced: true },
                 { key: 'POINT_DEVICE_ID', label: 'Terminal Point (opcional)', placeholder: 'NEWLAND_N950__...', advanced: true },
                 { key: 'TICKET_TEMPLATE', label: 'Plantilla de ticket', placeholder: 'default', advanced: true },
@@ -423,8 +445,37 @@ interface FieldDef {
   help?: string;
 }
 
+/** Lee un archivo de imagen y lo devuelve como data URL reducido (max 512px). */
+async function fileToLogoDataUrl(file: File): Promise<string> {
+  const rawUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+  return new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 512;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('No se pudo procesar la imagen'));
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('Archivo de imagen inválido'));
+    img.src = rawUrl;
+  });
+}
+
 function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSaved: () => void }) {
   const toast = useToast();
+  const { refresh } = useAuth();
   const [form, setForm] = useState({
     name: '',
     taxId: '',
@@ -432,8 +483,10 @@ function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSav
     phone: '',
     address: '',
     currency: 'ARS',
+    logoUrl: '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (initial) {
@@ -444,9 +497,23 @@ function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSav
         phone: initial.phone || '',
         address: initial.address || '',
         currency: initial.currency || 'ARS',
+        logoUrl: initial.logoUrl || '',
       });
     }
   }, [initial]);
+
+  async function onPickLogo(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await fileToLogoDataUrl(file);
+      setForm((f) => ({ ...f, logoUrl: dataUrl }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo cargar la imagen');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -459,7 +526,9 @@ function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSav
         phone: form.phone || null,
         address: form.address || null,
         currency: form.currency,
+        logoUrl: form.logoUrl || null,
       });
+      await refresh();
       toast.success('Datos guardados');
       onSaved();
     } catch (error) {
@@ -472,6 +541,36 @@ function GeneralForm({ initial, onSaved }: { initial: Organization | null; onSav
   return (
     <Card title="Datos del gimnasio" className="max-w-2xl">
       <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Field label="Logo del gimnasio" hint="Se muestra en el panel, en la app de socios y en el ticket (si está activado). PNG o JPG, se reduce automáticamente.">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-alt">
+                {form.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                ) : (
+                  <span className="text-xs text-text-muted">Sin logo</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-line px-3 text-sm font-medium text-text transition-colors hover:bg-surface-alt">
+                  {uploading ? 'Cargando…' : 'Subir imagen'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => onPickLogo(e.target.files?.[0])}
+                  />
+                </label>
+                {form.logoUrl && (
+                  <Button type="button" variant="ghost" onClick={() => setForm((f) => ({ ...f, logoUrl: '' }))}>
+                    Quitar
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Field>
+        </div>
         <Field label="Nombre" className="sm:col-span-2">
           <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </Field>

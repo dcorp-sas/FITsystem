@@ -1025,6 +1025,7 @@ async function createWindow() {
 
 function formatTicket(data: Record<string, any>): string {
   const org = data.organization || 'FIT system™';
+  const headerLines = (data.headerLines || []) as string[];
   const title = data.title || 'COMPROBANTE';
   const date = new Date(data.date || Date.now()).toLocaleString('es-AR');
   const lines = (data.lines || []) as Array<{ label: string; value: string }>;
@@ -1040,6 +1041,7 @@ function formatTicket(data: Record<string, any>): string {
   const right = (s: string) => String(s).padStart(w);
   let t = '';
   t += center(org) + '\n';
+  for (const hl of headerLines) t += center(String(hl)) + '\n';
   t += center(title) + '\n';
   t += '-'.repeat(w) + '\n';
   t += `Fecha: ${date}`.slice(0, w).padEnd(w) + '\n';
@@ -1106,12 +1108,17 @@ function startPrintServer() {
         try {
           const data = JSON.parse(body || '{}');
           const printerName = data.printer || undefined;
-          const content = data.raw || formatTicket(data.ticket || {});
+          const ticket = data.ticket || {};
+          const content = data.raw || formatTicket(ticket);
+          // Logo del gimnasio (data URL o URL http). Se imprime como imagen
+          // arriba del texto solo si la impresora/ajustes lo permiten.
+          const logo = typeof ticket.logo === 'string' ? ticket.logo : '';
+          const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const logoHtml = logo
+            ? `<img src="${logo.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" style="display:block;margin:0 auto 8px;max-width:180px;max-height:90px;object-fit:contain" />`
+            : '';
           const printWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
-          const html = `<!DOCTYPE html><html><body><pre style="font-family:monospace;font-size:12px;white-space:pre-wrap;margin:0">${content
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')}</pre></body></html>`;
+          const html = `<!DOCTYPE html><html><body>${logoHtml}<pre style="font-family:monospace;font-size:12px;white-space:pre-wrap;margin:0">${esc(content)}</pre></body></html>`;
           await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
           await printWindow.webContents.print({ silent: true, deviceName: printerName, margins: { marginType: 'none' } as any });
           printWindow.close();

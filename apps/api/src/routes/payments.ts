@@ -5,7 +5,7 @@ import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.j
 import { logActivity } from '../lib/activity.js';
 import { notifyEvent } from '../services/notifications.js';
 import { getRawSetting } from '../services/settings.js';
-import { printTicket, buildReceiptTicket } from '../services/print.js';
+import { printTicket, buildPaymentReceipt } from '../services/print.js';
 import { addDays, startOfDay, endOfDay, startOfMonth, endOfMonth } from '@fitsystem/utils';
 
 const CONCEPT_CATEGORY: Record<string, string> = {
@@ -232,13 +232,14 @@ export function paymentRoutes(app: FastifyInstance) {
       // Impresion automatica del comprobante (si esta activada en Ajustes > Impresion).
       if (status === 'COMPLETED' && (await getRawSetting(orgId, 'PRINT', 'PRINT_ON_PAYMENT')) === 'true') {
         const org = await prisma.organization.findUnique({ where: { id: orgId } });
-        await printTicket(orgId, buildReceiptTicket({
-          organization: org?.name ?? 'FIT system™',
+        await printTicket(orgId, await buildPaymentReceipt(orgId, org, {
           member: input.memberId ? (await prisma.member.findUnique({ where: { id: input.memberId } }))?.firstName ?? null : null,
           concept: input.concept,
           method: input.method,
           amount: input.amount,
           reference,
+          invoiceNumber: payment.invoiceNumber,
+          providerData: payment.providerData,
           date: payment.paidAt ?? new Date(),
         }));
       }

@@ -93,10 +93,10 @@ export default function PaymentsPage() {
     }
   }
 
-  async function onPrint(id: string) {
+  async function onPrint(id: string, fiscal = false) {
     try {
-      await http.post(`/integrations/print/receipt/${id}`);
-      toast.success('Comprobante enviado a la impresora');
+      await http.post(`/integrations/print/receipt/${id}`, fiscal ? { fiscal: true } : {});
+      toast.success(fiscal ? 'Comprobante fiscal enviado a la impresora' : 'Comprobante enviado a la impresora');
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'No se pudo imprimir');
     }
@@ -193,6 +193,11 @@ export default function PaymentsPage() {
                       {p.status === 'COMPLETED' && (
                         <Button size="sm" variant="ghost" onClick={() => onPrint(p.id)}>
                           Imprimir
+                        </Button>
+                      )}
+                      {p.status === 'COMPLETED' && p.invoiceNumber && (
+                        <Button size="sm" variant="ghost" onClick={() => onPrint(p.id, true)}>
+                          Factura
                         </Button>
                       )}
                       {isAdmin && p.status === 'COMPLETED' && p.invoiceNumber && (
