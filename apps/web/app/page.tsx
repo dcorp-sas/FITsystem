@@ -101,6 +101,8 @@ const TESTIMONIALS: Array<{ quote: string; author: string; role: string }> = [
     role: 'Administrador · IronBox Córdoba',
   },
 ];
+
+const FAQS = [
   {
     q: '¿Necesito internet para usar el sistema?',
     a: 'Para la operación diaria no: el sistema corre en la PC del gimnasio y sigue funcionando aunque se corte internet (socios, cuotas, caja, clases, asistencia y tienda). La conexión se usa para la app móvil de los socios, los pagos online, las novedades, el envío de recordatorios y la sincronización del consolidado para reportes.',

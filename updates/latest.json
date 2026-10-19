@@ -1,6 +1,6 @@
 {
-  "version": "0.3.13",
+  "version": "0.3.14",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "URL a fitsystem.com.ar, deploy GitHub->VPS, logos de socios (PWA/nativo), landing modernizada + nuevos contactos, mejoras de documentación y utilidades (BACKUP_URL, workflows)",
+  "notes": "fix(web): corrige error de sintaxis en la landing que impedía compilar y desplegar\n\nFaltaba la declaración `const FAQS = [` (se perdió al agregar la sección de\ntestimonios en v0.3.13). El error de compilación de Next.js dejaba el contenedor\nweb del VPS con la imagen vieja, por eso la landing no se actualizaba.",
   "mandatory": false
 }
