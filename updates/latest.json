@@ -1,6 +1,6 @@
 {
-  "version": "0.3.17",
+  "version": "0.3.18",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "App de socios: panel Mi perfil (datos personales, contacto, contacto de emergencia, foto de perfil y cambio de clave).\nIngreso sin correo: ahora es DNI + codigo del gimnasio; la clave se crea desde el perfil de la app.\nPlanes: Basico 100, Pro 300 y Empresa 500 socios con app.\nKit MercadoPago: $75.000.\nWeb: se quito la seccion de testimonios (eran de ejemplo, no reales).\nDeploy VPS: build en segundo plano con keepalive SSH, y poda de cache Docker para evitar quedar sin disco.",
+  "notes": "Deploy VPS: se construyen las imagenes de a una (el VPS tiene 2 GB de RAM y compilar en paralelo mataba el build con OOM). Nuevo script scripts/vps-deploy.sh.\nDeploy VPS: el build corre en segundo plano con polling y keepalive SSH, para que no se corte por inactividad.\nAPI (Docker): se instala openssl en la imagen; sin el, prisma db push fallaba y la API quedaba reiniciandose.",
   "mandatory": false
 }

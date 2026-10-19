@@ -3,6 +3,12 @@
 #   docker build -f apps/api/Dockerfile -t fitsystem-api .
 FROM node:22-bookworm-slim
 
+# Prisma necesita openssl en la imagen runtime: sin el, el "schema engine"
+# (prisma db push) no arranca y la API queda en reinicio.
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     NODE_ENV=production \

@@ -28,6 +28,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
       - name: Comprobar si estan los secretos
         id: check
         run: |
@@ -56,41 +59,27 @@ jobs:
           PORT="${PORT:-22}"
           SSHUSER="${SSHUSER:-root}"
           SSH_OPTS="-o ServerAliveInterval=30 -o ServerAliveCountMax=40 -o TCPKeepAlive=yes -o ConnectTimeout=30 -i $HOME/.ssh/id_ed25519 -p $PORT"
+          SCP_OPTS="-o ServerAliveInterval=30 -o TCPKeepAlive=yes -o ConnectTimeout=30 -i $HOME/.ssh/id_ed25519 -P $PORT"
           remote() { ssh $SSH_OPTS "$SSHUSER@$HOST" "$1"; }
 
-          # Prepara el repo y lanza el build EN SEGUNDO PLANO. El VPS tiene 2 GB
-          # de RAM y el build puede tardar varios minutos; si se corre en primer
-          # plano la sesion SSH se cae por inactividad ("Broken pipe").
-          remote '
-            set -e
-            cd /opt/fitsystem
-            git fetch --prune origin main
-            git reset --hard origin/main
-            # La cache de build de Docker crece en cada despliegue y puede llenar
-            # el disco del VPS (30 GB): podarla antes de construir. Si el disco
-            # igual esta ajustado, se hace una poda total.
-            docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
-            docker image prune -f >/dev/null 2>&1 || true
-            used=$(df --output=pcent / | tail -1 | tr -dc "0-9")
-            if [ "${used:-0}" -ge 75 ]; then docker builder prune -af >/dev/null 2>&1 || true; fi
-            rm -f /tmp/fitsystem-deploy.done /tmp/fitsystem-deploy.pid
-            : > /tmp/fitsystem-deploy.log
-            nohup bash -c "COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml up -d --build; echo \$? > /tmp/fitsystem-deploy.done" >>/tmp/fitsystem-deploy.log 2>&1 &
-            echo $! > /tmp/fitsystem-deploy.pid
-            echo "build lanzado (pid $(cat /tmp/fitsystem-deploy.pid))"
-          '
+          # El VPS tiene 2 GB de RAM y no puede compilar las imagenes en paralelo:
+          # el script para los servicios de la app y construye una imagen por vez.
+          scp $SCP_OPTS scripts/vps-deploy.sh "$SSHUSER@$HOST:/tmp/vps-build.sh"
 
-          # Espera activa (hasta ~30 min) manteniendo viva la conexion.
-          for i in $(seq 1 120); do
+          # Lanza el build EN SEGUNDO PLANO y guarda el codigo de salida en un
+          # archivo: asi una sesion SSH larga no se cae por inactividad.
+          remote "rm -f /tmp/fitsystem-deploy.done /tmp/fitsystem-deploy.log; nohup bash -c 'bash /tmp/vps-build.sh; echo \$? > /tmp/fitsystem-deploy.done' > /tmp/fitsystem-deploy.log 2>&1 & echo \$! > /tmp/fitsystem-deploy.pid; echo 'build lanzado'"
+
+          # Espera activa (hasta ~40 min) manteniendo viva la conexion.
+          for i in $(seq 1 160); do
             if remote 'test -f /tmp/fitsystem-deploy.done'; then break; fi
             echo "build en curso ($((i*15))s)..."
             sleep 15
           done
 
-          remote 'tail -n 100 /tmp/fitsystem-deploy.log'
+          remote 'tail -n 120 /tmp/fitsystem-deploy.log'
           code=$(remote 'cat /tmp/fitsystem-deploy.done 2>/dev/null || echo missing')
           if [ "$code" != "0" ]; then
             echo "::error::El build fallo en el VPS (exit $code)"
             exit 1
           fi
-          remote 'docker image prune -f >/dev/null 2>&1 || true; docker compose -f docker-compose.prod.yml ps'
