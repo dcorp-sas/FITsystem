@@ -1,6 +1,6 @@
 {
-  "version": "0.3.16",
+  "version": "0.3.17",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Build de la landing en VPS de 2 GB\n\n- Next.js compila en un solo proceso (experimental.cpus=1, workerThreads=false) para no agotar la RAM durante la generación estática.\n- El build corre a baja prioridad (nice) para no dejar sin CPU a sshd y no perder la sesión de despliegue.\n- Aplica también al build de la app de socios (límite de heap de Node).",
+  "notes": "App de socios: panel Mi perfil (datos personales, contacto, contacto de emergencia, foto de perfil y cambio de clave).\nIngreso sin correo: ahora es DNI + codigo del gimnasio; la clave se crea desde el perfil de la app.\nPlanes: Basico 100, Pro 300 y Empresa 500 socios con app.\nKit MercadoPago: $75.000.\nWeb: se quito la seccion de testimonios (eran de ejemplo, no reales).\nDeploy VPS: build en segundo plano con keepalive SSH, y poda de cache Docker para evitar quedar sin disco.",
   "mandatory": false
 }

@@ -30,7 +30,7 @@ const PLANS: PlanDef[] = [
   {
     tag: 'PRO',
     name: 'Pro',
-    seats: 'Hasta 500 socios con app',
+    seats: 'Hasta 300 socios con app',
     monthly: 75000,
     annual: 750000,
     popular: true,
@@ -39,7 +39,7 @@ const PLANS: PlanDef[] = [
   {
     tag: 'ENTERPRISE',
     name: 'Empresa',
-    seats: 'Socios ilimitados con app',
+    seats: 'Hasta 500 socios con app',
     monthly: 140000,
     annual: 1400000,
     features: ['Sedes y reportes avanzados', 'Onboarding acompañado', 'Soporte dedicado', 'Migración asistida'],

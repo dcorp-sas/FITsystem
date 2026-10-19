@@ -574,7 +574,39 @@ export const portalActivateSchema = z.object({
   organizationSlug: z.string().min(1).optional(),
   identifier: z.string().min(3),
   activationCode: z.string().min(4),
-  password: z.string().min(6, 'La contrasena debe tener al menos 6 caracteres'),
+  // Opcional: si no viene, el socio entra con el codigo y define su clave
+  // despues desde el perfil de la app.
+  password: z.string().min(6, 'La contrasena debe tener al menos 6 caracteres').optional(),
+});
+
+// Foto de perfil como data URL (base64). Tope ~350 KB para no inflar la base.
+const photoDataUrl = z
+  .string()
+  .refine(
+    (v) => v === '' || /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/i.test(v),
+    'Formato de imagen no valido (png, jpg o webp)',
+  )
+  .refine((v) => v.length <= 500_000, 'La foto es muy grande (max. ~350 KB)');
+
+// Datos que el socio puede editar desde la app.
+export const portalProfileSchema = z.object({
+  firstName: z.string().trim().min(1).optional(),
+  lastName: z.string().trim().min(1).optional(),
+  documentNumber: optionalString,
+  email: z.union([looseEmail, z.literal('')]).optional().nullable(),
+  phone: optionalString,
+  address: optionalString,
+  city: optionalString,
+  emergencyName: optionalString,
+  emergencyPhone: optionalString,
+  photoUrl: photoDataUrl.optional().nullable(),
+});
+
+// Alta/cambio de clave del socio desde la app. `currentPassword` solo se exige
+// si la cuenta ya tiene una clave definida.
+export const portalPasswordSchema = z.object({
+  currentPassword: z.string().optional().nullable(),
+  newPassword: z.string().min(6, 'La nueva contrasena debe tener al menos 6 caracteres'),
 });
 
 export const portalPushTokenSchema = z.object({

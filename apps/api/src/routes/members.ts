@@ -422,7 +422,9 @@ export function memberRoutes(app: FastifyInstance) {
           gender: input.gender || null,
           address: input.address || null,
           city: input.city || null,
-          photoUrl: input.photoUrl || null,
+          // Solo se toca la foto si el formulario la envio: evita borrar la que
+          // el socio subio desde la app.
+          ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl || null } : {}),
           emergencyName: input.emergencyName || null,
           emergencyPhone: input.emergencyPhone || null,
           notes: input.notes || null,

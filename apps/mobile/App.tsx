@@ -11,13 +11,14 @@ import { RoutinesScreen } from './src/screens/RoutinesScreen';
 import { PaymentsScreen } from './src/screens/PaymentsScreen';
 import { ClassesScreen } from './src/screens/ClassesScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import { InstallPrompt } from './src/components/install-prompt';
 import { NotificationPrompt } from './src/components/notification-prompt';
 import { ToastHost } from './src/components/toast';
 import { Avatar } from './src/components/ui';
 import { Icon, type IconName } from './src/components/icon';
 
-type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments';
+type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments' | 'profile';
 
 const TABS: { key: Tab; label: string; icon: IconName; iconActive: IconName }[] = [
   { key: 'home', label: 'Inicio', icon: 'home-outline', iconActive: 'home' },
@@ -121,7 +122,14 @@ export default function App() {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <Avatar name={session.member.name} size={38} />
+          <Pressable
+            onPress={() => setTab('profile')}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            hitSlop={6}
+            accessibilityLabel="Mi perfil"
+          >
+            <Avatar name={session.member.name} size={38} uri={session.member.photoUrl} />
+          </Pressable>
           <Pressable
             onPress={() => {
               setToken(null);
@@ -158,6 +166,14 @@ export default function App() {
         {tab === 'news' && <NewsScreen />}
         {tab === 'routines' && <RoutinesScreen />}
         {tab === 'payments' && <PaymentsScreen quota={session.quota} />}
+        {tab === 'profile' && (
+          <ProfileScreen
+            member={session.member}
+            org={session.organization}
+            onBack={() => setTab('home')}
+            onUpdated={(member) => setSession((s) => (s ? { ...s, member } : s))}
+          />
+        )}
       </View>
 
       <View style={styles.tabbar}>

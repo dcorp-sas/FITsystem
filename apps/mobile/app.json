@@ -44,6 +44,12 @@
         {
           "cameraPermission": "Permití que FIT system™ use la cámara para escanear el QR de ingreso al gimnasio."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permití que FIT system™ acceda a tus fotos para poner tu foto de perfil."
+        }
       ]
     ],
     "extra": {

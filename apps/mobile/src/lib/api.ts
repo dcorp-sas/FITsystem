@@ -79,7 +79,7 @@ export function getToken() {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
 }
@@ -148,11 +148,37 @@ export interface OrgInfo {
 export interface MemberInfo {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   memberCode: string;
   photoUrl?: string | null;
+  documentType?: string | null;
+  documentNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  city?: string | null;
+  emergencyName?: string | null;
+  emergencyPhone?: string | null;
   totalVisits?: number;
   lastVisitAt?: string | null;
   branch?: string | null;
+}
+
+// Campos que el socio puede editar desde la app.
+export interface ProfileInput {
+  firstName?: string;
+  lastName?: string;
+  documentNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  emergencyName?: string | null;
+  emergencyPhone?: string | null;
+  photoUrl?: string | null;
 }
 
 export interface LoginResponse {
@@ -289,7 +315,9 @@ export const portal = {
       auth: false,
     }),
 
-  activate: (identifier: string, activationCode: string, password: string) =>
+  // Primer acceso: DNI + codigo del gimnasio. La clave es opcional; si no se
+  // manda, el socio la define despues desde el perfil.
+  activate: (identifier: string, activationCode: string, password?: string) =>
     request<LoginResponse>('/api/portal/auth/activate', {
       method: 'POST',
       body: { identifier, activationCode, password },
@@ -297,6 +325,15 @@ export const portal = {
     }),
 
   me: () => request<{ organization: OrgInfo; member: MemberInfo; quota: Quota | null }>('/api/portal/me'),
+
+  updateProfile: (body: ProfileInput) =>
+    request<{ member: MemberInfo }>('/api/portal/me', { method: 'PATCH', body }),
+
+  changePassword: (newPassword: string, currentPassword?: string) =>
+    request<{ updated: boolean }>('/api/portal/me/password', {
+      method: 'POST',
+      body: { newPassword, currentPassword },
+    }),
   news: () => request<{ items: NewsItem[] }>('/api/portal/news'),
   routines: () => request<{ items: Routine[] }>('/api/portal/routines'),
 

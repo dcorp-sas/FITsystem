@@ -82,25 +82,7 @@ const STEPS = [
 
 const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses', amount: 60000 };
 
-const MP_KIT = { price: '$50.000', period: 'pago único', amount: 50000 };
-
-const TESTIMONIALS: Array<{ quote: string; author: string; role: string }> = [
-  {
-    quote: 'Revolucionamos la gestión: ahora cobramos más rápido y sabemos exactamente qué debe cada socio.',
-    author: 'Leo Martino',
-    role: 'Dueño · SportFit Buenos Aires',
-  },
-  {
-    quote: 'La app del socio nos ahorra tiempo en recepción. Los turnos y la cuota se manejan solos.',
-    author: 'María González',
-    role: 'Recepcionista · GymVital Rosario',
-  },
-  {
-    quote: 'Funciona sin internet y eso nos salva los días de corte. Muy práctico y estable.',
-    author: 'Julio Rivas',
-    role: 'Administrador · IronBox Córdoba',
-  },
-];
+const MP_KIT = { price: '$75.000', period: 'pago único', amount: 75000 };
 
 const FAQS = [
   {
@@ -335,33 +317,6 @@ export default function LandingPage() {
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-text">{step.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{step.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonios / Confianza */}
-      <section className="border-y border-line bg-surface/40 py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Confianza</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Lo que dicen quienes ya lo usan
-            </h2>
-            <p className="mt-4 text-base text-text-muted">
-              Prueba social en evolución — reemplazá estos testimonios por los reales de tu gimnasio.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.author} className="rounded-xl border border-line bg-base p-6 transition-colors hover:border-primary/40">
-                <p className="text-base italic leading-relaxed text-text-muted">“{t.quote}”</p>
-                <div className="mt-6">
-                  <div className="text-sm font-semibold text-text">{t.author}</div>
-                  <div className="text-xs text-text-muted">{t.role}</div>
-                </div>
               </div>
             ))}
           </div>

@@ -5,6 +5,8 @@ import { prisma } from '../db.js';
 import {
   portalLoginSchema,
   portalActivateSchema,
+  portalProfileSchema,
+  portalPasswordSchema,
   portalPushTokenSchema,
   portalWebPushSchema,
   portalPaymentIntentSchema,
@@ -19,6 +21,8 @@ import { rateLimit } from '../lib/ratelimit.js';
 import { getRawSetting } from '../services/settings.js';
 import { openTurnstile } from '../services/turnstile.js';
 import { getVapidPublicKey } from '../services/push.js';
+import { scheduleCloudSync } from '../services/cloud-sync.js';
+import { syncPortalAccount } from '../services/portal-account.js';
 import { parseAccessQr } from '../lib/member-qr.js';
 import { daysBetween, fullName, startOfDay } from '@fitsystem/utils';
 
@@ -74,13 +78,16 @@ async function findCandidateAccounts(identifier: string, organizationId?: string
 
 // Devuelve la cuenta cuyo hash coincide con la contrasena (si hay varias
 // coincidencias de DNI en distintos gimnasios, gana la que valide la clave).
-async function authenticateAccount(identifier: string, password: string, organizationId?: string) {
+// Tambien acepta el codigo de activacion que entrega el gimnasio: asi el socio
+// entra la primera vez con su DNI + codigo, sin clave, y luego define su clave
+// desde el perfil de la app.
+async function authenticateAccount(identifier: string, secret: string, organizationId?: string) {
   const candidates = await findCandidateAccounts(identifier, organizationId);
+  const value = secret.trim();
   for (const account of candidates) {
-    if (!account.passwordHash) continue;
-    if (await bcrypt.compare(password, account.passwordHash)) return account;
+    if (account.passwordHash && (await bcrypt.compare(secret, account.passwordHash))) return account;
   }
-  return null;
+  return candidates.find((a) => a.activationCode != null && a.activationCode === value) ?? null;
 }
 
 async function loadContext(organizationId: string, memberId: string) {
@@ -124,6 +131,48 @@ async function loadContext(organizationId: string, memberId: string) {
     : null;
 
   return { org, member, quota, attendance, news, routines, payments };
+}
+
+// Datos del socio que se exponen en la app (home + perfil editable).
+function memberProfile(member: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  memberCode: string;
+  photoUrl: string | null;
+  documentType: string | null;
+  documentNumber: string | null;
+  email: string | null;
+  phone: string | null;
+  birthDate: Date | null;
+  gender: string | null;
+  address: string | null;
+  city: string | null;
+  emergencyName: string | null;
+  emergencyPhone: string | null;
+  totalVisits: number;
+  lastVisitAt: Date | null;
+}) {
+  return {
+    id: member.id,
+    name: fullName(member.firstName, member.lastName),
+    firstName: member.firstName,
+    lastName: member.lastName,
+    memberCode: member.memberCode,
+    photoUrl: member.photoUrl,
+    documentType: member.documentType,
+    documentNumber: member.documentNumber,
+    email: member.email,
+    phone: member.phone,
+    birthDate: member.birthDate,
+    gender: member.gender,
+    address: member.address,
+    city: member.city,
+    emergencyName: member.emergencyName,
+    emergencyPhone: member.emergencyPhone,
+    totalVisits: member.totalVisits,
+    lastVisitAt: member.lastVisitAt,
+  };
 }
 
 export function portalRoutes(app: FastifyInstance) {
@@ -186,11 +235,20 @@ export function portalRoutes(app: FastifyInstance) {
         org ?? (await prisma.organization.findUnique({ where: { id: account.organizationId } }));
       if (!resolvedOrg) throw new HttpError(400, 'Datos de activacion invalidos');
 
-      const passwordHash = await bcrypt.hash(input.password, 10);
-      await prisma.portalAccount.update({
-        where: { id: account.id },
-        data: { passwordHash, activationCode: null, isActive: true, lastLoginAt: new Date() },
-      });
+      // Si el socio define su clave en este paso, se guarda y el codigo queda
+      // sin uso. Si entra solo con el codigo, se conserva para que pueda volver
+      // a ingresar hasta que defina una clave desde el perfil.
+      const data: {
+        passwordHash?: string;
+        activationCode?: string | null;
+        isActive: boolean;
+        lastLoginAt: Date;
+      } = { isActive: true, lastLoginAt: new Date() };
+      if (input.password) {
+        data.passwordHash = await bcrypt.hash(input.password, 10);
+        data.activationCode = null;
+      }
+      await prisma.portalAccount.update({ where: { id: account.id }, data });
 
       const token = app.jwt.sign({ sub: account.id, typ: 'portal' } satisfies PortalJwt);
       const ctx = await loadContext(resolvedOrg.id, member.id);
@@ -213,17 +271,82 @@ export function portalRoutes(app: FastifyInstance) {
       if (!ctx.member) throw new HttpError(404, 'Socio no encontrado');
       return ok(reply, {
         organization: ctx.org && { id: ctx.org.id, name: ctx.org.name, slug: ctx.org.slug, logoUrl: ctx.org.logoUrl, currency: ctx.org.currency },
-        member: {
-          id: ctx.member.id,
-          name: fullName(ctx.member.firstName, ctx.member.lastName),
-          memberCode: ctx.member.memberCode,
-          photoUrl: ctx.member.photoUrl,
-          totalVisits: ctx.member.totalVisits,
-          lastVisitAt: ctx.member.lastVisitAt,
-          branch: ctx.member.branch?.name ?? null,
-        },
+        member: { ...memberProfile(ctx.member), branch: ctx.member.branch?.name ?? null },
         quota: ctx.quota,
       });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Editar el perfil del socio desde la app (datos personales, contacto,
+  // emergencia y foto). El DNI tambien actualiza la credencial de acceso.
+  app.patch('/portal/me', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const input = validate(portalProfileSchema, request.body);
+      const existing = await prisma.member.findFirst({
+        where: { id: req.portalAccount.memberId, organizationId: req.portalAccount.organizationId },
+        include: { branch: true },
+      });
+      if (!existing) throw new HttpError(404, 'Socio no encontrado');
+
+      const member = await prisma.member.update({
+        where: { id: existing.id },
+        data: {
+          ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
+          ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
+          ...(input.documentNumber !== undefined ? { documentNumber: input.documentNumber || null } : {}),
+          ...(input.email !== undefined ? { email: input.email && input.email.length ? input.email : null } : {}),
+          ...(input.phone !== undefined ? { phone: input.phone || null } : {}),
+          ...(input.address !== undefined ? { address: input.address || null } : {}),
+          ...(input.city !== undefined ? { city: input.city || null } : {}),
+          ...(input.emergencyName !== undefined ? { emergencyName: input.emergencyName || null } : {}),
+          ...(input.emergencyPhone !== undefined ? { emergencyPhone: input.emergencyPhone || null } : {}),
+          ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl || null } : {}),
+        },
+      });
+
+      // Refleja DNI/email en la credencial del portal para que el login siga
+      // funcionando con los datos nuevos.
+      await syncPortalAccount({
+        organizationId: member.organizationId,
+        member: {
+          id: member.id,
+          email: member.email,
+          documentNumber: member.documentNumber,
+          memberCode: member.memberCode,
+        },
+      });
+      scheduleCloudSync();
+
+      return ok(reply, {
+        member: { ...memberProfile(member), branch: existing.branch?.name ?? null },
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Definir o cambiar la clave de acceso a la app.
+  app.post('/portal/me/password', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const input = validate(portalPasswordSchema, request.body);
+      const account = await prisma.portalAccount.findUnique({ where: { id: req.portalAccount.id } });
+      if (!account) throw new HttpError(404, 'Cuenta no encontrada');
+
+      if (account.passwordHash) {
+        if (!input.currentPassword || !(await bcrypt.compare(input.currentPassword, account.passwordHash))) {
+          throw new HttpError(400, 'La clave actual no es correcta');
+        }
+      }
+
+      await prisma.portalAccount.update({
+        where: { id: account.id },
+        data: { passwordHash: await bcrypt.hash(input.newPassword, 10), activationCode: null },
+      });
+      return ok(reply, { updated: true });
     } catch (error) {
       return fail(reply, error);
     }

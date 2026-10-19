@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -32,18 +33,24 @@ export function ScreenHeader({
   icon,
   title,
   subtitle,
+  onBack,
 }: {
   icon?: IconName;
   title: string;
   subtitle?: string;
+  onBack?: () => void;
 }) {
   return (
     <View style={styles.screenHeader}>
-      {icon && (
+      {onBack ? (
+        <Pressable onPress={onBack} style={styles.screenBack} hitSlop={8}>
+          <Icon name="chevron-back" size={22} color={colors.text} />
+        </Pressable>
+      ) : icon ? (
         <View style={styles.screenHeaderIcon}>
           <Icon name={icon} size={20} color={colors.primaryLight} />
         </View>
-      )}
+      ) : null}
       <View style={styles.screenHeaderText}>
         <Text style={styles.screenTitle}>{title}</Text>
         {subtitle && <Muted>{subtitle}</Muted>}
@@ -72,13 +79,16 @@ export function SectionTitle({
   );
 }
 
-export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 40, uri }: { name: string; size?: number; uri?: string | null }) {
   const initials = name
     .trim()
     .split(/\s+/)
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? '')
     .join('');
+  if (uri) {
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  }
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={[styles.avatarText, { fontSize: size * 0.4 }]}>{initials || '?'}</Text>
@@ -161,6 +171,15 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: radius.md,
     backgroundColor: `${colors.primary}22`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  screenBack: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

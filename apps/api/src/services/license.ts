@@ -16,8 +16,8 @@ export function licensePublicKeyFingerprint(): string {
 export const LICENSE_PLANS = {
   TRIAL: { seats: 10, days: env.LICENSE_TRIAL_DAYS },
   BASIC: { seats: 100, days: 365 },
-  PRO: { seats: 500, days: 365 },
-  ENTERPRISE: { seats: 100000, days: 3650 },
+  PRO: { seats: 300, days: 365 },
+  ENTERPRISE: { seats: 500, days: 3650 },
 } as const;
 
 export type LicensePlanName = keyof typeof LICENSE_PLANS;

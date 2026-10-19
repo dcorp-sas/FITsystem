@@ -4,14 +4,9 @@ import { colors, radius, spacing } from '../theme';
 import { PrimaryButton, Title } from '../components/ui';
 import { portal, setToken, type LoginResponse } from '../lib/api';
 
-const DEMO_IDENTIFIER = 'juan@mail.com';
-const DEMO_PASSWORD = 'socio123';
-
 export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) => void }) {
-  const [mode, setMode] = useState<'login' | 'activate'>('login');
   const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [activationCode, setActivationCode] = useState('');
+  const [secret, setSecret] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,28 +14,12 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
     setError(null);
     setLoading(true);
     try {
-      const session =
-        mode === 'login'
-          ? await portal.login(identifier.trim(), password)
-          : await portal.activate(identifier.trim(), activationCode.trim(), password);
+      // El servidor acepta tanto la clave como el codigo de alta del gimnasio.
+      const session = await portal.login(identifier.trim(), secret);
       setToken(session.token);
       onLogged(session);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesion');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function demo() {
-    setError(null);
-    setLoading(true);
-    try {
-      const session = await portal.login(DEMO_IDENTIFIER, DEMO_PASSWORD);
-      setToken(session.token);
-      onLogged(session);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo iniciar la cuenta de prueba');
     } finally {
       setLoading(false);
     }
@@ -64,31 +43,19 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
             value={identifier}
             onChangeText={setIdentifier}
             autoCapitalize="none"
+            keyboardType="number-pad"
             placeholder="12345678"
             placeholderTextColor={colors.textMuted}
           />
 
-          {mode === 'activate' && (
-            <>
-              <Text style={styles.label}>Codigo de activacion</Text>
-              <TextInput
-                style={styles.input}
-                value={activationCode}
-                onChangeText={setActivationCode}
-                autoCapitalize="characters"
-                placeholder="XXXX"
-                placeholderTextColor={colors.textMuted}
-              />
-            </>
-          )}
-
-          <Text style={styles.label}>{mode === 'login' ? 'Contrasena' : 'Elegi tu contrasena'}</Text>
+          <Text style={styles.label}>Clave o código del gimnasio</Text>
           <TextInput
             style={styles.input}
-            value={password}
-            onChangeText={setPassword}
+            value={secret}
+            onChangeText={setSecret}
             secureTextEntry
-            placeholder="••••••"
+            autoCapitalize="none"
+            placeholder="Tu clave o el código que te dieron"
             placeholderTextColor={colors.textMuted}
           />
 
@@ -96,32 +63,17 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
 
           <View style={styles.actions}>
             <PrimaryButton
-              label={mode === 'login' ? 'Ingresar' : 'Activar cuenta'}
+              label="Ingresar"
               onPress={submit}
               loading={loading}
-              disabled={!identifier || !password}
-            />
-            <PrimaryButton
-              label={mode === 'login' ? 'Tengo un codigo de activacion' : 'Ya tengo cuenta'}
-              variant="ghost"
-              onPress={() => {
-                setError(null);
-                setMode(mode === 'login' ? 'activate' : 'login');
-              }}
-            />
-            <PrimaryButton
-              label="Probar con cuenta de prueba"
-              variant="ghost"
-              onPress={demo}
-              disabled={loading}
+              disabled={!identifier || !secret}
             />
           </View>
         </View>
 
         <Text style={styles.hint}>
-          Ingresa con tu DNI y tu contrasena. La primera vez, usa el codigo de activacion que te dio tu gimnasio.
+          ¿Primera vez? Entrá con tu DNI y el código que te dio tu gimnasio. Después podés crear tu clave desde tu perfil.
         </Text>
-        <Text style={styles.hint}>Tu gimnasio te entrega el codigo y la clave al darte de alta.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -155,5 +107,5 @@ const styles = StyleSheet.create({
   },
   error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },
   actions: { gap: spacing.sm, marginTop: spacing.md },
-  hint: { color: colors.textMuted, fontSize: 11, textAlign: 'center' },
+  hint: { color: colors.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18 },
 });

@@ -28,8 +28,8 @@ export interface ProductDef {
  */
 export const PLAN_CATALOG: Record<BillingPlan, PlanDef> = {
   BASIC: { name: 'Básico', seats: 100, monthly: 45000, annual: 450000 },
-  PRO: { name: 'Pro', seats: 500, monthly: 75000, annual: 750000 },
-  ENTERPRISE: { name: 'Empresa', seats: 100000, monthly: 140000, annual: 1400000 },
+  PRO: { name: 'Pro', seats: 300, monthly: 75000, annual: 750000 },
+  ENTERPRISE: { name: 'Empresa', seats: 500, monthly: 140000, annual: 1400000 },
 };
 
 /**
@@ -47,7 +47,7 @@ export const PRODUCT_CATALOG: Record<BillingProduct, ProductDef> = {
     name: 'Kit MercadoPago (Terminal Point + QR)',
     desc: 'Terminal Point y QR de MercadoPago para cobrar en el mostrador.',
     seats: 0,
-    amount: 50000,
+    amount: 75000,
   },
 };
 
