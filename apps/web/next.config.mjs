@@ -40,6 +40,13 @@ const nextConfig = {
     '@fitsystem/utils',
   ],
   eslint: { ignoreDuringBuilds: true },
+  // VPS de 2 GB: la generación estática con varios workers agota la RAM y deja
+  // el servidor sin responder. Un solo proceso, sin worker threads, es más lento
+  // pero entra en memoria.
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

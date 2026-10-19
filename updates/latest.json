@@ -1,6 +1,6 @@
 {
-  "version": "0.3.15",
+  "version": "0.3.16",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "App de socios: renovación de la interfaz (más app, menos web)\n\n- Barra inferior con íconos, etiquetas y estado activo.\n- Header con marca y avatar del socio.\n- Inicio: tarjeta tipo credencial con días restantes, barra de progreso de la cuota y accesos rápidos (Ingreso, Clases, Rutinas, Pagos).\n- Encabezados e íconos consistentes en Clases, Novedades, Pagos y Rutinas.\n- Login con marca e inputs mejorados.\n- Aviso de \"sin conexión\" en la PWA.\n- Builds de web y socios con límite de memoria (NODE_OPTIONS) para evitar que el build agote la RAM del VPS de 2 GB y deje el contenedor viejo.",
+  "notes": "Build de la landing en VPS de 2 GB\n\n- Next.js compila en un solo proceso (experimental.cpus=1, workerThreads=false) para no agotar la RAM durante la generación estática.\n- El build corre a baja prioridad (nice) para no dejar sin CPU a sshd y no perder la sesión de despliegue.\n- Aplica también al build de la app de socios (límite de heap de Node).",
   "mandatory": false
 }
