@@ -1,6 +1,6 @@
 {
-  "version": "0.3.20",
+  "version": "0.3.21",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Branding del gimnasio, ticket configurable y planes rebalanceados\n\n- Logo del gimnasio: se configura en Ajustes > Datos del gimnasio y se muestra en el panel, en la app de socios y en el ticket.\n- Ticket configurable: tipo (comprobante simple o ticket fiscal con datos de ARCA), logo on/off, encabezado y pie de ticket.\n- Botón \"Factura\" en Cobranzas para imprimir el comprobante con los datos fiscales de ARCA.\n- La app de socios muestra el nombre y el logo del gimnasio junto a la marca FIT system.\n- Planes rebalanceados: Pro y Empresa con las prestaciones base equivalentes.\n- Suscripciones usando las credenciales de producción de MercadoPago.",
+  "notes": "Correos del sitio, URL de la app del socio y rediseño de la landing\n\n- Correos de compra (planes, pack de asientos y kit de MercadoPago) y de la clave de licencia: ahora se envían desde ventas@fitsystem.com.ar. El formulario de contacto sigue saliendo desde contacto@fitsystem.com.ar.\n- El mensaje con las credenciales del socio usa siempre la URL correcta de la app (socios.fitsystem.com.ar), sin referencias antiguas.\n- Rediseño del sitio: nueva portada, sección de producto, grilla de módulos, planes y preguntas frecuentes con un look más actual.",
   "mandatory": false
 }

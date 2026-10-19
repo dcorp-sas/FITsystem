@@ -27,11 +27,11 @@ function parseFrom(raw: string): { name: string; email: string } {
   return { name: 'FIT system™', email: raw.trim() };
 }
 
-async function sendViaBrevo(to: string, subject: string, body: string): Promise<PlatformEmailResult> {
+async function sendViaBrevo(to: string, subject: string, body: string, from?: string): Promise<PlatformEmailResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const sender = parseFrom(env.PLATFORM_SMTP_FROM);
+    const sender = parseFrom(from || env.PLATFORM_SMTP_FROM);
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -59,7 +59,7 @@ async function sendViaBrevo(to: string, subject: string, body: string): Promise<
   }
 }
 
-async function sendViaSmtp(to: string, subject: string, body: string): Promise<PlatformEmailResult> {
+async function sendViaSmtp(to: string, subject: string, body: string, from?: string): Promise<PlatformEmailResult> {
   const port = env.PLATFORM_SMTP_PORT || 587;
   const secure = env.PLATFORM_SMTP_SECURE ? env.PLATFORM_SMTP_SECURE === 'true' : port === 465;
   const transporter = nodemailer.createTransport({
@@ -74,7 +74,7 @@ async function sendViaSmtp(to: string, subject: string, body: string): Promise<P
     socketTimeout: 15000,
   });
   await transporter.sendMail({
-    from: env.PLATFORM_SMTP_FROM,
+    from: from || env.PLATFORM_SMTP_FROM,
     to,
     subject,
     text: body,
@@ -82,12 +82,18 @@ async function sendViaSmtp(to: string, subject: string, body: string): Promise<P
   return { ok: true };
 }
 
-export async function sendPlatformEmail(to: string, subject: string, body: string): Promise<PlatformEmailResult> {
+export async function sendPlatformEmail(
+  to: string,
+  subject: string,
+  body: string,
+  opts?: { from?: string },
+): Promise<PlatformEmailResult> {
   if (!to) return { ok: false, error: 'Sin destinatario' };
+  const from = opts?.from;
   try {
-    if (env.PLATFORM_BREVO_API_KEY) return await sendViaBrevo(to, subject, body);
+    if (env.PLATFORM_BREVO_API_KEY) return await sendViaBrevo(to, subject, body, from);
     if (!env.PLATFORM_SMTP_HOST) return { ok: false, error: 'Correo del sitio no configurado' };
-    return await sendViaSmtp(to, subject, body);
+    return await sendViaSmtp(to, subject, body, from);
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }

@@ -51,26 +51,33 @@ const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
+const HERO_CHIPS = [
+  'Opera sin internet',
+  'Datos en tu equipo',
+  'App del socio incluida',
+  'Sin permanencia',
+];
+
 const STATS = [
   { value: '+10', label: 'Módulos integrados' },
-  { value: 'Local', label: 'Tus datos en tu equipo' },
+  { value: '100%', label: 'Funciona sin internet' },
   { value: '∞', label: 'Socios y cuotas' },
   { value: '24/7', label: 'App para tus socios' },
 ];
 
-const MODULES: { icon: IconName; title: string; text: string }[] = [
-  { icon: 'members', title: 'Socios', text: 'Altas, fichas, datos de contacto, estado y foto. Búsqueda instantánea y hoja de cada socio.' },
+const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[] = [
+  { icon: 'members', title: 'Socios', text: 'Altas, fichas, datos de contacto, estado y foto. Búsqueda instantánea y hoja de cada socio.', wide: true },
   { icon: 'memberships', title: 'Cuotas y membresías', text: 'Planes, vencimientos, renovaciones, congelamientos y avisos automáticos de deuda.' },
-  { icon: 'payments', title: 'Cobros y pagos', text: 'Registrá pagos en efectivo, transferencia o MercadoPago. Comprobantes y deudas al día.' },
+  { icon: 'payments', title: 'Cobros y pagos', text: 'Efectivo, transferencia o MercadoPago. Comprobantes y deudas al día.' },
   { icon: 'cash', title: 'Caja diaria', text: 'Apertura, cierre, ingresos y egresos con arqueo y control por turno y usuario.' },
   { icon: 'attendance', title: 'Asistencia y check-in', text: 'Ingresos por DNI o QR, control de acceso y estadísticas de concurrencia.' },
   { icon: 'classes', title: 'Clases y turnos', text: 'Grilla de clases, cupos, reservas, listas de espera e instructores asignados.' },
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
-  { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, en tiempo real.' },
-  { icon: 'branches', title: 'Sedes y cajas', text: 'Organizá la operación por sede o caja dentro del sistema, con reportes comparativos por sede.' },
-  { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas directo a la app del socio.' },
-  { icon: 'news', title: 'Novedades', text: 'Publicá novedades, promos y avisos que tus socios ven en la app del socio.' },
-  { icon: 'mobile', title: 'App del socio', text: 'Cada socio ve su cuota, paga su membresía y consulta su rutina y las novedades desde el celular.' },
+  { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, en tiempo real.', wide: true },
+  { icon: 'branches', title: 'Sedes y cajas', text: 'Operación por sede o caja, con reportes comparativos.' },
+  { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas a la app del socio.' },
+  { icon: 'news', title: 'Novedades', text: 'Publicá promos y avisos que tus socios ven en la app.' },
+  { icon: 'mobile', title: 'App del socio', text: 'Cuota, pagos, rutina y novedades, desde el celular del socio.' },
 ];
 
 const STEPS = [
@@ -115,25 +122,59 @@ const FAQS = [
   },
 ];
 
+function SectionHeading({
+  kicker,
+  title,
+  text,
+}: {
+  kicker: string;
+  title: React.ReactNode;
+  text?: string;
+}) {
+  return (
+    <div className="mx-auto max-w-2xl text-center">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-light">{kicker}</span>
+      <h2 className="mt-3 text-3xl font-bold tracking-tight text-text sm:text-4xl">{title}</h2>
+      {text && <p className="mt-4 text-base text-text-muted">{text}</p>}
+    </div>
+  );
+}
+
+function BrowserFrame({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl shadow-black/40">
+      <div className="flex items-center gap-2 border-b border-line bg-surface-alt/50 px-4 py-3">
+        <span className="h-3 w-3 rounded-full bg-danger/70" />
+        <span className="h-3 w-3 rounded-full bg-warning/70" />
+        <span className="h-3 w-3 rounded-full bg-success/70" />
+        <span className="ml-3 truncate text-xs text-text-muted">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-base">
+    <div className="min-h-screen overflow-x-hidden bg-base">
       <LandingNav />
 
       {/* Hero */}
-      <section id="inicio" className="relative scroll-mt-20 overflow-hidden pt-32 pb-20">
-        <div className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-primary/20 blur-[120px]" />
-        <div className="pointer-events-none absolute right-0 top-40 h-72 w-72 rounded-full bg-sky/10 blur-[100px]" />
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <section id="inicio" className="relative scroll-mt-20 overflow-hidden pt-28 pb-16 sm:pt-32 lg:pb-24">
+        <div className="pointer-events-none absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_35%,transparent_100%)]" />
+        <div className="pointer-events-none absolute -top-32 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-primary/25 blur-[130px] animate-glow" />
+        <div className="pointer-events-none absolute right-0 top-24 h-72 w-72 rounded-full bg-sky/15 blur-[110px]" />
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:px-8">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary-light">
               <span className="h-1.5 w-1.5 rounded-full bg-primary-light" />
               Software integral para gimnasios
             </span>
-            <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-text sm:text-5xl lg:text-6xl">
-              Gestioná tu gimnasio <span className="text-primary-light">de punta a punta</span>
+            <h1 className="mt-6 text-4xl font-bold leading-[1.05] tracking-tight text-text sm:text-5xl lg:text-6xl">
+              Gestioná tu gimnasio <span className="text-gradient">de punta a punta</span>
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted">
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
               Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y
               sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.
             </p>
@@ -141,14 +182,14 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
                 href="#contacto"
-                className="inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-white transition-colors hover:bg-primary-dark"
+                className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-6 text-base font-medium text-white shadow-lg shadow-primary/30 transition-colors hover:bg-primary-dark"
               >
                 <Icon name="dashboard" size={18} />
                 Pedir una demo
               </a>
               <a
                 href="#planes"
-                className="inline-flex h-12 items-center gap-2 rounded-lg border border-line px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
+                className="inline-flex h-12 items-center gap-2 rounded-xl border border-line px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
               >
                 <Icon name="plans" size={18} />
                 Ver planes
@@ -156,12 +197,43 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-text-muted">
-              {['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida', 'Sin permanencia'].map((item) => (
+              {HERO_CHIPS.map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">
                   <Icon name="check" size={16} className="text-success" />
                   {item}
                 </span>
               ))}
+            </div>
+          </div>
+
+          {/* Mockup */}
+          <div className="relative mx-auto w-full max-w-xl">
+            <div className="pointer-events-none absolute -inset-8 -z-10 rounded-[2.5rem] bg-gradient-to-tr from-primary/30 via-sky/10 to-transparent blur-2xl" />
+            <BrowserFrame title="FIT system™ · Panel general">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/screens/sistema-dashboard.svg"
+                alt="Panel general de FIT system™ con métricas del gimnasio"
+                className="w-full"
+              />
+            </BrowserFrame>
+
+            <div className="absolute -bottom-8 -left-4 hidden w-36 animate-float sm:block">
+              <div className="overflow-hidden rounded-[1.6rem] border border-line bg-base p-1.5 shadow-2xl ring-glow">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/screens/app-socios.svg"
+                  alt="App del socio de FIT system™"
+                  className="w-full rounded-[1.2rem]"
+                />
+              </div>
+            </div>
+
+            <div className="absolute -right-3 top-16 hidden animate-float-slow items-center gap-2 rounded-xl border border-line glass px-3 py-2 text-xs font-medium text-text shadow-xl sm:flex">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success/20 text-success">
+                <Icon name="check" size={14} />
+              </span>
+              Cobro acreditado en caja
             </div>
           </div>
         </div>
@@ -182,30 +254,19 @@ export default function LandingPage() {
       {/* Producto */}
       <section id="producto" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Producto</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Todo tu gimnasio, en una pantalla
-            </h2>
-            <p className="mt-4 text-base text-text-muted">
-              El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT system™
-              por dentro.
-            </p>
+          <SectionHeading
+            kicker="Producto"
+            title="Todo tu gimnasio, en una pantalla"
+            text="El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT system™ por dentro."
+          />
+
+          <div className="mt-12 ring-glow rounded-2xl">
+            <BrowserFrame title="FIT system™ · Panel general">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT system™ con métricas del gimnasio" className="w-full" />
+            </BrowserFrame>
           </div>
 
-          {/* Panel de escritorio */}
-          <div className="mt-12 overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl shadow-black/40">
-            <div className="flex items-center gap-2 border-b border-line bg-surface-alt/50 px-4 py-3">
-              <span className="h-3 w-3 rounded-full bg-danger/70" />
-              <span className="h-3 w-3 rounded-full bg-warning/70" />
-              <span className="h-3 w-3 rounded-full bg-success/70" />
-              <span className="ml-3 text-xs text-text-muted">FIT system™ · Panel general</span>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT system™ con métricas del gimnasio" className="w-full" />
-          </div>
-
-          {/* Módulos destacados */}
           <div className="mt-6 grid gap-6 sm:grid-cols-2">
             {[
               {
@@ -221,7 +282,7 @@ export default function LandingPage() {
                 text: 'Efectivo, transferencia o MercadoPago, con arqueo por turno.',
               },
             ].map((shot) => (
-              <figure key={shot.src} className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <figure key={shot.src} className="overflow-hidden rounded-2xl border border-line bg-surface transition-colors hover:border-primary/40">
                 <div className="flex items-center gap-2 border-b border-line bg-surface-alt/50 px-3 py-2.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-line" />
                   <span className="h-2.5 w-2.5 rounded-full bg-line" />
@@ -234,13 +295,12 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* App del socio */}
-          <div className="mt-6 flex flex-col items-center gap-8 rounded-2xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-8 sm:flex-row sm:p-10">
-            <div className="mx-auto w-[220px] shrink-0 sm:mx-0">
+          <div className="mt-6 grid items-center gap-8 overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-8 sm:p-10 lg:grid-cols-[220px_1fr]">
+            <div className="mx-auto w-[200px] shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/screens/app-socios.svg" alt="App del socio de FIT system™ en el celular" className="w-full" />
             </div>
-            <div className="max-w-lg text-center sm:text-left">
+            <div className="text-center lg:text-left">
               <h3 className="text-xl font-bold text-text">App del socio, incluida en tu licencia</h3>
               <p className="mt-3 text-sm leading-relaxed text-text-muted">
                 Cada socio instala la app desde el navegador (sin descargas) y ve el estado de su cuota,
@@ -257,7 +317,7 @@ export default function LandingPage() {
               </ul>
               <a
                 href={PWA_URL}
-                className="mt-6 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+                className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
               >
                 <Icon name="mobile" size={18} />
                 Probar la app del socio
@@ -268,26 +328,29 @@ export default function LandingPage() {
       </section>
 
       {/* Módulos */}
-      <section id="modulos" className="scroll-mt-20 py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Módulos</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Todo lo que tu gimnasio necesita
-            </h2>
-            <p className="mt-4 text-base text-text-muted">
-              Un sistema completo, pensado para el día a día del gimnasio. Sin módulos que sobren ni
-              funciones que falten.
-            </p>
-          </div>
+      <section id="modulos" className="relative scroll-mt-20 overflow-hidden py-20">
+        <div className="pointer-events-none absolute inset-0 bg-dots [mask-image:radial-gradient(ellipse_70%_60%_at_50%_50%,#000_20%,transparent_100%)] opacity-60" />
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <SectionHeading
+            kicker="Módulos"
+            title={
+              <>
+                Todo lo que tu gimnasio <span className="text-gradient">necesita</span>
+              </>
+            }
+            text="Un sistema completo, pensado para el día a día del gimnasio. Sin módulos que sobren ni funciones que falten."
+          />
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-14 grid auto-rows-[1fr] gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {MODULES.map((mod) => (
               <div
                 key={mod.title}
-                className="group rounded-xl border border-line bg-surface p-5 transition-colors hover:border-primary/40"
+                className={`group relative overflow-hidden rounded-2xl border border-line bg-surface/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-surface ${
+                  mod.wide ? 'sm:col-span-2 lg:col-span-2' : ''
+                }`}
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary-light transition-colors group-hover:bg-primary/20">
+                <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/10 opacity-0 blur-2xl transition-opacity group-hover:opacity-100" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-sky/10 text-primary-light transition-colors group-hover:from-primary/30">
                   <Icon name={mod.icon} size={20} />
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-text">{mod.title}</h3>
@@ -301,18 +364,16 @@ export default function LandingPage() {
       {/* Cómo funciona */}
       <section className="border-y border-line bg-surface/40 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Cómo funciona</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Empezar es muy simple
-            </h2>
-            <p className="mt-4 text-base text-text-muted">En cuatro pasos tenés tu gimnasio funcionando.</p>
-          </div>
+          <SectionHeading
+            kicker="Cómo funciona"
+            title="Empezar es muy simple"
+            text="En cuatro pasos tenés tu gimnasio funcionando."
+          />
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step) => (
-              <div key={step.n} className="relative rounded-xl border border-line bg-base p-5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
+              <div key={step.n} className="relative rounded-2xl border border-line bg-base p-5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dark text-sm font-bold text-white shadow-lg shadow-primary/30">
                   {step.n}
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-text">{step.title}</h3>
@@ -326,16 +387,11 @@ export default function LandingPage() {
       {/* Planes */}
       <section id="planes" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Planes</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Planes que crecen con vos
-            </h2>
-            <p className="mt-4 text-base text-text-muted">
-              Elegí la cantidad de socios con acceso a la app. El sistema completo está incluido en
-              todos los planes.
-            </p>
-          </div>
+          <SectionHeading
+            kicker="Planes"
+            title="Planes que crecen con vos"
+            text="Elegí la cantidad de socios con acceso a la app. El sistema completo está incluido en todos los planes."
+          />
 
           <LandingPlans setupUrl={SETUP_URL} trialDays={TRIAL_DAYS} />
 
@@ -344,14 +400,11 @@ export default function LandingPage() {
             Todos los planes incluyen el sistema completo y la app del socio.
           </p>
 
-          <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center justify-between gap-3 rounded-xl border border-line bg-surface/60 px-5 py-4 text-center sm:flex-row sm:text-left">
+          <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center justify-between gap-3 rounded-2xl border border-line bg-surface/60 px-5 py-4 text-center sm:flex-row sm:text-left">
             <div>
-              <p className="text-sm font-semibold text-text">
-                ¿Necesitás más socios con app? Sumá asientos
-              </p>
+              <p className="text-sm font-semibold text-text">¿Necesitás más socios con app? Sumá asientos</p>
               <p className="mt-0.5 text-sm text-text-muted">
-                Pack de +{SEAT_PACK.seats} socios con app por {SEAT_PACK.price} / {SEAT_PACK.period}.
-                Se combinan con cualquier plan.
+                Pack de +{SEAT_PACK.seats} socios con app por {SEAT_PACK.price} / {SEAT_PACK.period}. Se combinan con cualquier plan.
               </p>
             </div>
             <BuyButton
@@ -362,7 +415,7 @@ export default function LandingPage() {
                 amount: SEAT_PACK.amount,
                 note: 'Pago seguro con MercadoPago. Al aprobarse, sumamos los asientos a tu licencia y te contactamos por email.',
               }}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
             >
               Comprar asientos
             </BuyButton>
@@ -408,7 +461,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-xl border border-line bg-base/60 px-5 py-4 sm:flex-row sm:items-center">
+              <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-base/60 px-5 py-4 sm:flex-row sm:items-center">
                 <div>
                   <div className="text-2xl font-bold text-text">{MP_KIT.price}</div>
                   <div className="text-xs text-text-muted">Se solicita adicionalmente · {MP_KIT.period}</div>
@@ -421,7 +474,7 @@ export default function LandingPage() {
                     amount: MP_KIT.amount,
                     note: 'Pago seguro con MercadoPago. Coordinamos el envío y la vinculación del equipo a tu cuenta.',
                   }}
-                  className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+                  className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
                 >
                   Comprar el kit
                 </BuyButton>
@@ -437,15 +490,11 @@ export default function LandingPage() {
       {/* Descargas */}
       <section id="descargas" className="scroll-mt-20 border-y border-line bg-surface/40 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Descargas</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Llevalo a todos lados
-            </h2>
-            <p className="mt-4 text-base text-text-muted">
-              La gestión en tu PC y a tus socios en el bolsillo.
-            </p>
-          </div>
+          <SectionHeading
+            kicker="Descargas"
+            title="Llevalo a todos lados"
+            text="La gestión en tu PC y a tus socios en el bolsillo."
+          />
 
           <div className="mt-14 grid gap-5 md:grid-cols-3">
             {[
@@ -474,8 +523,8 @@ export default function LandingPage() {
                 note: 'Para administradores y recepción',
               },
             ].map((item) => (
-              <div key={item.title} className="flex flex-col rounded-2xl border border-line bg-base p-6">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary-light">
+              <div key={item.title} className="flex flex-col rounded-2xl border border-line bg-base p-6 transition-colors hover:border-primary/40">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-sky/10 text-primary-light">
                   <Icon name={item.icon} size={22} />
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-text">{item.title}</h3>
@@ -483,7 +532,7 @@ export default function LandingPage() {
                 <p className="mt-2 text-xs text-text-muted">{item.note}</p>
                 <a
                   href={item.href}
-                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
+                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
                 >
                   <Icon name="import" size={16} />
                   {item.cta}
@@ -494,16 +543,14 @@ export default function LandingPage() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 rounded-2xl border border-line bg-base p-6 text-center sm:flex-row sm:justify-between sm:text-left">
             <div>
-              <p className="text-sm font-semibold text-text">
-                Instalá gratis y probá {TRIAL_DAYS} días completos
-              </p>
+              <p className="text-sm font-semibold text-text">Instalá gratis y probá {TRIAL_DAYS} días completos</p>
               <p className="mt-1 text-sm text-text-muted">
                 Al terminar la prueba, elegí un plan: al aprobarse el pago emitimos tu clave y te la enviamos por email.
               </p>
             </div>
             <a
               href="#planes"
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
             >
               <Icon name="notifications" size={16} />
               Ver planes y activar licencia
@@ -522,17 +569,17 @@ export default function LandingPage() {
       {/* FAQ */}
       <section id="faq" className="scroll-mt-20 py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 text-center">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary-light">Preguntas</span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-text sm:text-4xl">Preguntas frecuentes</h2>
-            <p className="mt-4 text-base text-text-muted">Las dudas más comunes antes de empezar.</p>
-          </div>
+          <SectionHeading
+            kicker="Preguntas"
+            title="Preguntas frecuentes"
+            text="Las dudas más comunes antes de empezar."
+          />
 
-          <div className="space-y-3">
+          <div className="mt-12 space-y-3">
             {FAQS.map((faq) => (
               <details
                 key={faq.q}
-                className="group rounded-xl border border-line bg-surface p-5 [&_summary::-webkit-details-marker]:hidden"
+                className="group rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-primary/30 [&_summary::-webkit-details-marker]:hidden"
               >
                 <summary className="flex cursor-pointer items-center justify-between gap-4">
                   <span className="text-sm font-semibold text-text">{faq.q}</span>

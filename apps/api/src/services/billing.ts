@@ -316,7 +316,9 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
         '',
         '— FIT system™',
       ];
-  await sendPlatformEmail(purchase.buyerEmail, 'Tu compra de FIT system™', buyerLines.join('\n'));
+  await sendPlatformEmail(purchase.buyerEmail, 'Tu compra de FIT system™', buyerLines.join('\n'), {
+    from: env.PLATFORM_SALES_FROM,
+  });
 
   const adminLines = [
     isProduct ? 'Nuevo pedido en el sitio:' : 'Nueva compra en el sitio:',
@@ -338,6 +340,7 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
     env.PLATFORM_CONTACT_TO,
     isProduct ? `Pedido web: ${itemName}` : `Venta web: ${purchase.plan} ${purchase.period}`,
     adminLines.join('\n'),
+    { from: env.PLATFORM_SALES_FROM },
   );
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@/components/icon';
 
 const LINKS = [
@@ -15,17 +15,35 @@ const LINKS = [
 
 export function LandingNav() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-line/80 bg-base/80 backdrop-blur">
+    <header
+      className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
+        scrolled ? 'border-b border-line/70 glass' : 'border-b border-transparent'
+      }`}
+    >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <a href="#inicio" className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="FIT system™" className="h-9 w-9 rounded-xl object-cover" />
-          <span className="text-base font-bold tracking-tight text-text">FIT system™</span>
+        <a href="#inicio" className="group flex items-center gap-3">
+          <span className="relative flex h-9 w-9 items-center justify-center">
+            <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-sky opacity-70 blur-[6px] transition-opacity group-hover:opacity-100" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="FIT system™" className="relative h-9 w-9 rounded-xl object-cover" />
+          </span>
+          <span className="text-base font-bold tracking-tight text-text">
+            FIT<span className="text-text-muted"> system</span>
+            <span className="align-super text-[10px] text-text-muted">™</span>
+          </span>
         </a>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-7 lg:flex">
           {LINKS.map((link) => (
             <a
               key={link.href}
@@ -37,10 +55,16 @@ export function LandingNav() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-2 md:flex">
+          <a
+            href="#descargas"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-text-muted transition-colors hover:text-text"
+          >
+            Probar gratis
+          </a>
           <a
             href="#contacto"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
           >
             Pedir demo
           </a>
@@ -57,7 +81,7 @@ export function LandingNav() {
       </div>
 
       {open && (
-        <div className="border-t border-line bg-base px-4 py-4 md:hidden">
+        <div className="border-t border-line glass px-4 py-4 md:hidden">
           <nav className="flex flex-col gap-1">
             {LINKS.map((link) => (
               <a

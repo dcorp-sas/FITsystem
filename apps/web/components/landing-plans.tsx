@@ -95,23 +95,29 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
             }`}
           >
             Anual
-            <span className="rounded-full bg-success/20 px-2 py-0.5 text-[11px] font-semibold text-success">2 meses gratis</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                period === 'ANNUAL' ? 'bg-white/20 text-white' : 'bg-success/20 text-success'
+              }`}
+            >
+              2 meses gratis
+            </span>
           </button>
         </div>
       </div>
 
       <div className="mt-10 grid gap-5 lg:grid-cols-4">
         {/* Prueba gratis */}
-        <div className="relative flex flex-col rounded-2xl border border-line bg-surface p-6">
+        <div className="relative flex flex-col rounded-2xl border border-dashed border-line bg-surface/50 p-6">
           <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">TRIAL</div>
           <h3 className="mt-1 text-lg font-bold text-text">Prueba</h3>
           <div className="mt-4">
-            <div className="text-2xl font-bold text-text">Gratis</div>
-            <div className="text-xs text-text-muted">{trialDays} días</div>
+            <div className="text-3xl font-bold text-text">Gratis</div>
+            <div className="text-xs text-text-muted">{trialDays} días · sin tarjeta</div>
           </div>
-          <ul className="mt-5 flex-1 space-y-2.5">
+          <ul className="mt-6 flex-1 space-y-3">
             {['Todos los módulos', 'Hasta 10 socios con app', 'Sin tarjeta', 'Soporte por email'].map((f) => (
-              <li key={f} className="flex items-start gap-2 text-sm text-text-muted">
+              <li key={f} className="flex items-start gap-2.5 text-sm text-text-muted">
                 <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
                 {f}
               </li>
@@ -119,7 +125,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
           </ul>
           <a
             href={setupUrl}
-            className="mt-6 inline-flex h-11 items-center justify-center rounded-lg border border-line text-sm font-medium text-text transition-colors hover:bg-surface-alt"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-line text-sm font-medium text-text transition-colors hover:bg-surface-alt"
           >
             Descargar gratis
           </a>
@@ -128,33 +134,43 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
         {/* Planes pagos */}
         {PLANS.map((plan) => {
           const amount = period === 'ANNUAL' ? plan.annual : plan.monthly;
+          const monthlyEquivalent = Math.round(plan.annual / 12);
           return (
             <div
               key={plan.tag}
-              className={`relative flex flex-col rounded-2xl border bg-surface p-6 ${
-                plan.popular ? 'border-primary/60 shadow-xl shadow-primary/10' : 'border-line'
+              className={`relative flex flex-col rounded-2xl p-6 transition-transform duration-300 hover:-translate-y-1 ${
+                plan.popular
+                  ? 'bg-gradient-to-b from-primary/25 to-surface ring-1 ring-primary/50 ring-glow'
+                  : 'border border-line bg-surface'
               }`}
             >
               {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-white shadow-lg shadow-primary/40">
                   Más elegido
                 </span>
               )}
               <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">{plan.tag}</div>
               <h3 className="mt-1 text-lg font-bold text-text">{plan.name}</h3>
               <div className="mt-4">
-                <div className="text-2xl font-bold text-text">{ars.format(amount)}</div>
+                <div className="text-3xl font-bold text-text">{ars.format(amount)}</div>
                 <div className="text-xs text-text-muted">
-                  {period === 'ANNUAL' ? 'por año' : 'por mes'} · ARS
+                  {period === 'ANNUAL' ? (
+                    <>
+                      por año · ARS
+                      <span className="ml-1 text-success">≈ {ars.format(monthlyEquivalent)}/mes</span>
+                    </>
+                  ) : (
+                    'por mes · ARS'
+                  )}
                 </div>
               </div>
-              <ul className="mt-5 flex-1 space-y-2.5">
-                <li className="flex items-start gap-2 text-sm text-text-muted">
-                  <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
+              <ul className="mt-6 flex-1 space-y-3">
+                <li className="flex items-start gap-2.5 text-sm font-medium text-text">
+                  <Icon name="members" size={16} className="mt-0.5 shrink-0 text-primary-light" />
                   {plan.seats}
                 </li>
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-text-muted">
+                  <li key={feature} className="flex items-start gap-2.5 text-sm text-text-muted">
                     <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
                     {feature}
                   </li>
@@ -163,9 +179,9 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
               <button
                 type="button"
                 onClick={() => buy(plan)}
-                className={`mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors ${
                   plan.popular
-                    ? 'bg-primary text-white hover:bg-primary-dark'
+                    ? 'bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-dark'
                     : 'border border-line text-text hover:bg-surface-alt'
                 }`}
               >

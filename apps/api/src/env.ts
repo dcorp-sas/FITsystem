@@ -64,7 +64,7 @@ export const env = {
   PUBLIC_URL: (process.env.PUBLIC_URL || '').replace(/\/+$/, ''),
   // URL publica de la app de socios (PWA). Se usa como back_urls de MercadoPago
   // para volver a la app despues de pagar. Si esta vacia se omite el retorno.
-  SOCIOS_URL: (process.env.SOCIOS_URL || '').replace(/\/+$/, ''),
+  SOCIOS_URL: (process.env.SOCIOS_URL || 'https://socios.fitsystem.com.ar').replace(/\/+$/, ''),
   // URL publica del sitio (landing/tienda). Se usa como back_url de las
   // suscripciones de MercadoPago para volver tras autorizar el pago recurrente.
   SITE_URL: ((process.env.SITE_URL || process.env.WEB_ORIGIN || 'https://fitsystem.com.ar').split(',')[0] || '')
@@ -128,10 +128,15 @@ export const env = {
   PLATFORM_SMTP_SECURE: process.env.PLATFORM_SMTP_SECURE || '',
   PLATFORM_SMTP_USER: process.env.PLATFORM_SMTP_USER || '',
   PLATFORM_SMTP_PASS: process.env.PLATFORM_SMTP_PASS || '',
-  PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT system™ <contacto.fitsystem@gmail.com>',
-  // API key de Brevo (envío por HTTP, recomendado en Render free que bloquea
-  // los puertos SMTP 25/465/587). Si está definido, tiene prioridad sobre SMTP.
-  // El remitente (PLATFORM_SMTP_FROM) debe estar verificado en Brevo.
+  PLATFORM_SMTP_FROM: process.env.PLATFORM_SMTP_FROM || 'FIT system™ <contacto@fitsystem.com.ar>',
+  // Remitente para los correos de COMPRA (planes, pack de asientos y kit de
+  // MercadoPago) y de licencia: las respuestas deben llegar a ventas, no al
+  // contacto general. Si no se define, cae al remitente de contacto.
+  PLATFORM_SALES_FROM: process.env.PLATFORM_SALES_FROM || 'FIT system™ <ventas@fitsystem.com.ar>',
+  // API key de Brevo (envío por HTTP, recomendado en hosts que bloquean los
+  // puertos SMTP 25/465/587). Si está definido, tiene prioridad sobre SMTP.
+  // Los remitentes (PLATFORM_SMTP_FROM y PLATFORM_SALES_FROM) deben estar
+  // verificados en Brevo (dominio autenticado o remitente autorizado).
   PLATFORM_BREVO_API_KEY: process.env.PLATFORM_BREVO_API_KEY || '',
   // Token de MercadoPago de la cuenta del PROVEEDOR (pago embebido del sitio).
   // Sin esto, los botones de compra del sitio no pueden iniciar el pago.
