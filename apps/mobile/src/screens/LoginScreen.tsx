@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { colors, radius, spacing } from '../theme';
 import { PrimaryButton, Title } from '../components/ui';
 import { portal, setToken, type LoginResponse } from '../lib/api';
 
@@ -50,7 +50,9 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.logo}>FIT</Text>
+          <View style={styles.logoMark}>
+            <Text style={styles.logoMarkText}>FIT</Text>
+          </View>
           <Title>FIT system™ Socios</Title>
           <Text style={styles.tagline}>Tu gimnasio en el celular</Text>
         </View>
@@ -128,8 +130,17 @@ export function LoginScreen({ onLogged }: { onLogged: (session: LoginResponse) =
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   container: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg },
-  header: { alignItems: 'center', gap: spacing.xs },
-  logo: { color: colors.primaryLight, fontSize: 34, fontWeight: '900', letterSpacing: 4 },
+  header: { alignItems: 'center', gap: spacing.sm },
+  logoMark: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  logoMarkText: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: 1 },
   tagline: { color: colors.textMuted, fontSize: 13 },
   form: { gap: spacing.sm },
   label: { color: colors.textMuted, fontSize: 13, marginTop: spacing.sm },
@@ -137,9 +148,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    height: 48,
+    height: 50,
     color: colors.text,
   },
   error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },

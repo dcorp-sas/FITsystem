@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { colors, spacing } from './src/theme';
+import { colors, radius, shadow, spacing } from './src/theme';
 import { setToken, portal, bootstrapToken, type LoginResponse } from './src/lib/api';
 import { configureNotifications, registerPushAsync } from './src/lib/push';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -14,16 +14,18 @@ import { ScanScreen } from './src/screens/ScanScreen';
 import { InstallPrompt } from './src/components/install-prompt';
 import { NotificationPrompt } from './src/components/notification-prompt';
 import { ToastHost } from './src/components/toast';
+import { Avatar } from './src/components/ui';
+import { Icon, type IconName } from './src/components/icon';
 
 type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments';
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'home', label: 'Inicio' },
-  { key: 'checkin', label: 'Ingreso' },
-  { key: 'classes', label: 'Clases' },
-  { key: 'news', label: 'Novedades' },
-  { key: 'routines', label: 'Rutinas' },
-  { key: 'payments', label: 'Pagos' },
+const TABS: { key: Tab; label: string; icon: IconName; iconActive: IconName }[] = [
+  { key: 'home', label: 'Inicio', icon: 'home-outline', iconActive: 'home' },
+  { key: 'checkin', label: 'Ingreso', icon: 'qr-code-outline', iconActive: 'qr-code' },
+  { key: 'classes', label: 'Clases', icon: 'calendar-outline', iconActive: 'calendar' },
+  { key: 'news', label: 'Novedades', icon: 'megaphone-outline', iconActive: 'megaphone' },
+  { key: 'routines', label: 'Rutinas', icon: 'barbell-outline', iconActive: 'barbell' },
+  { key: 'payments', label: 'Pagos', icon: 'card-outline', iconActive: 'card' },
 ];
 
 export default function App() {
@@ -79,8 +81,10 @@ export default function App() {
       <SafeAreaView style={styles.safe}>
         <StatusBar style="light" />
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primaryLight} />
-          <Text style={styles.loadingText}>Cargando...</Text>
+          <View style={styles.loadingMark}>
+            <Text style={styles.loadingMarkText}>FIT</Text>
+          </View>
+          <Text style={styles.loadingText}>Cargando tu gimnasio…</Text>
         </View>
       </SafeAreaView>
     );
@@ -101,31 +105,54 @@ export default function App() {
       <StatusBar style="light" />
       <InstallPrompt />
       <NotificationPrompt />
+
       <View style={styles.header}>
-        <View>
-          <Text style={styles.brand}>FIT system™</Text>
-          <Text style={styles.brandSub}>{session.organization.name}</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkText}>FIT</Text>
+          </View>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.brandSub} numberOfLines={1}>
+              {session.organization.name}
+            </Text>
+            <Text style={styles.headerHello} numberOfLines={1}>
+              Hola, {session.member.name.split(' ')[0]}
+            </Text>
+          </View>
         </View>
-        <Pressable
-          onPress={() => {
-            setToken(null);
-            setSession(null);
-            setTab('home');
-          }}
-          style={styles.logout}
-        >
-          <Text style={styles.logoutText}>Salir</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <Avatar name={session.member.name} size={38} />
+          <Pressable
+            onPress={() => {
+              setToken(null);
+              setSession(null);
+              setTab('home');
+            }}
+            style={({ pressed }) => [styles.logout, pressed && { opacity: 0.7 }]}
+            hitSlop={8}
+          >
+            <Icon name="log-out-outline" size={20} color={colors.textMuted} />
+          </Pressable>
+        </View>
       </View>
 
       {!online && (
         <View style={styles.offlineBanner}>
+          <Icon name="cloud-offline-outline" size={14} color="#fed7aa" />
           <Text style={styles.offlineText}>Sin conexión · mostrando datos guardados</Text>
         </View>
       )}
 
       <View style={styles.content}>
-        {tab === 'home' && <HomeScreen org={session.organization} member={session.member} initialQuota={session.quota} onGoToCheckin={() => setTab('checkin')} />}
+        {tab === 'home' && (
+          <HomeScreen
+            org={session.organization}
+            member={session.member}
+            initialQuota={session.quota}
+            onGoToCheckin={() => setTab('checkin')}
+            onGoToTab={(t) => setTab(t)}
+          />
+        )}
         {tab === 'checkin' && <ScanScreen onDone={() => setTab('home')} />}
         {tab === 'classes' && <ClassesScreen />}
         {tab === 'news' && <NewsScreen />}
@@ -134,12 +161,28 @@ export default function App() {
       </View>
 
       <View style={styles.tabbar}>
-        {TABS.map((t) => (
-          <Pressable key={t.key} onPress={() => setTab(t.key)} style={styles.tabButton}>
-            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
-            {tab === t.key && <View style={styles.tabIndicator} />}
-          </Pressable>
-        ))}
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <Pressable
+              key={t.key}
+              onPress={() => setTab(t.key)}
+              style={styles.tabButton}
+              hitSlop={4}
+            >
+              <View style={[styles.tabIconWrap, active && styles.tabIconWrapActive]}>
+                <Icon
+                  name={active ? t.iconActive : t.icon}
+                  size={22}
+                  color={active ? colors.primaryLight : colors.textFaint}
+                />
+              </View>
+              <Text style={[styles.tabLabel, active && styles.tabLabelActive]} numberOfLines={1}>
+                {t.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <ToastHost />
@@ -154,29 +197,73 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
-  brand: { color: colors.primaryLight, fontSize: 18, fontWeight: '900', letterSpacing: 1 },
-  brandSub: { color: colors.textMuted, fontSize: 12 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
+  headerTextWrap: { flexShrink: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  brandMark: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.card,
+  },
+  brandMarkText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+  brandSub: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  headerHello: { color: colors.textMuted, fontSize: 12.5 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  loadingMark: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingMarkText: { color: '#fff', fontWeight: '900', fontSize: 20, letterSpacing: 1 },
   loadingText: { color: colors.textMuted, fontSize: 13 },
-  logout: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  logoutText: { color: colors.textMuted, fontSize: 13 },
+  logout: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: { flex: 1 },
   offlineBanner: {
     backgroundColor: '#7c2d12',
     paddingVertical: 6,
     paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
-  offlineText: { color: '#fed7aa', fontSize: 12, textAlign: 'center', fontWeight: '600' },
+  offlineText: { color: '#fed7aa', fontSize: 12, fontWeight: '600' },
   tabbar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    borderTopColor: colors.borderSoft,
+    backgroundColor: colors.bgElev,
+    paddingTop: 6,
+    paddingBottom: 8,
   },
-  tabButton: { flex: 1, alignItems: 'center', paddingVertical: spacing.md, gap: 4 },
-  tabLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  tabButton: { flex: 1, alignItems: 'center', gap: 3 },
+  tabIconWrap: {
+    width: 46,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabIconWrapActive: { backgroundColor: `${colors.primary}26` },
+  tabLabel: { color: colors.textFaint, fontSize: 10, fontWeight: '600' },
   tabLabelActive: { color: colors.primaryLight },
-  tabIndicator: { width: 20, height: 2, borderRadius: 2, backgroundColor: colors.primaryLight },
 });

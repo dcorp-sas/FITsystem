@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
-import { Badge, Card, Muted, PrimaryButton, Subtitle } from '../components/ui';
+import { Badge, Card, Muted, PrimaryButton, Subtitle, ScreenHeader } from '../components/ui';
 import { portal, type Payment, type PaymentIntent, type Quota } from '../lib/api';
 import { showToast } from '../lib/toast';
 
@@ -68,7 +68,7 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
         />
       }
     >
-      <Text style={styles.heading}>Pagos</Text>
+      <ScreenHeader icon="card-outline" title="Pagos" subtitle="Cuota, transferencias e historial" />
 
       <Card>
         <Subtitle>Pagar mi cuota</Subtitle>
@@ -123,7 +123,6 @@ export function PaymentsScreen({ quota }: { quota: Quota | null }) {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   container: { padding: spacing.lg, gap: spacing.md },
-  heading: { color: colors.text, fontSize: 24, fontWeight: '800' },
   amount: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: spacing.xs },
   actions: { gap: spacing.sm, marginTop: spacing.md },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm },

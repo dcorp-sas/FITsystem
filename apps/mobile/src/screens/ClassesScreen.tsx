@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
-import { Card, Muted, PrimaryButton, Badge } from '../components/ui';
+import { Card, Muted, PrimaryButton, Badge, ScreenHeader } from '../components/ui';
 import { portal, ApiError, type PortalClass } from '../lib/api';
 import { showToast } from '../lib/toast';
 
@@ -70,7 +70,7 @@ export function ClassesScreen() {
         />
       }
     >
-      <Text style={styles.heading}>Clases</Text>
+      <ScreenHeader icon="calendar-outline" title="Clases" subtitle="Reservá tu lugar en cada sesión" />
       {items.length === 0 ? (
         <Card>
           <Muted>No hay clases programadas por ahora.</Muted>
@@ -111,7 +111,6 @@ export function ClassesScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   container: { padding: spacing.lg, gap: spacing.md },
-  heading: { color: colors.text, fontSize: 24, fontWeight: '800' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   title: { color: colors.text, fontSize: 17, fontWeight: '700', flexShrink: 1 },
   actions: { marginTop: spacing.md },

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, spacing } from '../theme';
-import { Badge, Card, Muted } from '../components/ui';
+import { Badge, Card, Muted, ScreenHeader } from '../components/ui';
 import { portal, type Exercise, type Routine, type RoutineDay, type RoutineLog } from '../lib/api';
 
 function lastLogFor(logs: RoutineLog[], exerciseId: string): RoutineLog | undefined {
@@ -74,7 +74,7 @@ export function RoutinesScreen() {
         />
       }
     >
-      <Text style={styles.heading}>Mis rutinas</Text>
+      <ScreenHeader icon="barbell-outline" title="Mis rutinas" subtitle="Seguí tu entrenamiento y registrá pesos" />
       {notice ? (
         <Card>
           <Muted>{notice}</Muted>
@@ -148,7 +148,6 @@ export function RoutinesScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   container: { padding: spacing.lg, gap: spacing.md },
-  heading: { color: colors.text, fontSize: 24, fontWeight: '800' },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: colors.text, fontSize: 17, fontWeight: '700' },
   day: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },

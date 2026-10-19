@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
 import { colors, spacing } from '../theme';
-import { Card, Muted } from '../components/ui';
+import { Card, Muted, ScreenHeader } from '../components/ui';
 import { portal, type NewsItem } from '../lib/api';
 
 export function NewsScreen() {
@@ -36,7 +36,7 @@ export function NewsScreen() {
         />
       }
     >
-      <Text style={styles.heading}>Novedades</Text>
+      <ScreenHeader icon="megaphone-outline" title="Novedades" subtitle="Lo último de tu gimnasio" />
       {items.length === 0 ? (
         <Card>
           <Muted>No hay novedades por ahora.</Muted>
@@ -57,7 +57,6 @@ export function NewsScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   container: { padding: spacing.lg, gap: spacing.md },
-  heading: { color: colors.text, fontSize: 24, fontWeight: '800' },
   title: { color: colors.text, fontSize: 17, fontWeight: '700', marginBottom: 2 },
   body: { color: colors.text, fontSize: 14, marginTop: spacing.sm, lineHeight: 20 },
 });

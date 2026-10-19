@@ -1,6 +1,6 @@
 {
-  "version": "0.3.14",
+  "version": "0.3.15",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "fix(web): corrige error de sintaxis en la landing que impedía compilar y desplegar\n\nFaltaba la declaración `const FAQS = [` (se perdió al agregar la sección de\ntestimonios en v0.3.13). El error de compilación de Next.js dejaba el contenedor\nweb del VPS con la imagen vieja, por eso la landing no se actualizaba.",
+  "notes": "App de socios: renovación de la interfaz (más app, menos web)\n\n- Barra inferior con íconos, etiquetas y estado activo.\n- Header con marca y avatar del socio.\n- Inicio: tarjeta tipo credencial con días restantes, barra de progreso de la cuota y accesos rápidos (Ingreso, Clases, Rutinas, Pagos).\n- Encabezados e íconos consistentes en Clases, Novedades, Pagos y Rutinas.\n- Login con marca e inputs mejorados.\n- Aviso de \"sin conexión\" en la PWA.\n- Builds de web y socios con límite de memoria (NODE_OPTIONS) para evitar que el build agote la RAM del VPS de 2 GB y deje el contenedor viejo.",
   "mandatory": false
 }

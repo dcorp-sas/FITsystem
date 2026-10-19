@@ -20,8 +20,10 @@ WORKDIR /app
 
 COPY . .
 
+# Limita el heap de V8 solo durante el build: en el VPS (2 GB) el build de
+# Next.js puede quedarse sin memoria y dejar el contenedor viejo sin actualizar.
 RUN pnpm install --frozen-lockfile --prod=false \
-    && pnpm --filter @fitsystem/web build
+    && NODE_OPTIONS=--max-old-space-size=1024 pnpm --filter @fitsystem/web build
 
 EXPOSE 3000
 
