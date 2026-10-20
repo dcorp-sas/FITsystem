@@ -1202,3 +1202,31 @@ model Lead {
   @@index([createdAt])
   @@map("leads")
 }
+
+// ---------------------------------------------------------------------------
+// Metricas del sitio: visitas a la landing y descargas del escritorio/portable.
+// Son del proveedor. La landing envia un beacon de visita y cada boton de
+// descarga pasa por /api/metrics/download/go (redireccion contada). El panel
+// interno consulta el resumen con el token de proveedor.
+// ---------------------------------------------------------------------------
+model PageView {
+  id     String   @id @default(cuid())
+  path   String   @default("/")
+  source String   @default("web") // web | directo
+  referer String?
+  at     DateTime @default(now())
+
+  @@index([at])
+  @@map("page_views")
+}
+
+model DownloadHit {
+  id     String   @id @default(cuid())
+  asset  String   // setup | portable
+  source String   @default("sitio")
+  at     DateTime @default(now())
+
+  @@index([at])
+  @@index([asset])
+  @@map("download_hits")
+}

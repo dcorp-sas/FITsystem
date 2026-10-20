@@ -1,6 +1,6 @@
 {
-  "version": "0.3.21",
+  "version": "0.3.22",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Correos del sitio, URL de la app del socio y rediseño de la landing\n\n- Correos de compra (planes, pack de asientos y kit de MercadoPago) y de la clave de licencia: ahora se envían desde ventas@fitsystem.com.ar. El formulario de contacto sigue saliendo desde contacto@fitsystem.com.ar.\n- El mensaje con las credenciales del socio usa siempre la URL correcta de la app (socios.fitsystem.com.ar), sin referencias antiguas.\n- Rediseño del sitio: nueva portada, sección de producto, grilla de módulos, planes y preguntas frecuentes con un look más actual.",
+  "notes": "Contador de visitas y descargas del sitio\n\n- El sitio ahora cuenta las visitas a la portada y las descargas de los\n  instaladores (Setup y Portable), con origen (directo o desde un enlace).\n- El Panel de control FS suma el módulo \"Métricas\": visitas y descargas\n  totales y de hoy, conversión visita → descarga, series por día, desglose\n  por instalador y origen de las visitas.\n- Los botones de descarga del sitio pasan por la API (redirección contada):\n  si la API no responde, la descarga sigue funcionando igual.\n- API: modelos PageView y DownloadHit + rutas /api/metrics (beacon público de\n  visita, redirección contada de descarga y resumen protegido con el token de\n  proveedor). Se conservan 400 días de histórico.",
   "mandatory": false
 }

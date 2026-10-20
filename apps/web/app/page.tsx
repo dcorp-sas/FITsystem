@@ -4,6 +4,7 @@ import { LandingPlans, type PlanDef } from '@/components/landing-plans';
 import { LandingContact } from '@/components/landing-contact';
 import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
+import { TrackVisit } from '@/components/track-visit';
 import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
@@ -43,8 +44,13 @@ export const metadata: Metadata = {
 };
 
 const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
-const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
-const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+// Los botones de descarga pasan por la API (redireccion contada): registra el
+// hit y despues manda al instalador real. Si no hay API configurada, va directo.
+const counted = (asset: 'setup' | 'portable', direct: string) =>
+  API_BASE ? `${API_BASE}/metrics/download/go?asset=${asset}` : direct;
+const SETUP_URL = counted('setup', `${DOWNLOAD_BASE}/FIT-System-Setup.exe`);
+const PORTABLE_URL = counted('portable', `${DOWNLOAD_BASE}/FIT-System-Portable.exe`);
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
@@ -155,6 +161,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-base">
+      <TrackVisit />
       <LandingNav />
 
       {/* Hero */}

@@ -39,6 +39,7 @@ import onboardingRoutes from './routes/onboarding.js';
 import contactRoutes from './routes/contact.js';
 import billingRoutes from './routes/billing.js';
 import leadRoutes from './routes/leads.js';
+import metricsRoutes from './routes/metrics.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
 import { startCloudSyncScheduler } from './services/cloud-sync.js';
@@ -113,6 +114,7 @@ export async function buildServer() {
     if (
       url.startsWith('/api/contact') ||
       url.startsWith('/api/billing') ||
+      url.startsWith('/api/metrics') ||
       url.startsWith('/api/auth') ||
       url.startsWith('/api/license') ||
       url.startsWith('/api/portal') ||
@@ -175,6 +177,7 @@ export async function buildServer() {
     contactRoutes(api);
     billingRoutes(api);
     leadRoutes(api);
+    metricsRoutes(api);
     },
     { prefix: '/api' },
   );
