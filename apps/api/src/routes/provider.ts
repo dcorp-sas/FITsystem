@@ -23,7 +23,7 @@ function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
-function requireProviderToken(request: FastifyRequest) {
+export function requireProviderToken(request: FastifyRequest) {
   if (!env.PROVIDER_BACKUP_TOKEN) throw new HttpError(503, 'Respaldo remoto no configurado');
   const provided = request.headers['x-provider-token'];
   if (typeof provided !== 'string' || !safeEqual(provided, env.PROVIDER_BACKUP_TOKEN)) {

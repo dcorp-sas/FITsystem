@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { env } from '../env.js';
 import { issueLicense, isLicensorIssueConfigured } from './licensing-client.js';
 import { sendPlatformEmail, isPlatformEmailConfigured } from './platform-email.js';
+import siteContent from '../../../../content/site-content.json';
 
 export type BillingPlan = 'BASIC' | 'PRO' | 'ENTERPRISE';
 export type BillingPeriod = 'MONTHLY' | 'ANNUAL';
@@ -25,12 +26,33 @@ export interface ProductDef {
 /**
  * Catálogo de planes de la tienda (una sola fuente de verdad). Los importes están
  * en ARS. El anual equivale a 10 meses (2 meses gratis).
+ *
+ * Los planes salen de content/site-content.json (raíz del repo): el mismo archivo
+ * que muestra la landing, para que el precio publicado y el cobro no se separen.
+ * El Panel de control FS es quien edita ese archivo.
  */
-export const PLAN_CATALOG: Record<BillingPlan, PlanDef> = {
-  BASIC: { name: 'Básico', seats: 100, monthly: 45000, annual: 450000 },
-  PRO: { name: 'Pro', seats: 300, monthly: 75000, annual: 750000 },
-  ENTERPRISE: { name: 'Empresa', seats: 500, monthly: 140000, annual: 1400000 },
-};
+function buildPlanCatalog(): Record<BillingPlan, PlanDef> {
+  const catalog = {} as Record<BillingPlan, PlanDef>;
+  for (const plan of siteContent.plans) {
+    if (plan.tag === 'BASIC' || plan.tag === 'PRO' || plan.tag === 'ENTERPRISE') {
+      catalog[plan.tag] = { name: plan.name, seats: plan.seats, monthly: plan.monthly, annual: plan.annual };
+    }
+  }
+  const tags = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
+  const missing = tags.filter((tag) => !catalog[tag]);
+  if (missing.length) {
+    throw new Error(`PLAN_CATALOG incompleto en content/site-content.json: falta ${missing.join(', ')}`);
+  }
+  for (const tag of tags) {
+    const plan = catalog[tag];
+    if (!plan || plan.monthly <= 0 || plan.annual <= 0 || plan.seats <= 0) {
+      throw new Error(`PLAN_CATALOG inválido (${tag}): monthly, annual y seats deben ser mayores a cero`);
+    }
+  }
+  return catalog;
+}
+
+export const PLAN_CATALOG: Record<BillingPlan, PlanDef> = buildPlanCatalog();
 
 /**
  * Productos de pago único (complementos): pack de asientos y kit de cobro

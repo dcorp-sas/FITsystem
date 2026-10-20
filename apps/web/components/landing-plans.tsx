@@ -8,7 +8,7 @@ import { SubscribeModal, type SubscribeTarget } from '@/components/landing-subsc
 type Period = 'MONTHLY' | 'ANNUAL';
 type PlanTag = 'BASIC' | 'PRO' | 'ENTERPRISE';
 
-interface PlanDef {
+export interface PlanDef {
   tag: PlanTag;
   name: string;
   seats: string;
@@ -53,7 +53,16 @@ const ars = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 0,
 });
 
-export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialDays: number }) {
+export function LandingPlans({
+  setupUrl,
+  trialDays,
+  plans,
+}: {
+  setupUrl: string;
+  trialDays: number;
+  plans?: PlanDef[];
+}) {
+  const list = plans && plans.length ? plans : PLANS;
   const [period, setPeriod] = useState<Period>('ANNUAL');
   const [checkout, setCheckout] = useState<CheckoutTarget | null>(null);
   const [subscribe, setSubscribe] = useState<SubscribeTarget | null>(null);
@@ -132,7 +141,7 @@ export function LandingPlans({ setupUrl, trialDays }: { setupUrl: string; trialD
         </div>
 
         {/* Planes pagos */}
-        {PLANS.map((plan) => {
+        {list.map((plan) => {
           const amount = period === 'ANNUAL' ? plan.annual : plan.monthly;
           const monthlyEquivalent = Math.round(plan.annual / 12);
           return (

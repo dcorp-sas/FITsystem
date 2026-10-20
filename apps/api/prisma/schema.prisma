@@ -1179,3 +1179,26 @@ model PlanSubscription {
   @@index([organizationId])
   @@map("plan_subscriptions")
 }
+
+// ---------------------------------------------------------------------------
+// CRM: consultas del formulario de contacto del sitio y su pipeline comercial.
+// Es del proveedor (no depende de una organizacion), igual que la tienda.
+// stage: nuevo | contactado | propuesta | cerrado | perdido
+// ---------------------------------------------------------------------------
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  gymName   String?
+  message   String?
+  stage     String   @default("nuevo")
+  source    String   @default("sitio") // sitio | manual
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stage])
+  @@index([createdAt])
+  @@map("leads")
+}

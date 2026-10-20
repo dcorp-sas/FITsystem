@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { contactSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError } from '../lib/http.js';
 import { sendPlatformEmail, isPlatformEmailConfigured } from '../services/platform-email.js';
+import { prisma } from '../db.js';
 import { env } from '../env.js';
 
 /** Límite simple en memoria por IP para el formulario público (5 en 10 min). */
@@ -42,6 +43,21 @@ export function contactRoutes(app: FastifyInstance) {
         '',
         input.message,
       ].filter(Boolean);
+
+      // Se persiste ANTES de enviar: una consulta no se pierde si el mail falla.
+      await prisma.lead
+        .create({
+          data: {
+            name: input.name,
+            email: input.email,
+            phone: input.phone || null,
+            gymName: input.gymName || null,
+            message: input.message,
+            stage: 'nuevo',
+            source: 'sitio',
+          },
+        })
+        .catch(() => null);
 
       const result = await sendPlatformEmail(env.PLATFORM_CONTACT_TO, `Consulta web de ${input.name}`, lines.join('\n'));
       if (!result.ok) {

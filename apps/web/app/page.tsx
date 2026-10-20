@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { LandingNav } from '@/components/landing-nav';
-import { LandingPlans } from '@/components/landing-plans';
+import { LandingPlans, type PlanDef } from '@/components/landing-plans';
 import { LandingContact } from '@/components/landing-contact';
 import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
+import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fitsystem.com.ar'),
@@ -41,29 +42,11 @@ export const metadata: Metadata = {
   },
 };
 
-const CONTACT_EMAIL = 'contacto@fitsystem.com.ar';
-const SALES_EMAIL = 'ventas@fitsystem.com.ar';
-const SUPPORT_EMAIL = 'soporte@fitsystem.com.ar';
 const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
-const TRIAL_DAYS = 15;
 const SETUP_URL = `${DOWNLOAD_BASE}/FIT-System-Setup.exe`;
 const PORTABLE_URL = `${DOWNLOAD_BASE}/FIT-System-Portable.exe`;
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
-
-const HERO_CHIPS = [
-  'Opera sin internet',
-  'Datos en tu equipo',
-  'App del socio incluida',
-  'Sin permanencia',
-];
-
-const STATS = [
-  { value: '+10', label: 'Módulos integrados' },
-  { value: '100%', label: 'Funciona sin internet' },
-  { value: '∞', label: 'Socios y cuotas' },
-  { value: '24/7', label: 'App para tus socios' },
-];
 
 const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[] = [
   { icon: 'members', title: 'Socios', text: 'Altas, fichas, datos de contacto, estado y foto. Búsqueda instantánea y hoja de cada socio.', wide: true },
@@ -91,7 +74,7 @@ const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses', amount: 60
 
 const MP_KIT = { price: '$75.000', period: 'pago único', amount: 75000 };
 
-const FAQS = [
+const faqs = (trialDays: number) => [
   {
     q: '¿Necesito internet para usar el sistema?',
     a: 'Para la operación diaria no: el sistema corre en la PC del gimnasio y sigue funcionando aunque se corte internet (socios, cuotas, caja, clases, asistencia y tienda). La conexión se usa para la app móvil de los socios, los pagos online, las novedades, el envío de recordatorios y la sincronización del consolidado para reportes.',
@@ -114,7 +97,7 @@ const FAQS = [
   },
   {
     q: '¿Hay permanencia mínima?',
-    a: `No. La prueba es gratis por ${TRIAL_DAYS} días y las licencias se renuevan por el período que elijas. Sin contratos atados.`,
+    a: `No. La prueba es gratis por ${trialDays} días y las licencias se renuevan por el período que elijas. Sin contratos atados.`,
   },
   {
     q: '¿Cómo consigo el código de licencia?',
@@ -155,6 +138,21 @@ function BrowserFrame({ title, children }: { title: string; children: React.Reac
 }
 
 export default function LandingPage() {
+  const content = getSiteContent();
+  const { hero, stats, trialDays } = content;
+  const CONTACT_EMAIL = content.contact.email;
+  const SALES_EMAIL = content.contact.salesEmail;
+  const SUPPORT_EMAIL = content.contact.supportEmail;
+  const plans: PlanDef[] = content.plans.map((plan) => ({
+    tag: plan.tag === 'PRO' ? 'PRO' : plan.tag === 'ENTERPRISE' ? 'ENTERPRISE' : 'BASIC',
+    name: plan.name,
+    seats: `Hasta ${plan.seats} socios con app`,
+    monthly: plan.monthly,
+    annual: plan.annual,
+    popular: plan.popular,
+    features: plan.features,
+  }));
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-base">
       <LandingNav />
@@ -169,15 +167,12 @@ export default function LandingPage() {
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary-light">
               <span className="h-1.5 w-1.5 rounded-full bg-primary-light" />
-              Software integral para gimnasios
+              {hero.kicker}
             </span>
             <h1 className="mt-6 text-4xl font-bold leading-[1.05] tracking-tight text-text sm:text-5xl lg:text-6xl">
-              Gestioná tu gimnasio <span className="text-gradient">de punta a punta</span>
+              {hero.title} <span className="text-gradient">{hero.titleAccent}</span>
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
-              Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y
-              sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.
-            </p>
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">{hero.subtitle}</p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
@@ -185,19 +180,19 @@ export default function LandingPage() {
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-6 text-base font-medium text-white shadow-lg shadow-primary/30 transition-colors hover:bg-primary-dark"
               >
                 <Icon name="dashboard" size={18} />
-                Pedir una demo
+                {hero.ctaPrimary}
               </a>
               <a
                 href="#planes"
                 className="inline-flex h-12 items-center gap-2 rounded-xl border border-line px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
               >
                 <Icon name="plans" size={18} />
-                Ver planes
+                {hero.ctaSecondary}
               </a>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-text-muted">
-              {HERO_CHIPS.map((item) => (
+              {hero.chips.map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">
                   <Icon name="check" size={16} className="text-success" />
                   {item}
@@ -242,7 +237,7 @@ export default function LandingPage() {
       {/* Stats */}
       <section className="border-y border-line bg-surface/40">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4 lg:px-8">
-          {STATS.map((stat) => (
+          {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="text-2xl font-bold text-text sm:text-3xl">{stat.value}</div>
               <div className="mt-1 text-xs text-text-muted sm:text-sm">{stat.label}</div>
@@ -393,7 +388,7 @@ export default function LandingPage() {
             text="Elegí la cantidad de socios con acceso a la app. El sistema completo está incluido en todos los planes."
           />
 
-          <LandingPlans setupUrl={SETUP_URL} trialDays={TRIAL_DAYS} />
+          <LandingPlans setupUrl={SETUP_URL} trialDays={trialDays} plans={plans} />
 
           <p className="mt-8 text-center text-xs text-text-muted">
             Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
@@ -504,7 +499,7 @@ export default function LandingPage() {
                 text: 'La app completa del gimnasio, con todos los módulos. Sigue operando aunque se corte internet.',
                 cta: 'Descargar para Windows',
                 href: SETUP_URL,
-                note: `Incluye ${TRIAL_DAYS} días de prueba gratis`,
+                note: `Incluye ${trialDays} días de prueba gratis`,
               },
               {
                 icon: 'mobile' as IconName,
@@ -543,7 +538,7 @@ export default function LandingPage() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 rounded-2xl border border-line bg-base p-6 text-center sm:flex-row sm:justify-between sm:text-left">
             <div>
-              <p className="text-sm font-semibold text-text">Instalá gratis y probá {TRIAL_DAYS} días completos</p>
+              <p className="text-sm font-semibold text-text">Instalá gratis y probá {trialDays} días completos</p>
               <p className="mt-1 text-sm text-text-muted">
                 Al terminar la prueba, elegí un plan: al aprobarse el pago emitimos tu clave y te la enviamos por email.
               </p>
@@ -576,7 +571,7 @@ export default function LandingPage() {
           />
 
           <div className="mt-12 space-y-3">
-            {FAQS.map((faq) => (
+            {faqs(trialDays).map((faq) => (
               <details
                 key={faq.q}
                 className="group rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-primary/30 [&_summary::-webkit-details-marker]:hidden"

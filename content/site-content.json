@@ -1,0 +1,69 @@
+{
+  "hero": {
+    "kicker": "Software integral para gimnasios",
+    "title": "Gestioná tu gimnasio",
+    "titleAccent": "de punta a punta",
+    "subtitle": "Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.",
+    "chips": ["Opera sin internet", "Datos en tu equipo", "App del socio incluida", "Sin permanencia"],
+    "ctaPrimary": "Pedir una demo",
+    "ctaSecondary": "Ver planes"
+  },
+  "stats": [
+    { "value": "+10", "label": "Módulos integrados" },
+    { "value": "100%", "label": "Funciona sin internet" },
+    { "value": "∞", "label": "Socios y cuotas" },
+    { "value": "24/7", "label": "App para tus socios" }
+  ],
+  "trialDays": 15,
+  "contact": {
+    "email": "contacto@fitsystem.com.ar",
+    "salesEmail": "ventas@fitsystem.com.ar",
+    "supportEmail": "soporte@fitsystem.com.ar"
+  },
+  "plans": [
+    {
+      "tag": "BASIC",
+      "name": "Básico",
+      "seats": 100,
+      "monthly": 45000,
+      "annual": 450000,
+      "popular": false,
+      "features": [
+        "Todos los módulos",
+        "App del socio incluida",
+        "Cobros con MercadoPago y facturación",
+        "Soporte por email"
+      ]
+    },
+    {
+      "tag": "PRO",
+      "name": "Pro",
+      "seats": 300,
+      "monthly": 75000,
+      "annual": 750000,
+      "popular": true,
+      "features": [
+        "Todos los módulos",
+        "App del socio incluida",
+        "Cobros con MercadoPago y facturación",
+        "Reportes por sede",
+        "Soporte prioritario"
+      ]
+    },
+    {
+      "tag": "ENTERPRISE",
+      "name": "Empresa",
+      "seats": 500,
+      "monthly": 140000,
+      "annual": 1400000,
+      "popular": false,
+      "features": [
+        "Todos los módulos",
+        "App del socio incluida",
+        "Cobros con MercadoPago y facturación",
+        "Sedes y reportes avanzados",
+        "Soporte prioritario"
+      ]
+    }
+  ]
+}

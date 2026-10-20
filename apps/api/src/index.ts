@@ -38,6 +38,7 @@ import systemRoutes from './routes/system.js';
 import onboardingRoutes from './routes/onboarding.js';
 import contactRoutes from './routes/contact.js';
 import billingRoutes from './routes/billing.js';
+import leadRoutes from './routes/leads.js';
 import { runRemindersForAllOrgs } from './services/notifications.js';
 import { migrateSecrets } from './services/settings.js';
 import { startCloudSyncScheduler } from './services/cloud-sync.js';
@@ -171,8 +172,9 @@ export async function buildServer() {
       cloudRoutes(api);
       systemRoutes(api);
       onboardingRoutes(api);
-      contactRoutes(api);
-      billingRoutes(api);
+    contactRoutes(api);
+    billingRoutes(api);
+    leadRoutes(api);
     },
     { prefix: '/api' },
   );
