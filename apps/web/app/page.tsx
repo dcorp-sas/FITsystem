@@ -44,11 +44,13 @@ export const metadata: Metadata = {
 };
 
 const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
+// La API expone sus rutas bajo /api (NEXT_PUBLIC_API_URL es el host, sin /api).
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+const API_ROOT = API_BASE ? (/\/api$/.test(API_BASE) ? API_BASE : `${API_BASE}/api`) : '';
 // Los botones de descarga pasan por la API (redireccion contada): registra el
 // hit y despues manda al instalador real. Si no hay API configurada, va directo.
 const counted = (asset: 'setup' | 'portable', direct: string) =>
-  API_BASE ? `${API_BASE}/metrics/download/go?asset=${asset}` : direct;
+  API_ROOT ? `${API_ROOT}/metrics/download/go?asset=${asset}` : direct;
 const SETUP_URL = counted('setup', `${DOWNLOAD_BASE}/FIT-System-Setup.exe`);
 const PORTABLE_URL = counted('portable', `${DOWNLOAD_BASE}/FIT-System-Portable.exe`);
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';

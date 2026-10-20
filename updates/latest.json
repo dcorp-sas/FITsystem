@@ -1,6 +1,6 @@
 {
-  "version": "0.3.22",
+  "version": "0.3.23",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Contador de visitas y descargas del sitio\n\n- El sitio ahora cuenta las visitas a la portada y las descargas de los\n  instaladores (Setup y Portable), con origen (directo o desde un enlace).\n- El Panel de control FS suma el módulo \"Métricas\": visitas y descargas\n  totales y de hoy, conversión visita → descarga, series por día, desglose\n  por instalador y origen de las visitas.\n- Los botones de descarga del sitio pasan por la API (redirección contada):\n  si la API no responde, la descarga sigue funcionando igual.\n- API: modelos PageView y DownloadHit + rutas /api/metrics (beacon público de\n  visita, redirección contada de descarga y resumen protegido con el token de\n  proveedor). Se conservan 400 días de histórico.",
+  "notes": "Fix: enlaces de descarga contados con la ruta /api correcta\n\nLos botones de descarga del sitio apuntaban a\napi.fitsystem.com.ar/metrics/download/go (sin /api) y devolvian 404. Ahora\napuntan a /api/metrics/download/go, por lo que la descarga se cuenta y\nredirige al instalador como corresponde.",
   "mandatory": false
 }
