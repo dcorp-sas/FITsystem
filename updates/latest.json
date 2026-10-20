@@ -1,6 +1,6 @@
 {
-  "version": "0.3.23",
+  "version": "0.3.24",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Fix: enlaces de descarga contados con la ruta /api correcta\n\nLos botones de descarga del sitio apuntaban a\napi.fitsystem.com.ar/metrics/download/go (sin /api) y devolvian 404. Ahora\napuntan a /api/metrics/download/go, por lo que la descarga se cuenta y\nredirige al instalador como corresponde.",
+  "notes": "Panel del gimnasio sin correo ni contraseña\n\n- El panel del gimnasio entra directo como administrador local: se eliminó la pantalla de inicio de sesión (correo y contraseña) que había vuelto a aparecer al abrir la app.\n- Se corrigió la sesión automática: si había una sesión vieja guardada, ahora se renueva sola y el panel abre directo, sin pedir credenciales.\n- Se quitó la opción \"Cerrar sesión\" y \"Cambiar contraseña\" del panel del gimnasio.\n- El inicio de sesión queda reservado exclusivamente a la app de socios.\n\nSuscripciones (proveedor)\n\n- Se agregó el período mensual/anual a las suscripciones, permitiendo cambiar entre ambos.\n- Nuevas acciones del proveedor: listar, cancelar, reactivar y modificar el período de las suscripciones.",
   "mandatory": false
 }

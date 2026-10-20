@@ -78,14 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (saved && data.branches.some((b) => b.id === saved)) setActiveBranchIdState(saved);
             else setActiveBranchIdState(data.user.branchId || data.branches[0]?.id || null);
           }
+          if (!cancelled) setReady(true);
+          return;
         } catch {
+          // Token viejo o inválido: se descarta y se reintenta la sesión local.
           setToken(null);
         }
-        if (!cancelled) setReady(true);
-        return;
       }
-      // Sin token: el panel de escritorio (single-tenant) entra directo como
-      // administrador local. En la nube este endpoint no existe y queda sin sesión.
+      // El panel del gimnasio (single-tenant) entra directo como administrador
+      // local, sin correo ni contraseña. El login de socios vive en otra app.
       try {
         const data = await api<{ token: string; user: AuthUser; organization: Organization; branches: Branch[] }>(
           '/auth/desktop-session',

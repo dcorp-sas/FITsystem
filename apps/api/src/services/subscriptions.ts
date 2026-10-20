@@ -5,6 +5,7 @@ import {
   PLAN_CATALOG,
   PRODUCT_CATALOG,
   isKnownPlan,
+  type BillingPeriod,
   type BillingPlan,
 } from './billing.js';
 import { issueLicense, isLicensorIssueConfigured, revokeLicense, unrevokeLicense } from './licensing-client.js';
@@ -88,10 +89,11 @@ function mapPreapprovalStatus(status?: string): SubscriptionStatus {
   }
 }
 
-/** Importe mensual y asientos totales de un carrito (plan + packs). */
-export function subscriptionQuote(plan: BillingPlan, seatPacks: number) {
+/** Importe y asientos totales de un carrito (plan + packs) según el período. */
+export function subscriptionQuote(plan: BillingPlan, seatPacks: number, period: BillingPeriod = 'MONTHLY') {
   const packs = Math.max(0, Math.min(50, Math.floor(seatPacks)));
-  const amount = PLAN_CATALOG[plan].monthly + packs * PRODUCT_CATALOG.SEAT_PACK.amount;
+  const base = PLAN_CATALOG[plan][period === 'ANNUAL' ? 'annual' : 'monthly'];
+  const amount = base + packs * PRODUCT_CATALOG.SEAT_PACK.amount;
   const seats = PLAN_CATALOG[plan].seats + packs * PRODUCT_CATALOG.SEAT_PACK.seats;
   return { packs, amount, seats };
 }
@@ -103,6 +105,7 @@ export function subscriptionQuote(plan: BillingPlan, seatPacks: number) {
 export async function createSubscription(input: {
   plan: string;
   seatPacks?: number;
+  period?: BillingPeriod;
   buyerName: string;
   buyerEmail: string;
   buyerPhone?: string | null;
@@ -111,13 +114,15 @@ export async function createSubscription(input: {
   if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
   if (!isKnownPlan(input.plan)) return { ok: false, error: 'Plan inválido' };
 
-  const { packs, amount, seats } = subscriptionQuote(input.plan, input.seatPacks ?? 0);
+  const period: BillingPeriod = input.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
+  const { packs, amount, seats } = subscriptionQuote(input.plan, input.seatPacks ?? 0, period);
   const externalRef = `FITS-${randomBytes(8).toString('hex')}`;
   const planName = PLAN_CATALOG[input.plan].name;
 
   const subscription = await prisma.planSubscription.create({
     data: {
       plan: input.plan,
+      period,
       seats,
       seatPacks: packs,
       amount,
@@ -129,22 +134,22 @@ export async function createSubscription(input: {
       gymName: input.gymName ?? null,
       externalRef,
       items: JSON.stringify([
-        { tag: input.plan, name: `${planName} (mensual)`, qty: 1, unitAmount: PLAN_CATALOG[input.plan].monthly },
+        { tag: input.plan, name: `${planName} (${period === 'ANNUAL' ? 'anual' : 'mensual'})`, qty: 1, unitAmount: PLAN_CATALOG[input.plan][period === 'ANNUAL' ? 'annual' : 'monthly'] },
         ...(packs > 0
-          ? [{ tag: 'SEAT_PACK', name: `${PRODUCT_CATALOG.SEAT_PACK.name} (mensual)`, qty: packs, unitAmount: PRODUCT_CATALOG.SEAT_PACK.amount }]
+          ? [{ tag: 'SEAT_PACK', name: `${PRODUCT_CATALOG.SEAT_PACK.name} (visible los 12 meses)`, qty: packs, unitAmount: PRODUCT_CATALOG.SEAT_PACK.amount }]
           : []),
       ]),
     },
   });
 
-  const reason = `${planName}${packs > 0 ? ` + ${packs} pack(s) de asientos` : ''} — mensual`;
+  const reason = `${planName}${packs > 0 ? ` + ${packs} pack(s) de asientos` : ''} — ${period === 'ANNUAL' ? 'anual' : 'mensual'}`;
   const body: Record<string, unknown> = {
     reason,
     external_reference: externalRef,
     payer_email: input.buyerEmail,
     status: 'pending',
     auto_recurring: {
-      frequency: 1,
+      frequency: period === 'ANNUAL' ? 12 : 1,
       frequency_type: 'months',
       transaction_amount: amount,
       currency_id: 'ARS',
@@ -176,6 +181,7 @@ export async function subscriptionStatus(externalRef: string) {
   if (!sub) return null;
   return {
     plan: sub.plan,
+    period: sub.period,
     status: sub.status,
     amount: sub.amount,
     currency: sub.currency,
@@ -220,7 +226,7 @@ export async function applyApprovedPayment(subscriptionId: string, paymentId: st
       status: 'ACTIVE',
       lastPaymentId: paymentId,
       lastPaymentAt: paidAt,
-      nextPaymentAt: addMonths(paidAt, 1),
+      nextPaymentAt: addMonths(paidAt, fresh?.period === 'ANNUAL' ? 12 : 1),
     },
   });
 }
@@ -269,14 +275,15 @@ export async function reactivateSubscription(externalRef: string): Promise<Subsc
   if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
 
   const planName = PLAN_CATALOG[sub.plan as BillingPlan]?.name ?? sub.plan;
-  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — mensual (reactivación)`;
+  const period: BillingPeriod = sub.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
+  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — ${period === 'ANNUAL' ? 'anual' : 'mensual'} (reactivación)`;
   const body = {
     reason,
     external_reference: sub.externalRef,
     payer_email: sub.buyerEmail,
     status: 'pending',
     auto_recurring: {
-      frequency: 1,
+      frequency: period === 'ANNUAL' ? 12 : 1,
       frequency_type: 'months',
       transaction_amount: sub.amount,
       currency_id: sub.currency,
@@ -293,6 +300,99 @@ export async function reactivateSubscription(externalRef: string): Promise<Subsc
     data: { providerId: data.id, status: 'PENDING', notes: 'Reactivación solicitada' },
   });
   return { ok: true, externalRef: sub.externalRef, initPoint: data.init_point, amount: sub.amount };
+}
+
+/**
+ * Lista las suscripciones de la tienda para el Panel de control del proveedor.
+ * Ordenadas por actividad reciente. `filter` acota por estado.
+ */
+export async function listSubscriptions(filter?: string) {
+  const rows = await prisma.planSubscription.findMany({
+    where: filter && filter !== 'todas' ? { status: filter.toUpperCase() } : undefined,
+    orderBy: [{ updatedAt: 'desc' }],
+    take: 300,
+  });
+  return rows.map((s) => ({
+    id: s.id,
+    externalRef: s.externalRef,
+    plan: s.plan,
+    planName: PLAN_CATALOG[s.plan as BillingPlan]?.name ?? s.plan,
+    period: s.period,
+    seats: s.seats,
+    seatPacks: s.seatPacks,
+    amount: s.amount,
+    currency: s.currency,
+    status: s.status,
+    buyerName: s.buyerName,
+    buyerEmail: s.buyerEmail,
+    buyerPhone: s.buyerPhone,
+    gymName: s.gymName,
+    organizationId: s.organizationId,
+    providerId: s.providerId,
+    lastPaymentAt: s.lastPaymentAt,
+    nextPaymentAt: s.nextPaymentAt,
+    licenseKey: s.licenseKey,
+    notes: s.notes,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+  }));
+}
+
+/**
+ * Cambia el período (mensual <-> anual) de una suscripción. MercadoPago no
+ * permite editar la frecuencia de un preapproval existente, así que se da de
+ * baja el actual y se crea uno nuevo con la frecuencia pedida, devolviendo el
+ * `init_point` para que el cliente lo autorice. La licencia sigue vigente hasta
+ * que el nuevo débito se apruebe (el webhook llama a `applyApprovedPayment`).
+ */
+export async function changeSubscriptionPeriod(externalRef: string, period: BillingPeriod): Promise<SubscriptionDraft> {
+  const sub = await prisma.planSubscription.findUnique({ where: { externalRef } });
+  if (!sub) return { ok: false, error: 'Suscripción no encontrada' };
+  if ((sub.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') === period) {
+    return { ok: false, error: `La suscripción ya está en período ${period === 'ANNUAL' ? 'anual' : 'mensual'}` };
+  }
+  if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
+  const plan = sub.plan as BillingPlan;
+  if (!isKnownPlan(sub.plan)) return { ok: false, error: 'Plan inválido' };
+
+  const { amount } = subscriptionQuote(plan, sub.seatPacks, period);
+  const planName = PLAN_CATALOG[plan].name;
+  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — cambio a ${period === 'ANNUAL' ? 'anual' : 'mensual'}`;
+
+  // Da de baja el preapproval vigente (si existe) antes de crear el nuevo.
+  if (sub.providerId) {
+    await mpFetch(`/preapproval/${sub.providerId}`, { method: 'PUT', body: JSON.stringify({ status: 'cancelled' }) });
+  }
+
+  const body = {
+    reason,
+    external_reference: sub.externalRef,
+    payer_email: sub.buyerEmail,
+    status: 'pending',
+    auto_recurring: {
+      frequency: period === 'ANNUAL' ? 12 : 1,
+      frequency_type: 'months',
+      transaction_amount: amount,
+      currency_id: sub.currency,
+    },
+    back_url: `${env.SITE_URL}/pagar?susc=${encodeURIComponent(sub.externalRef)}`,
+  };
+  const r = await mpFetch('/preapproval', { method: 'POST', body: JSON.stringify(body) });
+  const data = r.data as MpPreapproval | null;
+  if (!r.ok || !data?.id) {
+    return { ok: false, error: data?.message || `MercadoPago rechazó el cambio (HTTP ${r.status})` };
+  }
+  await prisma.planSubscription.update({
+    where: { id: sub.id },
+    data: {
+      period,
+      amount,
+      providerId: data.id,
+      status: 'PENDING',
+      notes: `Cambio de período a ${period === 'ANNUAL' ? 'anual' : 'mensual'} (${new Date().toISOString().slice(0, 10)})`,
+    },
+  });
+  return { ok: true, externalRef: sub.externalRef, initPoint: data.init_point, amount };
 }
 
 /** Sincroniza el estado de un preapproval (alta/baja/pausa) consultando MercadoPago. */

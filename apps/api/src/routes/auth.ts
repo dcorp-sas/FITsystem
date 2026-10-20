@@ -63,15 +63,6 @@ function clearLoginFailures(email: string): void {
   loginFailures.delete(email);
 }
 
-/* true si la request viene de la propia máquina (loopback). Fastify expone la
- * dirección del socket remoto en request.ip; sin proxy delante esa es la IP real
- * del cliente, así que sirve para separar el equipo del gimnasio de las
- * terminales de la red. */
-function isLoopback(ip: string | undefined): boolean {
-  if (!ip) return false;
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.startsWith('127.');
-}
-
 export function authRoutes(app: FastifyInstance) {
   async function issueSession(user: {
     id: string;
@@ -131,16 +122,14 @@ export function authRoutes(app: FastifyInstance) {
     return user;
   }
 
-  /* Sesión automática del panel de escritorio. Solo existe en la instalación
-   * local (API embebida); en la nube responde 404. Además, en modo red local
-   * (API expuesta a la LAN) esta vía queda SOLO para la propia máquina: las
-   * terminales de la red deben ingresar con email y contraseña. */
+  /* Sesión automática del panel del gimnasio. Solo existe en la instalación
+   * local (API embebida); en la nube responde 404. El panel es de un solo
+   * gimnasio y entra directo como administrador local, sin correo ni contraseña
+   * (tampoco desde las terminales de la red local). El login por usuario quedó
+   * reservado a la app de socios. */
   app.post('/auth/desktop-session', async (request, reply) => {
     try {
       if (!env.LICENSE_INSTALLATION_ID) throw new HttpError(404, 'No disponible');
-      if (!isLoopback(request.ip)) {
-        throw new HttpError(404, 'No disponible');
-      }
       const user = await ensureLocalOwner();
       await logActivity(
         { user: { id: user.id, organizationId: user.organizationId, branchId: user.branchId, name: user.name, email: user.email, role: user.role } } as unknown as AuthedRequest,

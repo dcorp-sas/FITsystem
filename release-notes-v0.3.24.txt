@@ -1,0 +1,11 @@
+Panel del gimnasio sin correo ni contraseña
+
+- El panel del gimnasio entra directo como administrador local: se eliminó la pantalla de inicio de sesión (correo y contraseña) que había vuelto a aparecer al abrir la app.
+- Se corrigió la sesión automática: si había una sesión vieja guardada, ahora se renueva sola y el panel abre directo, sin pedir credenciales.
+- Se quitó la opción "Cerrar sesión" y "Cambiar contraseña" del panel del gimnasio.
+- El inicio de sesión queda reservado exclusivamente a la app de socios.
+
+Suscripciones (proveedor)
+
+- Se agregó el período mensual/anual a las suscripciones, permitiendo cambiar entre ambos.
+- Nuevas acciones del proveedor: listar, cancelar, reactivar y modificar el período de las suscripciones.

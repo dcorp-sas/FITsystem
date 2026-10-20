@@ -120,6 +120,7 @@ export function billingRoutes(app: FastifyInstance) {
         hasSubscription: true,
         externalRef: sub.externalRef,
         plan: sub.plan,
+        period: sub.period,
         seats: sub.seats,
         seatPacks: sub.seatPacks,
         amount: sub.amount,

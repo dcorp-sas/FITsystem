@@ -78,7 +78,7 @@ const GROUPS: NavGroup[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, organization, logout, branches, activeBranchId, setActiveBranchId } = useAuth();
+  const { user, organization, branches, activeBranchId, setActiveBranchId } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const isAdmin = user ? user.role === 'OWNER' || user.role === 'ADMIN' : false;
@@ -173,20 +173,6 @@ export function Sidebar() {
             <div className="truncate text-[10px] text-text-muted">{user?.email}</div>
           </div>
         </div>
-        <Link
-          href="/profile/password"
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-text-muted transition-colors hover:bg-surface-alt hover:text-text"
-        >
-          <Icon name="settings" size={15} />
-          Cambiar contraseña
-        </Link>
-        <button
-          onClick={logout}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-muted transition-colors hover:bg-danger/10 hover:text-danger"
-        >
-          <Icon name="logout" size={17} />
-          Cerrar sesión
-        </button>
       </div>
     </div>
   );
