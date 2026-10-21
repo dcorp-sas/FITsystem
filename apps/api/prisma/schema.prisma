@@ -57,6 +57,7 @@ model Organization {
   newsPosts      NewsPost[]
   paymentIntents PaymentIntent[]
   memberFaces    MemberFace[]
+  memberCredentials MemberCredential[]
 
   @@map("organizations")
 }
@@ -206,6 +207,7 @@ model Member {
   routineLogs    RoutineLog[]
   paymentIntents PaymentIntent[]
   face           MemberFace?
+  credentials    MemberCredential[]
 
   @@unique([organizationId, memberCode])
   @@index([organizationId, status])
@@ -233,6 +235,33 @@ model MemberFace {
 
   @@index([organizationId])
   @@map("member_faces")
+}
+
+// ---------------------------------------------------------------------------
+// Huella (WebAuthn / Windows Hello)
+// ---------------------------------------------------------------------------
+
+// Credencial WebAuthn enrolada por socio en el equipo del gimnasio. La huella
+// nunca sale del equipo: se guarda la clave publica de la credencial y el
+// servidor la usa para verificar la firma (assertion) en el check-in. Ligada al
+// equipo donde se enrolo (no es un template reutilizable entre equipos).
+model MemberCredential {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  credentialId   String   @unique // id de la credencial (base64url) devuelto por navegador
+  publicKey      String // clave publica COSE (base64url)
+  counter        Int      @default(0)
+  deviceLabel    String? // nombre/equipo donde se enrolo
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@map("member_credentials")
 }
 
 // ---------------------------------------------------------------------------

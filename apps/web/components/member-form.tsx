@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/auth';
 import type { Member } from '@/lib/types';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/components/ui';
 import { Icon } from '@/components/icon';
+import { FaceCaptureModal } from '@/components/face-capture';
+import { FingerprintCaptureModal } from '@/components/fingerprint-capture';
 
 interface Props {
   open: boolean;
@@ -51,11 +53,15 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
   const [notify, setNotify] = useState(false);
   const [creds, setCreds] = useState<{ memberId: string; username: string; password: string; email: string | null; emailSent: boolean } | null>(null);
   const [resending, setResending] = useState(false);
+  const [postCreate, setPostCreate] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [bioMode, setBioMode] = useState<'face' | 'fingerprint' | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setCreds(null);
     setNotify(false);
+    setPostCreate(null);
+    setBioMode(null);
     if (member) {
       setForm({
         branchId: member.branchId,
@@ -139,7 +145,7 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
         toast.success('Socio creado');
       } else {
         toast.success('Socio creado');
-        onClose();
+        setPostCreate({ id: created.id, name: `${payload.firstName} ${payload.lastName}`.trim(), code: created.id });
       }
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
@@ -229,6 +235,56 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
           </div>
         </div>
       </Modal>
+    );
+  }
+
+  if (postCreate) {
+    return (
+      <>
+        <Modal
+          open={open}
+          onClose={onClose}
+          title="Socio creado"
+          size="md"
+          footer={
+            <Button onClick={onClose} type="button">
+              Listo
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-text-muted">
+              Podés registrar ahora el <span className="font-medium text-text">rostro</span> y la{' '}
+              <span className="font-medium text-text">huella</span> de {postCreate.name} para que use el acceso biométrico.
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button variant="secondary" type="button" onClick={() => setBioMode('face')}>
+                Registrar rostro
+              </Button>
+              <Button variant="secondary" type="button" onClick={() => setBioMode('fingerprint')}>
+                Registrar huella
+              </Button>
+            </div>
+            <p className="text-xs text-text-muted">También podés hacerlo más tarde desde la ficha del socio.</p>
+          </div>
+        </Modal>
+        <FaceCaptureModal
+          open={bioMode === 'face'}
+          onClose={() => setBioMode(null)}
+          mode="enroll"
+          memberId={postCreate.id}
+          onDone={() => setBioMode(null)}
+        />
+        <FingerprintCaptureModal
+          open={bioMode === 'fingerprint'}
+          onClose={() => setBioMode(null)}
+          mode="enroll"
+          memberId={postCreate.id}
+          memberName={postCreate.name}
+          memberCode={postCreate.code}
+          onDone={() => setBioMode(null)}
+        />
+      </>
     );
   }
 

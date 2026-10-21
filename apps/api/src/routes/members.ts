@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
-import { memberSchema, memberImportSchema, faceEnrollSchema } from '@fitsystem/validators';
+import { memberSchema, memberImportSchema, faceEnrollSchema, fingerprintEnrollSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { autoProvisionPortalAccount, syncPortalAccount } from '../services/portal-account.js';
@@ -537,6 +537,79 @@ export function memberRoutes(app: FastifyInstance) {
       if (!member) throw new HttpError(404, 'Socio no encontrado');
       await prisma.memberFace.deleteMany({ where: { memberId: id, organizationId: req.user.organizationId } });
       await logActivity(req, 'FACE_REMOVE', 'MEMBER', id);
+      return ok(reply, { deleted: true });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Estado de la huella (WebAuthn / Windows Hello) del socio
+  app.get('/members/:id/fingerprint', { onRequest: [auth] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+      const credentials = await prisma.memberCredential.findMany({
+        where: { memberId: id, organizationId: req.user.organizationId },
+        orderBy: { createdAt: 'desc' },
+      });
+      return ok(reply, {
+        enrolled: credentials.length > 0,
+        count: credentials.length,
+        credentials: credentials.map((c) => ({
+          id: c.id,
+          deviceLabel: c.deviceLabel,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        })),
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Enrolar / registrar huella del socio (credencial WebAuthn generada en el equipo)
+  app.post('/members/:id/fingerprint', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const input = validate(fingerprintEnrollSchema, request.body);
+      const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+
+      const credential = await prisma.memberCredential.upsert({
+        where: { credentialId: input.credentialId },
+        create: {
+          organizationId: req.user.organizationId,
+          memberId: id,
+          credentialId: input.credentialId,
+          publicKey: input.publicKey,
+          deviceLabel: input.deviceLabel ?? null,
+        },
+        update: {
+          memberId: id,
+          publicKey: input.publicKey,
+          deviceLabel: input.deviceLabel ?? null,
+        },
+      });
+
+      await logActivity(req, 'FINGERPRINT_ENROLL', 'MEMBER', id, undefined, { credentialId: credential.id });
+      return ok(reply, { enrolled: true, id: credential.id, updatedAt: credential.updatedAt }, 201);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Eliminar huella enrolada
+  app.delete('/members/:id/fingerprint', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const member = await prisma.member.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      if (!member) throw new HttpError(404, 'Socio no encontrado');
+      await prisma.memberCredential.deleteMany({ where: { memberId: id, organizationId: req.user.organizationId } });
+      await logActivity(req, 'FINGERPRINT_REMOVE', 'MEMBER', id);
       return ok(reply, { deleted: true });
     } catch (error) {
       return fail(reply, error);

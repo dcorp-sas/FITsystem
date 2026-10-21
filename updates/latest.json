@@ -1,6 +1,6 @@
 {
-  "version": "0.3.24",
+  "version": "0.3.25",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Panel del gimnasio sin correo ni contraseña\n\n- El panel del gimnasio entra directo como administrador local: se eliminó la pantalla de inicio de sesión (correo y contraseña) que había vuelto a aparecer al abrir la app.\n- Se corrigió la sesión automática: si había una sesión vieja guardada, ahora se renueva sola y el panel abre directo, sin pedir credenciales.\n- Se quitó la opción \"Cerrar sesión\" y \"Cambiar contraseña\" del panel del gimnasio.\n- El inicio de sesión queda reservado exclusivamente a la app de socios.\n\nSuscripciones (proveedor)\n\n- Se agregó el período mensual/anual a las suscripciones, permitiendo cambiar entre ambos.\n- Nuevas acciones del proveedor: listar, cancelar, reactivar y modificar el período de las suscripciones.",
+  "notes": "Alta de socio con biometría (rostro + huella)\n\n- Nuevo: al crear un socio, el sistema ofrece registrar el rostro y la huella en el momento (además de poder hacerlo luego desde la ficha).\n- Huella con Windows Hello (WebAuthn): la huella nunca sale del equipo; se guarda la clave pública y el servidor verifica la firma en el ingreso.\n- Check-in por huella verificado en el servidor (no se confía en el método que envía el cliente).\n- Ficha del socio: sección de huella con registrar, probar y quitar.\n- Pantalla de asistencia: botón de check-in por huella, además del de rostro.",
   "mandatory": false
 }

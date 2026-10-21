@@ -342,6 +342,26 @@ export const faceCheckinSchema = z.object({
   descriptor: descriptor512,
 });
 
+// ---------------------------------------------------------------------------
+// Huella (WebAuthn / Windows Hello)
+// ---------------------------------------------------------------------------
+
+const base64url = z.string().min(4).max(4096);
+
+export const fingerprintEnrollSchema = z.object({
+  credentialId: base64url,
+  publicKey: base64url,
+  deviceLabel: optionalString,
+});
+
+export const fingerprintCheckinSchema = z.object({
+  branchId: cuid,
+  credentialId: base64url,
+  authenticatorData: base64url,
+  clientDataJSON: base64url,
+  signature: base64url,
+});
+
 // Control de molinete / barrera: al registrar un ingreso válido se dispara una
 // apertura configurable (HTTP o TCP). Genérico para adaptarse a distintos
 // controladores sin cambiar el código.

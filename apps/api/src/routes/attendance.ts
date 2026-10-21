@@ -1,16 +1,39 @@
 import type { FastifyInstance } from 'fastify';
+import crypto from 'node:crypto';
 import { prisma } from '../db.js';
-import { attendanceCheckinSchema, faceCheckinSchema, hardwareDeviceSchema } from '@fitsystem/validators';
+import { attendanceCheckinSchema, faceCheckinSchema, hardwareDeviceSchema, fingerprintCheckinSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 import { getRawSetting } from '../services/settings.js';
 import { matchFace, parseThreshold } from '../services/face.js';
+import { verifyAssertion, base64urlToBuffer } from '../services/webauthn.js';
 import { getDeviceProfile, saveDeviceProfile, enabledMethods } from '../services/devices.js';
 import { openTurnstile } from '../services/turnstile.js';
 import { parseMemberQr, signAccessQr, type AccessRotation } from '../lib/member-qr.js';
 
 const ACCESS_ROTATIONS: AccessRotation[] = ['NEVER', 'DAILY', 'WEEKLY'];
+
+// Desafíos WebAuthn pendientes (huella). Viven en memoria por instalación: son
+// efímeros (se consumen en segundos) y el panel es single-tenant en el equipo.
+const fingerprintChallenges = new Map<string, { challenge: string; expiresAt: number }>();
+
+function issueFingerprintChallenge(): string {
+  const challenge = crypto.randomBytes(32).toString('base64url');
+  const now = Date.now();
+  for (const [key, value] of fingerprintChallenges) {
+    if (value.expiresAt < now) fingerprintChallenges.delete(key);
+  }
+  fingerprintChallenges.set(challenge, { challenge, expiresAt: now + 2 * 60 * 1000 });
+  return challenge;
+}
+
+function consumeFingerprintChallenge(challenge: string): boolean {
+  const entry = fingerprintChallenges.get(challenge);
+  if (!entry) return false;
+  fingerprintChallenges.delete(challenge);
+  return entry.expiresAt >= Date.now();
+}
 
 async function loadAccessQrConfig(orgId: string, branchId: string) {
   const [enabledRaw, rotationRaw, title, subtitle, footer, sizeRaw, color] = await Promise.all([
@@ -85,6 +108,9 @@ const REJECT_MESSAGES: Record<string, string> = {
   ROSTRO_NO_ENCONTRADO: 'No se pudo registrar ningun rostro. Acercate a la camara',
   ROSTRO_NO_RECONOCIDO: 'Rostro no reconocido. Probá de nuevo o registrá tu rostro en recepción',
   SIN_FACE_ENROLADO: 'Ningun socio tiene el rostro registrado',
+  SIN_HUELLA_ENROLADA: 'Ningun socio tiene la huella registrada en este equipo',
+  HUELLA_NO_RECONOCIDA: 'Huella no reconocida. Probá de nuevo o registrá tu huella en recepción',
+  DESAFIO_INVALIDO: 'La verificación expiró. Probá de nuevo',
   SOCIO_SUSPENDIDO: 'Socio suspendido',
   SOCIO_INACTIVO: 'Socio dado de baja',
   SOCIO_CONGELADO: 'Membresia pausada',
@@ -281,6 +307,59 @@ export function attendanceRoutes(app: FastifyInstance) {
         },
         outcome.kind === 'ok' ? 201 : 200,
       );
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Huella (WebAuthn / Windows Hello): el equipo firma un desafío y el servidor
+  // valida la firma contra la clave pública enrolada antes de registrar el
+  // ingreso. La huella nunca sale del equipo.
+  app.get('/attendance/fingerprint/challenge', { onRequest: [auth] }, async (_request, reply) => {
+    try {
+      return ok(reply, { challenge: issueFingerprintChallenge() });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post('/attendance/fingerprint', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'RECEPTIONIST'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = validate(fingerprintCheckinSchema, request.body);
+      const orgId = req.user.organizationId;
+
+      const branchId = req.user.branchId ?? input.branchId;
+      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+
+      const credential = await prisma.memberCredential.findFirst({
+        where: { credentialId: input.credentialId, organizationId: orgId },
+        include: { member: { select: { id: true, branchId: true } } },
+      });
+      if (!credential) {
+        return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'SIN_HUELLA_ENROLADA', member: null }), 200);
+      }
+
+      const clientData = JSON.parse(base64urlToBuffer(input.clientDataJSON).toString('utf8')) as { challenge?: string };
+      const challenge = clientData.challenge ?? '';
+      if (!consumeFingerprintChallenge(challenge)) {
+        return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'DESAFIO_INVALIDO', member: null }), 200);
+      }
+
+      const counter = verifyAssertion(credential.publicKey, input, challenge);
+      if (counter === null) {
+        return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'HUELLA_NO_RECONOCIDA', member: null }), 200);
+      }
+
+      if (counter > 0 && counter <= credential.counter) {
+        return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'HUELLA_NO_RECONOCIDA', member: null }), 200);
+      }
+      if (counter > 0) {
+        await prisma.memberCredential.update({ where: { id: credential.id }, data: { counter } });
+      }
+
+      const outcome = await performCheckin(req, credential.memberId, branchId, 'FINGERPRINT');
+      return ok(reply, buildCheckinReply(outcome), outcome.kind === 'ok' ? 201 : 200);
     } catch (error) {
       return fail(reply, error);
     }

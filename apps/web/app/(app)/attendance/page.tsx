@@ -9,6 +9,7 @@ import { ATTENDANCE_METHOD_LABELS } from '@/lib/labels';
 import { detectHardware } from '@/lib/hardware';
 import type { Attendance } from '@/lib/types';
 import { FaceCaptureModal } from '@/components/face-capture';
+import { FingerprintCaptureModal } from '@/components/fingerprint-capture';
 import {
   Badge,
   Button,
@@ -82,6 +83,7 @@ export default function AttendancePage() {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
+  const [fingerprintOpen, setFingerprintOpen] = useState(false);
   const [from, setFrom] = useState('');
   const [devices, setDevices] = useState<DeviceProfile | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -216,6 +218,10 @@ export default function AttendancePage() {
               <Icon name="activity" size={16} /> Check-in por rostro (cámara)
             </Button>
 
+            <Button variant="secondary" className="mt-2 w-full" onClick={() => setFingerprintOpen(true)}>
+              <Icon name="activity" size={16} /> Check-in por huella (Windows Hello)
+            </Button>
+
             {result && (
               <div
                 className={
@@ -346,6 +352,13 @@ export default function AttendancePage() {
       <FaceCaptureModal
         open={faceOpen}
         onClose={() => setFaceOpen(false)}
+        mode="verify"
+        branchId={branchId}
+        onDone={load}
+      />
+      <FingerprintCaptureModal
+        open={fingerprintOpen}
+        onClose={() => setFingerprintOpen(false)}
         mode="verify"
         branchId={branchId}
         onDone={load}
