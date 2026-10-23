@@ -5,6 +5,7 @@ import { prisma } from '../db.js';
 import { validate, ok, fail, HttpError } from '../lib/http.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { ensureOrgLicense } from '../services/license.js';
+import { bindInstallation, ensureGenericAdmin } from '../services/installation.js';
 
 /*
  * Sincronizacion escritorio -> nube.
@@ -25,6 +26,9 @@ const connectSchema = z.object({
   taxId: z.string().max(40).nullish(),
   email: z.string().email().nullish(),
   phone: z.string().max(40).nullish(),
+  // ID de instalacion del escritorio: identifica al gimnasio al ingresar al
+  // panel remoto (login con el usuario generico admin/admin123).
+  installationId: z.string().max(120).nullish(),
 });
 
 // Filas completas de Prisma (mismos campos que el esquema). Se validan como
@@ -107,11 +111,13 @@ export function syncRoutes(app: FastifyInstance) {
           },
         });
 
-        await prisma.branch.create({
+        const branch = await prisma.branch.create({
           data: { organizationId: org.id, name: 'Sede Central', code: 'SC' },
         });
 
         await ensureOrgLicense(org.id).catch(() => undefined);
+        await ensureGenericAdmin({ id: org.id, slug: org.slug }, branch.id).catch(() => undefined);
+        await bindInstallation(org.id, input.installationId ?? '').catch(() => undefined);
 
         const syncKey = `sk_${randomBytes(24).toString('hex')}`;
         await prisma.setting.upsert({
@@ -140,6 +146,13 @@ export function syncRoutes(app: FastifyInstance) {
     try {
       const res = await orgFromSyncKey(request); const organizationId = typeof (res as any) === 'string' ? (res as any) : (res as any).orgId;
       const input = validate(pushSchema, request.body);
+
+      // El escritorio manda su ID de instalacion para quedar vinculado al
+      // gimnasio en la nube (asi el login del panel remoto resuelve el gimnasio).
+      await bindInstallation(
+        organizationId,
+        String((request.headers as Record<string, unknown>)['x-installation-id'] ?? ''),
+      ).catch(() => undefined);
 
       if (input.organization) {
         const { name, taxId, email, phone, address, logoUrl, currency } = input.organization;
@@ -178,11 +191,42 @@ export function syncRoutes(app: FastifyInstance) {
         products: 0,
       };
 
+      // Las sedes en la nube pueden tener otro id que en el escritorio (la nube
+      // crea "Sede Central" al registrar el gimnasio). Se emparejan por nombre
+      // para no romper la restricción (organizationId, name) y se remapea su id
+      // en el resto del lote.
+      const branchIdMap = new Map<string, string>();
+      const remapBranch = (data: Record<string, unknown>) => {
+        const branchId = data.branchId;
+        if (typeof branchId === 'string') {
+          const mapped = branchIdMap.get(branchId);
+          if (mapped) data.branchId = mapped;
+        }
+        return data;
+      };
+
       await prisma.$transaction(
         async (tx) => {
           for (const b of input.branches ?? []) {
-            const data = { ...(b as Record<string, unknown>), organizationId };
-            await tx.branch.upsert({ where: { id: String(b.id) }, create: data as never, update: data as never });
+            const localId = String(b.id);
+            const { id: _id, ...rest } = b as Record<string, unknown>;
+            const data = { ...rest, organizationId };
+            const name = typeof b.name === 'string' ? b.name : null;
+            const byId = await tx.branch.findUnique({ where: { id: localId }, select: { id: true } });
+            if (byId) {
+              await tx.branch.update({ where: { id: localId }, data: data as never });
+              branchIdMap.set(localId, localId);
+            } else {
+              const byName = name
+                ? await tx.branch.findFirst({ where: { organizationId, name }, select: { id: true } })
+                : null;
+              if (byName) {
+                await tx.branch.update({ where: { id: byName.id }, data: data as never });
+                branchIdMap.set(localId, byName.id);
+              } else {
+                await tx.branch.create({ data: { ...(b as Record<string, unknown>), organizationId } as never });
+              }
+            }
             counts.branches++;
           }
           for (const p of input.plans ?? []) {
@@ -191,12 +235,12 @@ export function syncRoutes(app: FastifyInstance) {
             counts.plans++;
           }
           for (const m of input.members ?? []) {
-            const data = { ...(m as Record<string, unknown>), organizationId };
+            const data = remapBranch({ ...(m as Record<string, unknown>), organizationId });
             await tx.member.upsert({ where: { id: String(m.id) }, create: data as never, update: data as never });
             counts.members++;
           }
           for (const ms of input.memberships ?? []) {
-            const data: Record<string, unknown> = { ...(ms as Record<string, unknown>), organizationId };
+            const data: Record<string, unknown> = remapBranch({ ...(ms as Record<string, unknown>), organizationId });
             // El usuario vendedor es local al escritorio; en la nube no existe.
             delete data.soldById;
             await tx.membership.upsert({ where: { id: String(ms.id) }, create: data as never, update: data as never });
@@ -230,7 +274,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const gc of input.gymClasses ?? []) {
-        const data = { ...(gc as Record<string, unknown>), organizationId };
+        const data = remapBranch({ ...(gc as Record<string, unknown>), organizationId });
         try {
           await prisma.gymClass.upsert({ where: { id: String(gc.id) }, create: data as never, update: data as never });
           counts.gymClasses++;
@@ -239,7 +283,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const cs of input.classSessions ?? []) {
-        const data = { ...(cs as Record<string, unknown>) };
+        const data = remapBranch({ ...(cs as Record<string, unknown>) });
         try {
           await prisma.classSession.upsert({ where: { id: String(cs.id) }, create: data as never, update: data as never });
           counts.classSessions++;
@@ -264,7 +308,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const a of input.attendance ?? []) {
-        const data: Record<string, unknown> = { ...(a as Record<string, unknown>), organizationId };
+        const data: Record<string, unknown> = remapBranch({ ...(a as Record<string, unknown>), organizationId });
         delete data.registeredById; // el usuario es local al escritorio
         try {
           await prisma.attendance.upsert({ where: { id: String(a.id) }, create: data as never, update: data as never });
@@ -274,7 +318,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const p of input.payments ?? []) {
-        const data: Record<string, unknown> = { ...(p as Record<string, unknown>), organizationId };
+        const data: Record<string, unknown> = remapBranch({ ...(p as Record<string, unknown>), organizationId });
         delete data.receivedById; // el usuario es local al escritorio
         try {
           await prisma.payment.upsert({ where: { id: String(p.id) }, create: data as never, update: data as never });
@@ -284,7 +328,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const s of input.sales ?? []) {
-        const data: Record<string, unknown> = { ...(s as Record<string, unknown>), organizationId };
+        const data: Record<string, unknown> = remapBranch({ ...(s as Record<string, unknown>), organizationId });
         delete data.userId; // el usuario es local al escritorio
         try {
           await prisma.sale.upsert({ where: { id: String(s.id) }, create: data as never, update: data as never });
@@ -294,7 +338,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const cs of input.cashSessions ?? []) {
-        const data: Record<string, unknown> = { ...(cs as Record<string, unknown>), organizationId };
+        const data: Record<string, unknown> = remapBranch({ ...(cs as Record<string, unknown>), organizationId });
         delete data.openedById; // el usuario es local al escritorio
         delete data.closedById;
         try {
@@ -305,7 +349,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const cm of input.cashMovements ?? []) {
-        const data: Record<string, unknown> = { ...(cm as Record<string, unknown>), organizationId };
+        const data: Record<string, unknown> = remapBranch({ ...(cm as Record<string, unknown>), organizationId });
         delete data.userId; // el usuario es local al escritorio
         try {
           await prisma.cashMovement.upsert({ where: { id: String(cm.id) }, create: data as never, update: data as never });
@@ -315,7 +359,7 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
       for (const sm of input.stockMovements ?? []) {
-        const data: Record<string, unknown> = { ...(sm as Record<string, unknown>), organizationId };
+        const data: Record<string, unknown> = remapBranch({ ...(sm as Record<string, unknown>), organizationId });
         delete data.userId; // el usuario es local al escritorio
         try {
           await prisma.stockMovement.upsert({ where: { id: String(sm.id) }, create: data as never, update: data as never });

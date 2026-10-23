@@ -77,6 +77,7 @@ export async function ensureCloudConnected(): Promise<boolean> {
       body: JSON.stringify({
         organizationName: org?.name || 'Mi gimnasio',
         currency: org?.currency || undefined,
+        ...(env.LICENSE_INSTALLATION_ID ? { installationId: env.LICENSE_INSTALLATION_ID } : {}),
       }),
     });
     const json = (await response.json().catch(() => null)) as
@@ -176,7 +177,13 @@ export async function runCloudSync(opts?: { memberIds?: string[] }) {
 
   const response = await fetch(`${cfg.url.replace(/\/+$/, '')}/api/sync/push`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-sync-key': cfg.key },
+    headers: {
+      'content-type': 'application/json',
+      'x-sync-key': cfg.key,
+      // Vincula esta instalacion con el gimnasio en la nube: el login del panel
+      // remoto usa este ID para resolver el gimnasio.
+      ...(env.LICENSE_INSTALLATION_ID ? { 'x-installation-id': env.LICENSE_INSTALLATION_ID } : {}),
+    },
     body: JSON.stringify(payload),
   });
   const json = (await response.json().catch(() => null)) as { data?: unknown; message?: string } | null;
@@ -272,6 +279,7 @@ export async function connectCloud(input: {
         organizationName: input.organizationName,
         slug: input.slug,
         currency: input.currency,
+        ...(env.LICENSE_INSTALLATION_ID ? { installationId: env.LICENSE_INSTALLATION_ID } : {}),
       }),
     });
     const json = (await response.json().catch(() => null)) as

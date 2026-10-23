@@ -45,10 +45,11 @@ type ApiOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   query?: Record<string, string | number | boolean | null | undefined>;
+  timeoutMs?: number;
 };
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { method = 'GET', body, query } = options;
+  const { method = 'GET', body, query, timeoutMs } = options;
   let url = `${API_URL}${path}`;
   if (query) {
     const params = new URLSearchParams();
@@ -65,14 +66,19 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res: Response;
+  const controller = timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
     res = await fetch(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller?.signal,
     });
   } catch {
     throw new ApiError(0, 'No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   const json = (await res.json().catch(() => null)) as

@@ -5,10 +5,11 @@ import { useAuth } from '@/lib/auth';
 import { Sidebar } from '@/components/sidebar';
 import { LicenseBanner } from '@/components/license-banner';
 import { UpdateBanner } from '@/components/update-banner';
+import { LoginScreen } from '@/components/login-screen';
 import { Spinner } from '@/components/ui';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { user, ready } = useAuth();
+  const { user, ready, sessionError, retrySession } = useAuth();
 
   if (!ready) {
     return (
@@ -19,22 +20,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // El panel del gimnasio es de un solo gimnasio (single-tenant) y entra directo
-  // como administrador local: no hay pantalla de correo/contraseña. Si no hay
-  // sesión, la API local todavía no terminó de arrancar: se reintenta sola.
+  // Sin sesión se pide usuario y contraseña (credencial inicial visible:
+  // admin/admin123). Si la sesión automática falló por un error real, se
+  // muestra el motivo con la opción de reintentar.
   if (!user) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center text-text-muted">
-        <Spinner className="h-6 w-6" />
-        <p className="text-sm">Preparando el panel...</p>
-        <button
-          className="rounded-lg border border-line px-4 py-2 text-sm text-text hover:border-primary"
-          onClick={() => window.location.reload()}
-        >
-          Reintentar
-        </button>
-      </div>
-    );
+    if (sessionError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center text-text-muted">
+          <p className="text-sm">{sessionError}</p>
+          <button
+            className="rounded-lg border border-line px-4 py-2 text-sm text-text hover:border-primary"
+            onClick={retrySession}
+          >
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+    return <LoginScreen />;
   }
 
   return (

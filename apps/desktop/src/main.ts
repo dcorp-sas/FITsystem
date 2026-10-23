@@ -897,7 +897,12 @@ function stopServices() {
 }
 
 function appUrl(): string {
-  if (isCloudMode()) return `${CLOUD_PANEL_URL}/dashboard`;
+  if (isCloudMode()) {
+    // El panel en la nube pide usuario y contraseña (admin/admin123). Le pasamos
+    // el ID de instalación para que el login resuelva a qué gimnasio pertenece.
+    const params = new URLSearchParams({ installationId: getInstallationId() });
+    return `${CLOUD_PANEL_URL}/dashboard?${params.toString()}`;
+  }
   return app.isPackaged ? `http://127.0.0.1:${WEB_PORT}/dashboard` : 'http://localhost:3000/dashboard';
 }
 

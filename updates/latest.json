@@ -1,6 +1,6 @@
 {
-  "version": "0.3.25",
+  "version": "0.3.26",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Alta de socio con biometría (rostro + huella)\n\n- Nuevo: al crear un socio, el sistema ofrece registrar el rostro y la huella en el momento (además de poder hacerlo luego desde la ficha).\n- Huella con Windows Hello (WebAuthn): la huella nunca sale del equipo; se guarda la clave pública y el servidor verifica la firma en el ingreso.\n- Check-in por huella verificado en el servidor (no se confía en el método que envía el cliente).\n- Ficha del socio: sección de huella con registrar, probar y quitar.\n- Pantalla de asistencia: botón de check-in por huella, además del de rostro.",
+  "notes": "- El panel vuelve a pedir usuario y contraseña, con la credencial inicial visible: usuario admin, contraseña admin123 (también válida con cualquier correo configurado).\n- Se corrige la sincronización con la nube que fallaba al coincidir la \"Sede Central\" (error P2002) y dejaba el panel remoto sin datos.\n- El panel en la nube identifica el gimnasio a partir de la instalación, así cada equipo entra a su propia cuenta.",
   "mandatory": false
 }

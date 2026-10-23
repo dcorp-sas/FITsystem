@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
-import crypto from 'node:crypto';
 import { prisma } from '../db.js';
 import {
   loginSchema,
@@ -17,6 +16,13 @@ import { rateLimit } from '../lib/ratelimit.js';
 import { logActivity } from '../lib/activity.js';
 import { sendEmail } from '../services/email.js';
 import { ensureOrgLicense } from '../services/license.js';
+import {
+  findOrgByInstallation,
+  ensureGenericAdmin,
+  genericAdminEmail,
+  GENERIC_ADMIN_PASSWORD,
+  GENERIC_ADMIN_USER,
+} from '../services/installation.js';
 import { env } from '../env.js';
 import {
   decryptSecret,
@@ -87,9 +93,9 @@ export function authRoutes(app: FastifyInstance) {
 
   /**
    * Organización/usuario "local" del producto de escritorio. FIT system™ en la PC
-   * de un gimnasio es single-tenant: no hay pantalla de login, entra directo como
-   * administrador. Esta función crea (de forma idempotente) la organización, la
-   * sede y el usuario OWNER por defecto.
+   * de un gimnasio es single-tenant. Esta función crea (de forma idempotente) la
+   * organización, la sede y el usuario OWNER por defecto (admin/admin123), para
+   * que cualquiera que instale el sistema pueda ingresar.
    */
   async function ensureLocalOwner() {
     const slug = 'local';
@@ -105,7 +111,7 @@ export function authRoutes(app: FastifyInstance) {
     const email = 'admin@fitsystem.local';
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      const passwordHash = await bcrypt.hash(crypto.randomUUID(), 10);
+      const passwordHash = await bcrypt.hash(GENERIC_ADMIN_PASSWORD, 10);
       user = await prisma.user.create({
         data: {
           organizationId: org.id,
@@ -122,12 +128,60 @@ export function authRoutes(app: FastifyInstance) {
     return user;
   }
 
+  /**
+   * Resuelve el usuario que quiere ingresar al panel.
+   * - Usuario genérico "admin" en la instalación local -> OWNER local (admin/admin123).
+   * - Usuario genérico "admin" en la nube -> admin del gimnasio vinculado al
+   *   ID de instalación que envía el panel.
+   * - Email + contraseña -> login normal (acotado al gimnasio si hay instalación).
+   */
+  async function resolveLoginUser(raw: string, installationId?: string) {
+    const looksLikeEmail = raw.includes('@');
+
+    // Nube: si el panel identifica su instalación, se acota a ese gimnasio.
+    if (installationId) {
+      const orgId = await findOrgByInstallation(installationId);
+      if (orgId) {
+        if (looksLikeEmail) {
+          return prisma.user.findFirst({ where: { organizationId: orgId, email: raw } });
+        }
+        const org = await prisma.organization.findUnique({
+          where: { id: orgId },
+          select: { id: true, slug: true },
+        });
+        if (!org) return null;
+        const branch = await prisma.branch.findFirst({
+          where: { organizationId: orgId },
+          orderBy: { name: 'asc' },
+          select: { id: true },
+        });
+        await ensureGenericAdmin(org, branch?.id ?? null);
+        return prisma.user.findUnique({ where: { email: genericAdminEmail(org.slug) } });
+      }
+    }
+
+    if (!looksLikeEmail) {
+      // Instalación local: "admin" es el OWNER por defecto. Se garantiza que la
+      // contraseña genérica esté vigente para que siempre se pueda ingresar.
+      if (raw !== GENERIC_ADMIN_USER || !env.LICENSE_INSTALLATION_ID) return null;
+      const local = await ensureLocalOwner();
+      const matches = await bcrypt.compare(GENERIC_ADMIN_PASSWORD, local.passwordHash);
+      if (!matches) {
+        await prisma.user.update({
+          where: { id: local.id },
+          data: { passwordHash: await bcrypt.hash(GENERIC_ADMIN_PASSWORD, 10) },
+        });
+      }
+      return prisma.user.findUnique({ where: { id: local.id } });
+    }
+
+    return prisma.user.findUnique({ where: { email: raw } });
+  }
+
   /* Sesión automática del panel del gimnasio. Solo existe en la instalación
-   * local (API embebida); en la nube responde 404. El panel es de un solo
-   * gimnasio y entra directo como administrador local, sin correo ni contraseña
-   * (tampoco desde las terminales de la red local). El login por usuario quedó
-   * reservado a la app de socios. */
-  app.post('/auth/desktop-session', async (request, reply) => {
+   * local (API embebida); en la nube responde 404 y el panel muestra el login
+   * con el usuario genérico admin/admin123. */
+  app.post('/auth/desktop-session', async (_request, reply) => {
     try {
       if (!env.LICENSE_INSTALLATION_ID) throw new HttpError(404, 'No disponible');
       const user = await ensureLocalOwner();
@@ -207,20 +261,20 @@ export function authRoutes(app: FastifyInstance) {
     async (request, reply) => {
       try {
         const input = validate(loginSchema, request.body);
-        const email = input.email.toLowerCase();
-        checkLoginLock(email);
+        const raw = input.email.trim().toLowerCase();
+        checkLoginLock(raw);
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await resolveLoginUser(raw, input.installationId?.trim());
         if (!user || !user.isActive) {
-          registerLoginFailure(email);
-          throw new HttpError(401, 'Email o contrasena incorrectos');
+          registerLoginFailure(raw);
+          throw new HttpError(401, 'Usuario o contrasena incorrectos');
         }
         const valid = await bcrypt.compare(input.password, user.passwordHash);
         if (!valid) {
-          registerLoginFailure(email);
-          throw new HttpError(401, 'Email o contrasena incorrectos');
+          registerLoginFailure(raw);
+          throw new HttpError(401, 'Usuario o contrasena incorrectos');
         }
-        clearLoginFailures(email);
+        clearLoginFailures(raw);
         await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
         if (user.twoFactorEnabled) {

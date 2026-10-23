@@ -30,8 +30,12 @@ export const logoUrlField = z
 // ---------------------------------------------------------------------------
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  // Acepta email o usuario ("admin"). El panel del gimnasio usa el usuario
+  // genérico admin/admin123 para poder ingresar apenas se instala el sistema.
+  email: z.string().min(1).max(160),
   password: z.string().min(6),
+  // Identifica el gimnasio en la nube (el panel lo recibe por la URL).
+  installationId: z.string().max(120).optional(),
 });
 
 export const registerOrgSchema = z.object({
