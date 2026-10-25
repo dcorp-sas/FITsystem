@@ -52,6 +52,7 @@ let licenseInfo: LicenseInfo | null = null;
 // confirmación antes de reiniciar e instalar.
 let updateWindow: BrowserWindow | null = null;
 let accessWindow: BrowserWindow | null = null;
+let accessQrWindow: BrowserWindow | null = null;
 
 interface LicenseInfo {
   plan: string;
@@ -833,6 +834,38 @@ function registerUpdateIpc() {
 }
 
 function registerAccessIpc() {
+  ipcMain.handle('access:qr-open', async () => {
+    if (accessQrWindow && !accessQrWindow.isDestroyed()) {
+      accessQrWindow.focus();
+      return { ok: true };
+    }
+
+    const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
+    accessQrWindow = new BrowserWindow({
+      width: 900,
+      height: 900,
+      minWidth: 520,
+      minHeight: 620,
+      title: 'FIT system™ · QR de ingreso',
+      icon: fs.existsSync(iconPath) ? iconPath : undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+    accessQrWindow.removeMenu();
+    accessQrWindow.on('closed', () => {
+      accessQrWindow = null;
+    });
+    const qrUrl = new URL(appUrl());
+    qrUrl.pathname = '/attendance';
+    qrUrl.searchParams.set('qrdisplay', '1');
+    await accessQrWindow.loadURL(qrUrl.toString());
+    return { ok: true };
+  });
+
   ipcMain.handle('access:open', async () => {
     if (accessWindow && !accessWindow.isDestroyed()) {
       accessWindow.focus();
