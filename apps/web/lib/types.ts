@@ -212,6 +212,7 @@ export interface Instructor {
   color: string;
   isActive: boolean;
   branchId?: string | null;
+  userId?: string | null;
   _count?: { classes: number };
   availability?: unknown[];
 }
