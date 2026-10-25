@@ -9,9 +9,9 @@ import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fitsystem.com.ar'),
-  title: 'FIT system™ — Software de gestión para gimnasios',
+  title: 'Software para gimnasios | FIT system',
   description:
-    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola plataforma, con app móvil para tus socios.',
+    'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. La operación local puede continuar sin internet; las funciones online requieren conexión.',
   alternates: { canonical: '/' },
   robots: { index: true, follow: true },
   openGraph: {
@@ -19,16 +19,16 @@ export const metadata: Metadata = {
     locale: 'es_AR',
     url: 'https://fitsystem.com.ar',
     siteName: 'FIT system™',
-    title: 'FIT system™ — Software de gestión para gimnasios',
+    title: 'Software para gimnasios | FIT system',
     description:
-      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema, con app móvil para tus socios.',
+      'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
     images: [{ url: '/og-fitsystem.svg', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FIT system™ — Software de gestión para gimnasios',
+    title: 'Software para gimnasios | FIT system',
     description:
-      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema, con app móvil para tus socios.',
+      'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
     images: ['/og-fitsystem.svg'],
   },
 };
@@ -52,7 +52,7 @@ const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1
 const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[] = [
   { icon: 'members', title: 'Socios', text: 'Altas, fichas, datos de contacto, estado y foto. Búsqueda instantánea y hoja de cada socio.', wide: true },
   { icon: 'memberships', title: 'Cuotas y membresías', text: 'Planes, vencimientos, renovaciones, congelamientos y avisos automáticos de deuda.' },
-  { icon: 'payments', title: 'Cobros y pagos', text: 'Efectivo, transferencia o MercadoPago. Comprobantes y deudas al día.' },
+  { icon: 'payments', title: 'Cobros y pagos', text: 'Registro de cobros y comprobantes para seguir las cuotas pendientes.' },
   { icon: 'cash', title: 'Caja diaria', text: 'Apertura, cierre, ingresos y egresos con arqueo y control por turno y usuario.' },
   { icon: 'attendance', title: 'Asistencia y check-in', text: 'Ingresos por DNI o QR, control de acceso y estadísticas de concurrencia.' },
   { icon: 'classes', title: 'Clases y turnos', text: 'Grilla de clases, cupos, reservas, listas de espera e instructores asignados.' },
@@ -65,10 +65,10 @@ const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[]
 ];
 
 const STEPS = [
-  { n: '1', title: 'Instalá el escritorio', text: 'Descargá FIT system™ en la PC del gimnasio. Instalación simple, sin servidores ni configuración.' },
+  { n: '1', title: 'Instalá el escritorio', text: 'Instalá FIT system™ en una PC con Windows y completá la configuración inicial. La operación local no requiere contratar un servidor externo.' },
   { n: '2', title: 'Activá tu licencia', text: 'Ingresá la clave de licencia que te damos. Elegís el plan según los socios con app.' },
   { n: '3', title: 'Cargá y operá', text: 'Cargá socios, planes y productos. Empezá a cobrar, controlar caja y registrar asistencias.' },
-  { n: '4', title: 'Tus socios, conectados', text: 'Los socios descargan la app y consultan cuota, rutinas, novedades y pagan desde el celular.' },
+  { n: '4', title: 'Tus socios, conectados', text: 'Tus socios acceden a la app web desde el celular para consultar cuota, rutinas y novedades. Las funciones online requieren conexión y dependen de la configuración.' },
 ];
 
 const faqs = (trialDays: number) => [
@@ -207,7 +207,7 @@ export default function LandingPage() {
         name: 'FIT system',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Windows',
-        description: 'Software de gestión para gimnasios: socios, cuotas, caja, clases, asistencia y app del socio.',
+        description: 'Software para gimnasios en Windows: socios, cuotas, cobros, caja y asistencia. La operación local puede continuar sin internet; las funciones online requieren conexión.',
         offers: plans.map((plan) => ({
           '@type': 'Offer',
           name: plan.name,
@@ -338,7 +338,7 @@ export default function LandingPage() {
                 src: '/screens/sistema-socios.svg',
                 alt: 'Gestión de socios y cuotas en FIT system™',
                 title: 'Socios y cuotas',
-                text: 'Ficha de cada socio, estado de cuenta y cobro en un clic.',
+                text: 'Ficha de cada socio, estado de cuenta e historial de cobros.',
               },
               {
                 src: '/screens/sistema-caja.svg',
@@ -370,7 +370,7 @@ export default function LandingPage() {
               <p className="mt-3 text-sm leading-relaxed text-text-muted">
                 Cada socio instala la app desde el navegador (sin descargas) y ve el estado de su cuota,
                 su rutina del día y las novedades del gimnasio. Registra su ingreso escaneando el QR de
-                la entrada y puede iniciar el pago de su cuota desde el celular con MercadoPago.
+                la entrada y puede acceder a funciones online de consulta o pago según la configuración y con conexión a Internet.
               </p>
               <ul className="mt-5 grid gap-2 sm:grid-cols-2">
                 {['Cuota y pagos', 'Ingreso con QR', 'Rutina personalizada', 'Novedades del gym'].map((item) => (
