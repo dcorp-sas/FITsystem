@@ -41,7 +41,7 @@ export function LandingContact({
     setError(null);
     try {
       const { reason, ...payload } = form;
-      await api('/contact', { method: 'POST', body: { ...payload, message: `Motivo: ${reason}\\n\\n${form.message}` } });
+      await api('/contact', { method: 'POST', body: { ...payload, message: `Motivo: ${reason}\n\n${form.message}` } });
       setStatus('sent');
       setPrivacyAccepted(false);
       setForm({ name: '', email: '', phone: '', gymName: '', reason: 'Consulta general', message: '', company: '' });
