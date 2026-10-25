@@ -1,6 +1,6 @@
 {
-  "version": "0.3.31",
+  "version": "0.3.32",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Evita pantalla negra al iniciar si Windows bloquea la carpeta persistente: usa fallback seguro y registra errores de migración de la base local.",
+  "notes": "Agrega el QR fiscal de AFIP y el enlace a la constancia de inscripción en el footer del sitio.",
   "mandatory": false
 }

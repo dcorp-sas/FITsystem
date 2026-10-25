@@ -678,6 +678,21 @@ export default function LandingPage() {
                 <li><a href={`mailto:${SALES_EMAIL}`} className="transition-colors hover:text-text">{SALES_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
+              <a
+                href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,,"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-block"
+              >
+                <img
+                  src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg"
+                  alt="Constancia de inscripción AFIP"
+                  width="160"
+                  height="60"
+                  loading="lazy"
+                  className="h-auto w-40"
+                />
+              </a>
             </div>
           </div>
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-line pt-6 text-xs text-text-muted sm:flex-row">
