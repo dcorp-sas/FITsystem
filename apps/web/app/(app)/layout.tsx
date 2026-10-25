@@ -1,6 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Sidebar } from '@/components/sidebar';
 import { LicenseBanner } from '@/components/license-banner';
@@ -10,6 +12,14 @@ import { Spinner } from '@/components/ui';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, ready, sessionError, retrySession } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!ready || user?.role !== 'INSTRUCTOR') return;
+    const allowed = pathname === '/classes' || pathname.startsWith('/classes/') || pathname === '/routines' || pathname.startsWith('/routines/');
+    if (!allowed) router.replace('/profes');
+  }, [ready, user, pathname, router]);
 
   if (!ready) {
     return (
@@ -38,6 +48,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       );
     }
     return <LoginScreen />;
+  }
+
+  if (user.role === 'INSTRUCTOR' && pathname !== '/classes' && !pathname.startsWith('/classes/') && pathname !== '/routines' && !pathname.startsWith('/routines/')) {
+    return <div className="flex min-h-screen items-center justify-center text-text-muted">Abriendo el portal de profesores…</div>;
   }
 
   return (
