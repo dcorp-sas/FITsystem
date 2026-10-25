@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           <p>Usamos esos datos para responder consultas, coordinar demostraciones, gestionar compras y brindar soporte solicitado. No vendemos los datos personales.</p>
 
           <h2 className="pt-4 text-xl font-semibold text-text">3. Datos procesados por FIT system™</h2>
-          <p>El sistema puede procesar datos de socios del gimnasio, como nombre, documento, foto, contacto, membresías, pagos, deuda y asistencia. En general, el gimnasio decide la finalidad de esos datos y actúa como responsable del tratamiento; FIT system™ presta el servicio y actúa como encargado en la medida que corresponda. Esta asignación debe ser revisada por cada cliente con su asesor legal.</p>
+          <p>El sistema puede procesar datos de socios del gimnasio, como nombre, documento, foto, contacto, membresías, pagos, deuda y asistencia. En general, el gimnasio decide la finalidad de esos datos y actúa como responsable del tratamiento; FIT system™ presta el servicio y actúa como encargado en la medida que corresponda. </p>
 
           <h2 className="pt-4 text-xl font-semibold text-text">4. Datos en la nube y proveedores</h2>
           <p>Según la configuración y las funciones utilizadas, pueden sincronizarse a la nube datos de socios, cuotas, pagos, asistencia, rutinas, novedades y credenciales necesarias para la app del socio. El servicio puede interactuar con MercadoPago, proveedores de hosting y proveedores de email para ejecutar las funciones solicitadas.</p>
