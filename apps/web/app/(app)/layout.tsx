@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     // El profesor trabaja exclusivamente en el portal separado. Nunca mostrar
     // la carcasa administrativa, incluso si abre una URL interna directamente.
     if (ready && user?.role === 'INSTRUCTOR' && pathname !== '/classes' && pathname !== '/routines') router.replace('/profes');
-  }, [ready, user, router]);
+  }, [ready, user, router, pathname]);
 
   if (!ready) {
     return (
