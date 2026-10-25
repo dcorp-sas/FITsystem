@@ -1,6 +1,6 @@
 name: backup
 
-# Backup semanal de la base PostgreSQL del VPS. Corre scripts/backup-db.sh en el
+# Backup diario de la base PostgreSQL del VPS. Corre scripts/backup-db.sh en el
 # VPS y sube el volcado (.sql.gz) como artefacto del workflow, de modo que queda
 # una copia fuera del propio servidor.
 #
@@ -12,7 +12,7 @@ name: backup
 
 on:
   schedule:
-    - cron: '0 3 * * 0'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -52,7 +52,7 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -p "$PORT" "$SSHUSER@$HOST" '
             set -e
             cd /opt/fitsystem
-            ./scripts/backup-db.sh
+            KEEP=30 ./scripts/backup-db.sh
           '
 
       - name: Descargar el ultimo backup

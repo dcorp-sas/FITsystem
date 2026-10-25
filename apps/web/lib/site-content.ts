@@ -47,15 +47,14 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     titleAccent: 'de punta a punta',
     subtitle:
       'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.',
-    chips: ['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida', 'Sin permanencia'],
+    chips: ['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida', 'Pagás por el período elegido'],
     ctaPrimary: 'Pedir una demo',
     ctaSecondary: 'Ver planes',
   },
   stats: [
     { value: '+10', label: 'Módulos integrados' },
     { value: '100%', label: 'Funciona sin internet' },
-    { value: '∞', label: 'Socios y cuotas' },
-    { value: '24/7', label: 'App para tus socios' },
+    { value: '+10', label: 'Módulos integrados' },
   ],
   trialDays: 15,
   contact: {
@@ -71,7 +70,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 45000,
       annual: 450000,
       popular: false,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Soporte por email'],
+      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Soporte por email'],
     },
     {
       tag: 'PRO',
@@ -80,7 +79,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 75000,
       annual: 750000,
       popular: true,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Reportes por sede', 'Soporte prioritario'],
+      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Reportes por sede', 'Soporte prioritario'],
     },
     {
       tag: 'ENTERPRISE',
@@ -89,7 +88,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 140000,
       annual: 1400000,
       popular: false,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Sedes y reportes avanzados', 'Soporte prioritario'],
     },
   ],
 };

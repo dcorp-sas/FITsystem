@@ -1,6 +1,6 @@
 {
-  "version": "0.3.27",
+  "version": "0.3.28",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Corrige el login despues de actualizar, conserva el installationId al restaurar la ruta y agrega una terminal independiente para QR, rostro y huella. Endurece la validacion del reconocimiento facial real.",
+  "notes": "Mejora la comunicación comercial: corrige textos de licencia y acceso, agrega WhatsApp, aclara prueba sin tarjeta y facturación ARCA. Programa backups externos diarios con rotación de 30 copias.",
   "mandatory": false
 }

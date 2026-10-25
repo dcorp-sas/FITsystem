@@ -93,11 +93,11 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Cómo funciona la licencia?',
-    a: 'La licencia se activa una sola vez con una clave (FIT-). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
+    a: 'La licencia se activa una sola vez con una clave (FIT-XXXX-XXXX-XXXX). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
   },
   {
     q: '¿Puedo separar la operación por sede o caja?',
-    a: 'Sí. Podés organizar la operación por sede o caja dentro del sistema, con datos separados y reportes por sede.',
+    a: 'Sí. Podés organizar la operación por sede o caja dentro del sistema, con datos separados. Los reportes comparativos por sede dependen del plan contratado.',
   },
   {
     q: '¿Qué medios de pago acepta?',
@@ -105,11 +105,15 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Hay permanencia mínima?',
-    a: `No. La prueba es gratis por ${trialDays} días y las licencias se renuevan por el período que elijas. Sin contratos atados.`,
+    a: `La prueba es gratis por ${trialDays} días. Luego pagás por el período que elijas y podés no renovar; el pago anual cubre 12 meses.`,
   },
   {
     q: '¿Cómo consigo el código de licencia?',
-    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave (FIT-) automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
+    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave (FIT-XXXX-XXXX-XXXX) automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
+  },
+  {
+    q: '¿La prueba requiere una tarjeta?',
+    a: `No. Podés probar FIT system durante ${trialDays} días sin ingresar una tarjeta ni asumir un cobro automático. Al terminar la prueba, elegís si querés contratar un plan.`,
   },
 ];
 
@@ -394,7 +398,7 @@ export default function LandingPage() {
           <SectionHeading
             kicker="Planes"
             title="Planes que crecen con vos"
-            text="Elegí la cantidad de socios con acceso a la app. El sistema completo está incluido en todos los planes."
+            text="El sistema de escritorio no limita la cantidad de socios cargados. El plan define cuántos pueden usar la app; el sistema completo está incluido en todos los planes."
           />
 
           <LandingPlans setupUrl={SETUP_URL} trialDays={trialDays} plans={plans} />
@@ -402,6 +406,9 @@ export default function LandingPage() {
           <p className="mt-8 text-center text-xs text-text-muted">
             Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
             Todos los planes incluyen el sistema completo y la app del socio.
+          </p>
+          <p className="mt-2 text-center text-xs text-text-muted">
+            La facturación electrónica ARCA corresponde a la operación del gimnasio.
           </p>
 
           <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center justify-between gap-3 rounded-2xl border border-line bg-surface/60 px-5 py-4 text-center sm:flex-row sm:text-left">
@@ -521,9 +528,9 @@ export default function LandingPage() {
               {
                 icon: 'reports' as IconName,
                 title: 'Acceso desde la PC del gimnasio',
-                text: 'Accedé a tu gestión desde la computadora del gimnasio con la aplicación de escritorio; entra directo, sin usuario ni contraseña.',
+                text: 'Accedé a tu gestión desde la computadora del gimnasio con la aplicación de escritorio y credenciales según el rol de cada operador.',
                 cta: 'Pedir demo',
-                href: '#contacto',
+                href: '#descargas',
                 note: 'Para administradores y recepción',
               },
             ].map((item) => (
@@ -613,6 +620,18 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <a
+        href="https://wa.me/5492212005382?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20FIT%20system%20para%20mi%20gimnasio"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Contactar por WhatsApp"
+        title="Contactar por WhatsApp"
+        className="fixed bottom-5 right-5 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-semibold text-[#062b12] shadow-xl shadow-black/30 transition-transform hover:scale-105"
+      >
+        <Icon name="whatsapp" size={21} />
+        WhatsApp
+      </a>
+
       {/* Footer */}
       <footer className="border-t border-line bg-surface/40">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
@@ -627,7 +646,7 @@ export default function LandingPage() {
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
                 y app móvil para tus socios.
               </p>
-              <p className="mt-4 text-xs text-text-muted">Datos en tu equipo · Opera sin internet · Sin permanencia</p>
+              <p className="mt-4 text-xs text-text-muted">Datos en tu equipo · Opera sin internet · Pagás por el período elegido</p>
             </div>
             <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-text">Contacto</h4>
