@@ -65,10 +65,13 @@ trap restore_on_failure EXIT
 docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
 
-if [ "$NEED_API" -eq 1 ] || [ "$NEED_WEB" -eq 1 ] || [ "$NEED_SOCIOS" -eq 1 ] || [ "$NEED_LICENSADOR" -eq 1 ]; then
-  docker compose -f docker-compose.prod.yml stop web api socios licensador >/dev/null 2>&1 || true
-else
+if [ "$NEED_API" -eq 0 ] && [ "$NEED_WEB" -eq 0 ] && [ "$NEED_SOCIOS" -eq 0 ] && [ "$NEED_LICENSADOR" -eq 0 ]; then
   echo "=== no hay imágenes modificadas; se mantienen los servicios activos ==="
+else
+  # No detener la versión que está atendiendo tráfico durante la compilación.
+  # Si un build falla, el trap restaura etiquetas previas y los contenedores
+  # actuales siguen disponibles. Las imágenes nuevas se aplican al final.
+  echo "=== se construirá en serie sin apagar la versión activa ==="
 fi
 
 if [ "$NEED_API" -eq 1 ]; then
