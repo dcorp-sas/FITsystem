@@ -1,6 +1,6 @@
 {
-  "version": "0.3.26",
+  "version": "0.3.27",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "- El panel vuelve a pedir usuario y contraseña, con la credencial inicial visible: usuario admin, contraseña admin123 (también válida con cualquier correo configurado).\n- Se corrige la sincronización con la nube que fallaba al coincidir la \"Sede Central\" (error P2002) y dejaba el panel remoto sin datos.\n- El panel en la nube identifica el gimnasio a partir de la instalación, así cada equipo entra a su propia cuenta.",
+  "notes": "Corrige el login despues de actualizar, conserva el installationId al restaurar la ruta y agrega una terminal independiente para QR, rostro y huella. Endurece la validacion del reconocimiento facial real.",
   "mandatory": false
 }

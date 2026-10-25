@@ -51,6 +51,7 @@ let licenseInfo: LicenseInfo | null = null;
 // Ventana aparte que avisa que hay una actualización descargada y pide
 // confirmación antes de reiniciar e instalar.
 let updateWindow: BrowserWindow | null = null;
+let accessWindow: BrowserWindow | null = null;
 
 interface LicenseInfo {
   plan: string;
@@ -780,6 +781,40 @@ function registerUpdateIpc() {
   });
 }
 
+function registerAccessIpc() {
+  ipcMain.handle('access:open', async () => {
+    if (accessWindow && !accessWindow.isDestroyed()) {
+      accessWindow.focus();
+      return { ok: true };
+    }
+
+    const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
+    accessWindow = new BrowserWindow({
+      width: 1100,
+      height: 820,
+      minWidth: 760,
+      minHeight: 620,
+      title: 'FIT system™ · Terminal de acceso',
+      icon: fs.existsSync(iconPath) ? iconPath : undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+    accessWindow.removeMenu();
+    accessWindow.on('closed', () => {
+      accessWindow = null;
+    });
+    const accessUrl = new URL(appUrl());
+    accessUrl.pathname = '/attendance';
+    accessUrl.searchParams.set('standalone', '1');
+    await accessWindow.loadURL(accessUrl.toString());
+    return { ok: true };
+  });
+}
+
 function registerNetworkIpc() {
   ipcMain.handle('network:get', () => {
     const config = readNetworkConfig();
@@ -941,7 +976,15 @@ function saveRoute(url: string): void {
 function savedRouteUrl(): string | null {
   try {
     const parsed = JSON.parse(fs.readFileSync(routeFilePath(), 'utf8')) as { url?: string };
-    if (parsed.url && isPanelUrl(parsed.url)) return parsed.url;
+    if (parsed.url && isPanelUrl(parsed.url)) {
+      const saved = new URL(parsed.url);
+      if (isCloudMode()) {
+        // v0.3.25 guardaba la ruta sin installationId. Al actualizar, esa ruta
+        // vieja impedía que la nube resolviera el gimnasio del escritorio.
+        saved.searchParams.set('installationId', getInstallationId());
+      }
+      return saved.toString();
+    }
   } catch {
     /* sin archivo o contenido inválido */
   }
@@ -1230,6 +1273,7 @@ app.whenReady().then(async () => {
 
   registerLicenseIpc();
   registerUpdateIpc();
+  registerAccessIpc();
   registerNetworkIpc();
 
   // La ventana se crea SIEMPRE primero: nunca debe quedar sin abrir por una

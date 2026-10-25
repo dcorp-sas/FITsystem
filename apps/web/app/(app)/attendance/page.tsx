@@ -87,6 +87,16 @@ export default function AttendancePage() {
   const [from, setFrom] = useState('');
   const [devices, setDevices] = useState<DeviceProfile | null>(null);
   const [scanning, setScanning] = useState(false);
+  const isStandalone = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('standalone') === '1';
+
+  async function openStandalone() {
+    const openAccessWindow = typeof window !== 'undefined' ? window.fitsystem?.openAccessWindow : undefined;
+    if (!openAccessWindow) {
+      toast.error('Esta opción está disponible desde la aplicación de escritorio.');
+      return;
+    }
+    await openAccessWindow();
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -183,7 +193,17 @@ export default function AttendancePage() {
 
   return (
     <div>
-      <PageHeader title="Acceso y asistencia" subtitle="Control de ingresos" />
+      <PageHeader
+        title={isStandalone ? 'Terminal de acceso' : 'Acceso y asistencia'}
+        subtitle={isStandalone ? 'QR, rostro y huella en una ventana independiente' : 'Control de ingresos'}
+        action={
+          !isStandalone ? (
+            <Button variant="secondary" onClick={openStandalone}>
+              <Icon name="activity" size={16} /> Abrir terminal aparte
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-1">

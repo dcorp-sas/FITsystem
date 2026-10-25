@@ -1,8 +1,11 @@
 import type { MemberFace } from '@prisma/client';
 
+export const FACE_DESCRIPTOR_SIZE = 128;
+
 // Distancia euclidiana entre dos descriptores de 128-d.
 export function euclidean(a: ArrayLike<number>, b: ArrayLike<number>): number {
-  const len = Math.min(a.length, b.length);
+  if (a.length !== FACE_DESCRIPTOR_SIZE || b.length !== FACE_DESCRIPTOR_SIZE) return Number.POSITIVE_INFINITY;
+  const len = FACE_DESCRIPTOR_SIZE;
   let sum = 0;
   for (let i = 0; i < len; i++) {
     const d = (a[i] ?? 0) - (b[i] ?? 0);
@@ -15,8 +18,10 @@ export function parseDescriptors(face: { descriptors: string }): number[][] {
   try {
     const parsed = JSON.parse(face.descriptors) as unknown;
     if (!Array.isArray(parsed)) return [];
-    const rows = parsed.filter((r): r is ArrayLike<number> => Array.isArray(r) && r.length > 0);
-    return rows.map((r) => Array.from(r, (n) => Number(n)).filter((n) => Number.isFinite(n)));
+    const rows = parsed.filter((r): r is ArrayLike<number> => Array.isArray(r) && r.length === FACE_DESCRIPTOR_SIZE);
+    return rows
+      .map((r) => Array.from(r, (n) => Number(n)))
+      .filter((r) => r.every((n) => Number.isFinite(n)));
   } catch {
     return [];
   }
@@ -46,7 +51,7 @@ export function matchFace(
       }
     }
   }
-  if (!best) return null;
+  if (!best || !Number.isFinite(best.distance)) return null;
   if (best.distance > threshold) return null;
   return best;
 }

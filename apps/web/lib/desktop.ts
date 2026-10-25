@@ -27,6 +27,7 @@ export interface DesktopBridge {
   getNetwork?: () => Promise<NetworkInfo>;
   setNetwork?: (mode: 'standalone' | 'server' | 'cloud') => Promise<{ ok: boolean; mode: 'standalone' | 'server' | 'cloud' }>;
   restartApp?: () => Promise<{ ok: boolean }>;
+  openAccessWindow?: () => Promise<{ ok: boolean }>;
 }
 
 declare global {

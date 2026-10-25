@@ -1,6 +1,7 @@
 'use client';
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'production' ? 'https://api.fitsystem.com.ar' : undefined);
 
 // La API vive en el mismo host que sirve el panel, pero en el puerto 3001
 // (apiPort). Derivar el host de la página permite que tanto el equipo del

@@ -502,7 +502,7 @@ export function memberRoutes(app: FastifyInstance) {
       if (!member) throw new HttpError(404, 'Socio no encontrado');
 
       const length = input.descriptors[0]!.length;
-      if (length < 16) throw new HttpError(400, 'Descriptores invalidos');
+      if (length !== 128) throw new HttpError(400, 'El descriptor facial debe tener 128 valores');
       for (const d of input.descriptors) {
         if (d.length !== length) throw new HttpError(400, 'Todos los descriptores deben tener la misma dimension');
       }

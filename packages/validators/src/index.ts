@@ -335,15 +335,15 @@ export const hardwareDeviceSchema = z.object({
 // Reconocimiento facial
 // ---------------------------------------------------------------------------
 
-const descriptor512 = z.array(z.number()).min(16).max(2048);
+const faceDescriptor = z.array(z.number()).length(128);
 
 export const faceEnrollSchema = z.object({
-  descriptors: z.array(descriptor512).min(1).max(12),
+  descriptors: z.array(faceDescriptor).min(1).max(12),
 });
 
 export const faceCheckinSchema = z.object({
   branchId: cuid,
-  descriptor: descriptor512,
+  descriptor: faceDescriptor,
 });
 
 // ---------------------------------------------------------------------------
