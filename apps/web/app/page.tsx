@@ -111,7 +111,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Emiten factura electrónica ARCA?',
-    a: 'El registro de cobros del sistema no equivale a emitir una factura fiscal. En la revisión del código disponible no pudimos confirmar una integración de emisión electrónica ARCA; si necesitás esa función, consultá por escrito a contacto@fitsystem.com.ar antes de contratar.',
+    a: 'FIT System no ofrece como función estándar confirmada la emisión electrónica de comprobantes ARCA. El registro de pagos no equivale a emitir una factura fiscal; consultanos por escrito antes de contratar si necesitás esa función.',
   },
   {
     q: '¿Qué pasa si se rompe o me roban la PC?',
