@@ -62,8 +62,12 @@ restore_on_failure() {
 }
 trap restore_on_failure EXIT
 
-docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
+# El fallo anterior ocurrió al exportar una imagen; liberar toda la caché
+# de BuildKit antes de compilar evita arrastrar capas temporales que llenen el disco.
+docker builder prune -af >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
+df -h /
+docker system df || true
 
 if [ "$NEED_API" -eq 0 ] && [ "$NEED_WEB" -eq 0 ] && [ "$NEED_SOCIOS" -eq 0 ] && [ "$NEED_LICENSADOR" -eq 0 ]; then
   echo "=== no hay imágenes modificadas; se mantienen los servicios activos ==="
