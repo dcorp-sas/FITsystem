@@ -208,12 +208,22 @@ export default function LandingPage() {
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Windows',
         description: 'Software para gimnasios en Windows: socios, cuotas, cobros, caja y asistencia. La operación local puede continuar sin internet; las funciones online requieren conexión.',
-        offers: plans.map((plan) => ({
-          '@type': 'Offer',
-          name: plan.name,
-          price: String(plan.annual),
-          priceCurrency: 'ARS',
-        })),
+        offers: plans.flatMap((plan) => [
+          {
+            '@type': 'Offer',
+            name: `${plan.name} mensual`,
+            price: String(plan.monthly),
+            priceCurrency: 'ARS',
+            description: 'Licencia por un mes.',
+          },
+          {
+            '@type': 'Offer',
+            name: `${plan.name} anual`,
+            price: String(plan.annual),
+            priceCurrency: 'ARS',
+            description: 'Licencia por doce meses.',
+          },
+        ]),
       },
       {
         '@type': 'FAQPage',
