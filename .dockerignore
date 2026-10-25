@@ -25,6 +25,11 @@ updates
 **/.env.*
 !**/.env.example
 
+# Cachés locales y descargas de instaladores (no deben entrar al contexto Docker)
+**/.cache
+**/electron-cache
+**/electron-builder-cache
+
 # Ruido
 **/*.log
 .DS_Store
