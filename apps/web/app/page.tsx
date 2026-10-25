@@ -116,7 +116,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Qué pasa si se rompe o me roban la PC?',
-    a: 'En el escritorio, la API local genera copias automáticas diarias de SQLite y conserva las últimas 14 cuando la base es local. Para protegerte ante robo o fallo del disco, mantené además una copia externa y probá la restauración. Consultá la guía de backups o escribí a soporte antes de restaurar una copia en producción.',
+    a: 'Tus datos se guardan en el equipo. Para proteger la información ante un fallo o pérdida de la computadora, mantené copias de seguridad periódicas en un dispositivo externo y consultá a soporte si necesitás ayuda para recuperarlas.',
   },
   {
     q: '¿Puedo migrar mis datos desde Excel u otro sistema?',
@@ -449,7 +449,7 @@ export default function LandingPage() {
           <div className="rounded-2xl border border-line bg-base p-6 shadow-xl shadow-black/10 sm:p-8">
             <div className="flex items-center gap-3 border-b border-line pb-5"><span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary-light"><Icon name="classes" size={24} /></span><div><p className="font-semibold text-text">Portal de profesores</p><p className="mt-1 text-sm text-text-muted">Clases · agenda · rutinas</p></div></div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-line bg-surface p-4"><Icon name="calendar" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Agenda organizada</p><p className="mt-1 text-xs leading-5 text-text-muted">Próximas sesiones y participantes en un mismo lugar.</p></div>
+              <div className="rounded-xl border border-line bg-surface p-4"><Icon name="classes" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Agenda organizada</p><p className="mt-1 text-xs leading-5 text-text-muted">Próximas sesiones y participantes en un mismo lugar.</p></div>
               <div className="rounded-xl border border-line bg-surface p-4"><Icon name="routines" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Rutinas conectadas</p><p className="mt-1 text-xs leading-5 text-text-muted">Planes de entrenamiento disponibles para los socios desde la app.</p></div>
             </div>
             <a href="#contacto" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark">Consultar por una demo</a>
