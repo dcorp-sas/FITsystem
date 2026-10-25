@@ -21,7 +21,6 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 function periodLabel(period: string): string {
-  if (period === 'ANNUAL') return 'anual';
   if (period === 'MONTHLY') return 'mensual';
   return 'pago único';
 }
