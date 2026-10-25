@@ -352,6 +352,7 @@ export async function listSubscriptions(filter?: string) {
  * que el nuevo débito se apruebe (el webhook llama a `applyApprovedPayment`).
  */
 export async function changeSubscriptionPeriod(externalRef: string, period: BillingPeriod): Promise<SubscriptionDraft> {
+  if (period === 'ANNUAL') return { ok: false, error: 'FIT System ofrece únicamente suscripciones mensuales' };
   const sub = await prisma.planSubscription.findUnique({ where: { externalRef } });
   if (!sub) return { ok: false, error: 'Suscripción no encontrada' };
   if ((sub.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') === period) {
