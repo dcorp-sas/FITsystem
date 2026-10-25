@@ -102,6 +102,10 @@ const faqs = (trialDays: number) => [
     a: `No. Podés probar FIT system durante ${trialDays} días sin ingresar una tarjeta ni asumir un cobro automático. Al terminar la prueba, elegís si querés contratar un plan.`,
   },
   {
+    q: '¿Emiten factura electrónica ARCA?',
+    a: 'El registro de cobros del sistema no equivale a emitir una factura fiscal. En la revisión del código disponible no pudimos confirmar una integración de emisión electrónica ARCA; si necesitás esa función, consultá por escrito a contacto@fitsystem.com.ar antes de contratar.',
+  },
+  {
     q: '¿Qué pasa si se rompe o me roban la PC?',
     a: 'La recuperación depende de que exista una copia de seguridad reciente y accesible. Recomendamos mantener una copia fuera de la computadora principal y probar periódicamente su restauración. Antes de instalar o migrar, consultá con soporte el procedimiento correspondiente a tu versión.',
   },
