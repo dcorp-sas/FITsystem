@@ -68,10 +68,6 @@ const STEPS = [
   { n: '4', title: 'Tus socios, conectados', text: 'Los socios descargan la app y consultan cuota, rutinas, novedades y pagan desde el celular.' },
 ];
 
-const SEAT_PACK = { seats: 100, price: '$60.000', period: '12 meses', amount: 60000 };
-
-const MP_KIT = { price: '$75.000', period: 'pago único', amount: 75000 };
-
 const faqs = (trialDays: number) => [
   {
     q: '¿Necesito internet para usar el sistema?',
@@ -434,90 +430,6 @@ export default function LandingPage() {
             La facturación electrónica ARCA corresponde a la operación del gimnasio.
           </p>
 
-          <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center justify-between gap-3 rounded-2xl border border-line bg-surface/60 px-5 py-4 text-center sm:flex-row sm:text-left">
-            <div>
-              <p className="text-sm font-semibold text-text">¿Necesitás más socios con app? Sumá asientos</p>
-              <p className="mt-0.5 text-sm text-text-muted">
-                Pack de +{SEAT_PACK.seats} socios con app por {SEAT_PACK.price} / {SEAT_PACK.period}. Se combinan con cualquier plan.
-              </p>
-            </div>
-            <BuyButton
-              target={{
-                plan: 'SEAT_PACK',
-                title: 'Comprar Pack de asientos',
-                subtitle: `+${SEAT_PACK.seats} socios con app · ${SEAT_PACK.price} / ${SEAT_PACK.period}`,
-                amount: SEAT_PACK.amount,
-                note: 'Pago seguro con MercadoPago. Al aprobarse, sumamos los asientos a tu licencia y te contactamos por email.',
-              }}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
-            >
-              Comprar asientos
-            </BuyButton>
-          </div>
-        </div>
-      </section>
-
-      {/* Kit MercadoPago */}
-      <section id="cobros" className="scroll-mt-20 py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="grid items-center gap-8 overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-6 sm:p-10 lg:grid-cols-2">
-            <figure className="overflow-hidden rounded-2xl border border-line bg-base shadow-xl shadow-black/30">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/screens/mp-kit.svg"
-                alt="Kit MercadoPago: terminal Point y QR para cobrar en el mostrador"
-                className="w-full"
-              />
-            </figure>
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary-light">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary-light" />
-                Cobros presenciales · Equipo adicional
-              </span>
-              <h2 className="mt-4 text-2xl font-bold tracking-tight text-text sm:text-3xl">
-                Sumá el kit de terminal POS y QR de MercadoPago
-              </h2>
-              <p className="mt-4 text-sm leading-relaxed text-text-muted">
-                Cobrá en el mostrador con la terminal Point (tarjetas) y el QR de MercadoPago
-                (transferencias y billetera). Los pagos se acreditan solos en la caja del gimnasio,
-                sin cargar nada a mano.
-              </p>
-              <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-                {[
-                  'Terminal Point para tarjetas',
-                  'QR de MercadoPago',
-                  'Acreditación automática en caja',
-                  'Comprobante en un clic',
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-2 text-sm text-text-muted">
-                    <Icon name="check" size={16} className="text-success" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-base/60 px-5 py-4 sm:flex-row sm:items-center">
-                <div>
-                  <div className="text-2xl font-bold text-text">{MP_KIT.price}</div>
-                  <div className="text-xs text-text-muted">Se solicita adicionalmente · {MP_KIT.period}</div>
-                </div>
-                <BuyButton
-                  target={{
-                    plan: 'MP_KIT',
-                    title: 'Comprar Kit MercadoPago',
-                    subtitle: `Terminal Point + QR · ${MP_KIT.price} (${MP_KIT.period})`,
-                    amount: MP_KIT.amount,
-                    note: 'Pago seguro con MercadoPago. Coordinamos el envío y la vinculación del equipo a tu cuenta.',
-                  }}
-                  className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
-                >
-                  Comprar el kit
-                </BuyButton>
-              </div>
-              <p className="mt-3 text-xs text-text-muted">
-                Se combina con cualquier plan. El equipo se envía y se vincula a tu cuenta de MercadoPago.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 

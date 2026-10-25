@@ -1,6 +1,6 @@
 {
-  "version": "0.3.32",
+  "version": "0.3.33",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Agrega el QR fiscal de AFIP y el enlace a la constancia de inscripción en el footer del sitio.",
+  "notes": "Retira de la landing la venta de asientos extra y del kit Point/QR de MercadoPago. Se mantienen las integraciones de cobro existentes para los gimnasios.",
   "mandatory": false
 }
