@@ -1,6 +1,6 @@
 {
-  "version": "0.3.30",
+  "version": "0.3.31",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Corrige la pérdida de datos y licencia al reinstalar: migra la base SQLite a una carpeta persistente fuera de userData, conserva el installationId en el registro de Windows y evita borrar datos al desinstalar.",
+  "notes": "Evita pantalla negra al iniciar si Windows bloquea la carpeta persistente: usa fallback seguro y registra errores de migración de la base local.",
   "mandatory": false
 }

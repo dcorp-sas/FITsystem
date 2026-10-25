@@ -231,8 +231,15 @@ function getApiSecret(): string {
 function getPersistentDataDir(): string {
   const root = process.platform === 'win32' && process.env.PROGRAMDATA ? process.env.PROGRAMDATA : app.getPath('appData');
   const dir = path.join(root, 'FIT system', 'data');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  } catch (error) {
+    const fallback = path.join(app.getPath('userData'), 'data');
+    log('No se pudo crear el directorio persistente:', (error as Error).message, 'usando fallback', fallback);
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
 }
 
 function getDatabasePath(): string {
@@ -243,10 +250,14 @@ function getDatabasePath(): string {
   // Migra instalaciones anteriores antes de iniciar SQLite. También conserva
   // archivos WAL/SHM si la base fue cerrada durante una transacción.
   if (!fs.existsSync(target) && fs.existsSync(legacy)) {
-    fs.copyFileSync(legacy, target);
-    for (const suffix of ['-wal', '-shm']) {
-      const source = legacy + suffix;
-      if (fs.existsSync(source)) fs.copyFileSync(source, target + suffix);
+    try {
+      fs.copyFileSync(legacy, target);
+      for (const suffix of ['-wal', '-shm']) {
+        const source = legacy + suffix;
+        if (fs.existsSync(source)) fs.copyFileSync(source, target + suffix);
+      }
+    } catch (error) {
+      log('No se pudo migrar la base local:', (error as Error).message);
     }
   }
   return target;
