@@ -833,13 +833,76 @@ function registerUpdateIpc() {
   });
 }
 
+function normalizeQrDisplayData(raw?: {
+  title?: string;
+  subtitle?: string;
+  footer?: string;
+  image?: string | null;
+  enabled?: boolean;
+  rotation?: string;
+}) {
+  const image = typeof raw?.image === 'string' && raw.image.startsWith('data:image/') ? raw.image : null;
+  return {
+    title: String(raw?.title || 'QR de ingreso'),
+    subtitle: String(raw?.subtitle || ''),
+    footer: String(raw?.footer || ''),
+    image,
+    enabled: Boolean(raw?.enabled),
+    rotation: raw?.rotation === 'DAILY' ? 'rota cada día' : raw?.rotation === 'WEEKLY' ? 'rota cada semana' : 'fijo',
+  };
+}
+
+function qrDisplayHtml(data: ReturnType<typeof normalizeQrDisplayData>): string {
+  // Los textos se insertan mediante textContent desde JS; sólo la imagen se usa como src.
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FIT system · QR de ingreso</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#0f1115;color:#e6ecf7;font-family:Segoe UI,system-ui,sans-serif;text-align:center;padding:28px}
+    main{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
+    h1{font-size:clamp(24px,4vw,40px);margin:0}p{color:#9aa8bd;margin:0;font-size:clamp(14px,2vw,20px)}
+    img{width:min(68vh,68vw,600px);height:min(68vh,68vw,600px);object-fit:contain;background:white;border-radius:18px;padding:16px}
+    .status{border:1px solid #334155;border-radius:999px;padding:8px 14px;color:#cbd5e1;font-size:13px}
+    .status.active{color:#86efac;border-color:#166534}#qr{display:none}#empty{display:none;border:1px dashed #475569;padding:48px;border-radius:16px}
+  </style></head><body><main><h1 id="title"></h1><p id="subtitle"></p><img id="qr" alt="QR de ingreso"><div id="empty">El QR no está disponible</div>
+  <div id="status" class="status"></div><p id="footer"></p></main>
+  <script>
+    window.updateQrDisplay=function(d){
+      document.getElementById('title').textContent=d.title||'QR de ingreso';
+      document.getElementById('subtitle').textContent=d.subtitle||'';
+      document.getElementById('footer').textContent=d.footer||'';
+      const img=document.getElementById('qr'),empty=document.getElementById('empty');
+      if(d.image){img.src=d.image;img.style.display='block';empty.style.display='none'}
+      else{img.removeAttribute('src');img.style.display='none';empty.style.display='block'}
+      const status=document.getElementById('status');
+      status.textContent=(d.enabled?'Activo':'Desactivado')+' · QR '+(d.rotation||'fijo');
+      status.className='status'+(d.enabled?' active':'');
+    };
+    window.updateQrDisplay(${JSON.stringify(data)});
+  </script></body></html>`;
+}
+
 function registerAccessIpc() {
-  ipcMain.handle('access:qr-open', async () => {
+  ipcMain.handle('access:qr-open', async (_event, rawData?: {
+    title?: string;
+    subtitle?: string;
+    footer?: string;
+    image?: string | null;
+    enabled?: boolean;
+    rotation?: string;
+  }) => {
     if (accessQrWindow && !accessQrWindow.isDestroyed()) {
       accessQrWindow.focus();
+      // Actualiza el QR de la ventana ya abierta sin recargar el panel ni pedir login.
+      const data = normalizeQrDisplayData(rawData);
+      await accessQrWindow.webContents.executeJavaScript(
+        `window.updateQrDisplay(${JSON.stringify(data)})`,
+      ).catch(() => undefined);
       return { ok: true };
     }
 
+    const data = normalizeQrDisplayData(rawData);
     const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
     accessQrWindow = new BrowserWindow({
       width: 900,
@@ -847,9 +910,9 @@ function registerAccessIpc() {
       minWidth: 520,
       minHeight: 620,
       title: 'FIT system™ · QR de ingreso',
+      backgroundColor: '#0f1115',
       icon: fs.existsSync(iconPath) ? iconPath : undefined,
       webPreferences: {
-        preload: path.join(__dirname, 'preload.cjs'),
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
@@ -859,10 +922,7 @@ function registerAccessIpc() {
     accessQrWindow.on('closed', () => {
       accessQrWindow = null;
     });
-    const qrUrl = new URL(appUrl());
-    qrUrl.pathname = '/attendance';
-    qrUrl.searchParams.set('qrdisplay', '1');
-    await accessQrWindow.loadURL(qrUrl.toString());
+    await accessQrWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(qrDisplayHtml(data)));
     return { ok: true };
   });
 
