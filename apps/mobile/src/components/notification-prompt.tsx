@@ -15,6 +15,7 @@ const DISMISS_KEY = 'fitsystem.socios.notif-dismissed';
 export function NotificationPrompt() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -40,18 +41,16 @@ export function NotificationPrompt() {
 
   async function enable() {
     setBusy(true);
+    setError(null);
     try {
       const ok = await registerWebPushAsync(portal.pushKey, portal.subscribeWebPush);
       if (!ok) {
-        try {
-          localStorage.setItem(DISMISS_KEY, '1');
-        } catch {
-          /* ignore */
-        }
+        setError('No pudimos activar las notificaciones. Revisá los permisos del navegador e intentá de nuevo.');
+        return;
       }
+      setOpen(false);
     } finally {
       setBusy(false);
-      setOpen(false);
     }
   }
 
@@ -63,9 +62,9 @@ export function NotificationPrompt() {
         <View style={styles.card}>
           <Subtitle>Activar notificaciones</Subtitle>
           <Muted style={styles.text}>
-            ¿Querés que te avisemos cuando tu gimnasio cargue novedades o te asigne una rutina nueva? Podés desactivarlas
-            cuando quieras desde el navegador.
+            ¿Querés recibir avisos cuando haya novedades, tu cuota esté por vencer o tu profesor publique o modifique una rutina? Podés desactivarlos cuando quieras desde el navegador.
           </Muted>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
           <View style={styles.actions}>
             <Pressable style={[styles.button, styles.cancel]} onPress={dismiss} disabled={busy}>
               <Text style={styles.cancelText}>Ahora no</Text>
@@ -98,6 +97,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   text: { marginTop: spacing.sm, lineHeight: 19 },
+  error: { color: '#fca5a5', marginTop: spacing.sm, lineHeight: 18, fontSize: 13 },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   button: { flex: 1, height: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   cancel: { backgroundColor: 'transparent', borderColor: colors.border },
