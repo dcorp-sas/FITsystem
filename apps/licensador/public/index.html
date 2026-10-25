@@ -44,7 +44,7 @@
         </select>
       </label>
       <label class="fld"><span>Días (≤3650)</span><input id="fDias" class="input" type="number" min="1" max="3650" value="365"></label>
-      <label class="fld"><span>Asientos</span><input id="fAsientos" class="input" type="number" min="1" value="100" title="Cantidad de socios con acceso a la app móvil"></label>
+      <label class="fld"><span>Asientos</span><input id="fAsientos" class="input" type="number" min="1" value="300" readonly title="Se calcula automáticamente según el plan comercial"></label>
       <label class="fld grow"><span>Notas</span><input id="fNotas" class="input" placeholder="opcional"></label>
       <button class="btn primary" id="fCrear">Emitir</button>
     </div>
@@ -78,6 +78,8 @@
   const fmt = ts => new Date(ts).toLocaleDateString('es-AR');
   const fmtDT = ts => new Date(ts).toLocaleString('es-AR');
   const planColor = p => ({BASIC:'blue',PRO:'amber',ENTERPRISE:'red'}[p] || 'gray');
+  const seatsByPlan = { BASIC: 100, PRO: 300, ENTERPRISE: 500 };
+  $('fPlan').addEventListener('change', () => { $('fAsientos').value = String(seatsByPlan[$('fPlan').value] || 100); });
 
   function showLogin(){ $('app').hidden = true; $('logout').hidden = true; $('login').hidden = false; }
   function showApp(){ $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false; }
