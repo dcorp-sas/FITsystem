@@ -45,7 +45,10 @@ export default function TeacherPortalPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!user || user.role !== 'INSTRUCTOR') return;
+    if (!user || !['INSTRUCTOR', 'OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
