@@ -474,10 +474,6 @@ export default function LandingPage() {
             Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
             Todos los planes incluyen el sistema completo y la app del socio.
           </p>
-          <p className="mt-2 text-center text-xs text-text-muted">
-            La facturación electrónica ARCA corresponde a la operación del gimnasio.
-          </p>
-
         </div>
       </section>
 
