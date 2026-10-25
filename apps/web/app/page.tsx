@@ -646,8 +646,6 @@ export default function LandingPage() {
                 <a href="/terminos" className="transition-colors hover:text-text">Términos y condiciones</a>
                 <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>
                 <a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noreferrer" className="transition-colors hover:text-text">Defensa del Consumidor</a>
-                <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>
-                <a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noreferrer" className="transition-colors hover:text-text">Defensa del Consumidor</a>
               </div>
               <a
                 href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,,"
