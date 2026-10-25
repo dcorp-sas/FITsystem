@@ -1,62 +1,124 @@
 #!/usr/bin/env bash
-# Build y deploy en el VPS de produccion. Lo lanza .github/workflows/deploy-vps.yml
-# por SSH, dentro del propio VPS.
-#
-# El VPS tiene solo 2 GB de RAM: NO se pueden compilar las imagenes en paralelo
-# (el build de Next muere por falta de memoria, exit 137). Por eso se paran los
-# servicios de la app y se construye UNA imagen por vez.
-set -e
-
+# Deploy de producción con rollback de imágenes y builds solo para servicios modificados.
+set -Eeuo pipefail
 cd /opt/fitsystem
 
 git fetch --prune origin main
 git reset --hard origin/main
 
-# Si una compilacion falla despues de parar los contenedores, levantar las
-# imagenes que ya existen. Evita dejar toda la web offline por un deploy fallido.
+# Primera ejecución: última versión que completó un deploy correctamente.
+BASE_SHA="$(cat /opt/fitsystem/.deployed_sha 2>/dev/null || echo d15eb22510ec919b02e2f8108bba764bb8a61500)"
+if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+  BASE_SHA="$(git rev-parse HEAD^)"
+fi
+CURRENT_SHA="$(git rev-parse HEAD)"
+CHANGED="$(git diff --name-only "$BASE_SHA" "$CURRENT_SHA")"
+echo "=== deploy ${BASE_SHA:0:7} -> ${CURRENT_SHA:0:7} ==="
+printf '%s\n' "$CHANGED"
+
+# Un cambio de dependencias o paquetes compartidos obliga a reconstruir todo.
+if printf '%s\n' "$CHANGED" | grep -Eq '^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|packages/)'; then
+  NEED_API=1; NEED_WEB=1; NEED_SOCIOS=1; NEED_LICENSADOR=1
+else
+  NEED_API=0; NEED_WEB=0; NEED_SOCIOS=0; NEED_LICENSADOR=0
+  printf '%s\n' "$CHANGED" | grep -Eq '^(apps/api/)' && NEED_API=1 || true
+  printf '%s\n' "$CHANGED" | grep -Eq '^(apps/web/|content/)' && NEED_WEB=1 || true
+  printf '%s\n' "$CHANGED" | grep -Eq '^(apps/mobile/)' && NEED_SOCIOS=1 || true
+  printf '%s\n' "$CHANGED" | grep -Eq '^(apps/licensador/)' && NEED_LICENSADOR=1 || true
+fi
+
+STAMP="$(date +%s)"
+SERVICES=(api web socios licensador)
+
+# Guardar referencias de las imágenes previas antes de compilar.
+for svc in "${SERVICES[@]}"; do
+  image="fitsystem-${svc}:latest"
+  rollback="fitsystem-${svc}:rollback-${STAMP}"
+  if docker image inspect "$image" >/dev/null 2>&1; then
+    docker tag "$image" "$rollback"
+    echo "Imagen de rollback guardada: $rollback"
+  fi
+done
+
 restore_on_failure() {
   status=$?
   if [ "$status" -ne 0 ]; then
     trap - EXIT
-    echo "=== deploy fallo (exit $status); restaurando servicios con las imagenes existentes ===" >&2
-    docker compose -f docker-compose.prod.yml up -d || true
+    echo "=== deploy falló (exit $status); restaurando imágenes anteriores ===" >&2
+    for svc in "${SERVICES[@]}"; do
+      rollback="fitsystem-${svc}:rollback-${STAMP}"
+      if docker image inspect "$rollback" >/dev/null 2>&1; then
+        docker tag "$rollback" "fitsystem-${svc}:latest" || true
+      fi
+    done
+    docker compose -f docker-compose.prod.yml up -d db || true
+    for svc in api web socios licensador; do
+      docker compose -f docker-compose.prod.yml up -d --no-deps "$svc" || true
+    done
     docker compose -f docker-compose.prod.yml ps || true
+    docker compose -f docker-compose.prod.yml logs --tail=80 api web socios licensador >&2 || true
   fi
   exit "$status"
 }
 trap restore_on_failure EXIT
 
-# La cache de build de Docker crece en cada despliegue y puede llenar el disco
-# del VPS (30 GB): se poda antes de construir. Si el disco igual esta ajustado,
-# se hace una poda total.
 docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
-used=$(df --output=pcent / | tail -1 | tr -dc "0-9")
-if [ "${used:-0}" -ge 75 ]; then docker builder prune -af >/dev/null 2>&1 || true; fi
 
-# Liberar memoria antes de compilar.
 docker compose -f docker-compose.prod.yml stop web api socios licensador >/dev/null 2>&1 || true
 
+if [ "$NEED_API" -eq 1 ]; then
+  echo "=== build api ==="
+  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build api
+else
+  echo "=== api sin cambios; se reutiliza la imagen existente ==="
+fi
+if [ "$NEED_WEB" -eq 1 ]; then
+  echo "=== build web ==="
+  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build --no-cache web
+else
+  echo "=== web sin cambios; se reutiliza la imagen existente ==="
+fi
+if [ "$NEED_SOCIOS" -eq 1 ]; then
+  echo "=== build socios ==="
+  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build socios
+else
+  echo "=== socios sin cambios; se reutiliza la imagen existente ==="
+fi
+if [ "$NEED_LICENSADOR" -eq 1 ]; then
+  echo "=== build licensador ==="
+  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build licensador
+else
+  echo "=== licensador sin cambios; se reutiliza la imagen existente ==="
+fi
+
+# Liberar espacio de build antes de crear contenedores nuevos.
+docker builder prune -af >/dev/null 2>&1 || true
+docker image prune -f >/dev/null 2>&1 || true
+df -h /
+docker system df || true
+
+docker compose -f docker-compose.prod.yml up -d db
+docker compose -f docker-compose.prod.yml up -d --no-deps caddy
 for svc in api web socios licensador; do
-  echo "=== build $svc ==="
-  if [ "$svc" = "web" ]; then
-    # Las rutas de Next.js se generan en build; no reutilizar una imagen web
-    # anterior o el deploy puede terminar sin publicar páginas nuevas.
-    COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build --no-cache web
-  else
-    COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build "$svc"
+  echo "=== start $svc ==="
+  if ! docker compose -f docker-compose.prod.yml up -d --no-deps "$svc"; then
+    docker compose -f docker-compose.prod.yml logs --tail=120 "$svc" >&2 || true
+    exit 1
   fi
 done
 
-docker compose -f docker-compose.prod.yml up -d
-docker image prune -f >/dev/null 2>&1 || true
 docker compose -f docker-compose.prod.yml ps
-
-for svc in api web; do
+for svc in api web socios licensador; do
   if [ -z "$(docker compose -f docker-compose.prod.yml ps --status running -q "$svc")" ]; then
     echo "=== error: $svc no quedó ejecutándose ===" >&2
     docker compose -f docker-compose.prod.yml logs --tail=120 "$svc" >&2 || true
     exit 1
   fi
 done
-echo "=== deploy ok ==="
+
+echo "$CURRENT_SHA" > /opt/fitsystem/.deployed_sha
+for svc in "${SERVICES[@]}"; do
+  docker image rm "fitsystem-${svc}:rollback-${STAMP}" >/dev/null 2>&1 || true
+done
+echo "=== deploy ok: $CURRENT_SHA ==="
