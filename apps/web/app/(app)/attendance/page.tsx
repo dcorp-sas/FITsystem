@@ -414,10 +414,24 @@ function AccessQrCard({ branchId, displayMode = false }: { branchId: string; dis
     load();
   }, [load]);
 
-  function openQrWindow() {
-    // La vista del QR es opcional: abrirla aparte no cambia el panel principal.
-    // En navegador se abre una pestaña nueva; Electron puede abrirla en el navegador del equipo.
-    window.open('/attendance?qrdisplay=1', '_blank', 'noopener,noreferrer');
+  async function openQrWindow() {
+    const openWindow = window.fitsystem?.openAccessQrWindow;
+    if (!openWindow) {
+      toast.error('La ventana independiente del QR está disponible en la aplicación de escritorio.');
+      return;
+    }
+    if (!data) {
+      toast.error('Esperá a que se genere el QR y volvé a intentarlo.');
+      return;
+    }
+    await openWindow({
+      title: data.title,
+      subtitle: data.subtitle,
+      footer: data.footer,
+      image: data.image,
+      enabled: data.enabled,
+      rotation: data.rotation,
+    });
   }
 
   function print() {
