@@ -5,10 +5,7 @@ export const metadata = {
   description: 'Política de privacidad y tratamiento de datos de FIT system™.',
 };
 
-const legalName = 'Matias Dario Duranovich';
 const tradeName = 'FIT system™';
-const taxId = '20-35720586-8';
-const address = 'Calle 464 N.º 310, City Bell, Provincia de Buenos Aires';
 const contact = 'contacto@fitsystem.com.ar';
 
 export default function PrivacyPage() {
@@ -23,11 +20,9 @@ export default function PrivacyPage() {
         <section className="mt-8 space-y-4 text-sm leading-7 text-text-muted">
           <h2 className="text-xl font-semibold text-text">1. Responsable</h2>
           <p>
-            FIT system™ es el nombre de fantasía de <strong className="text-text">{legalName}</strong>, CUIT
-            <strong className="text-text"> {taxId}</strong>, con domicilio en {address}. Para consultas sobre privacidad,
+            Para consultas sobre privacidad
             podés escribir a <a className="text-primary-light hover:underline" href={`mailto:${contact}`}>{contact}</a>.
           </p>
-          <p>La condición fiscal aplicable es la que surge de la constancia fiscal vigente del responsable.</p>
 
           <h2 className="pt-4 text-xl font-semibold text-text">2. Datos que recopilamos en el sitio</h2>
           <p>Cuando completás el formulario de contacto podemos recopilar nombre, email, teléfono, nombre del gimnasio y el contenido de tu consulta. También registramos métricas técnicas de descargas para conocer el uso del sitio y mejorar la distribución del producto.</p>

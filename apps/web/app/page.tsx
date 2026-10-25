@@ -5,13 +5,14 @@ import { LandingContact } from '@/components/landing-contact';
 import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
 import { TrackVisit } from '@/components/track-visit';
+import { FititoChat } from '@/components/fitito-chat';
 import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fitsystem.com.ar'),
   title: 'FIT system™ — Software de gestión para gimnasios',
   description:
-    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio para tu PC que funciona sin internet, con app móvil para tus socios.',
+    'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola plataforma, con app móvil para tus socios.',
   alternates: { canonical: '/' },
   robots: { index: true, follow: true },
   openGraph: {
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     siteName: 'FIT system™',
     title: 'FIT system™ — Software de gestión para gimnasios',
     description:
-      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet, con app móvil para tus socios.',
+      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema, con app móvil para tus socios.',
     images: [{ url: '/og-fitsystem.svg', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
@@ -141,8 +142,8 @@ const faqs = (trialDays: number) => [
     a: 'El canal de contacto general es contacto@fitsystem.com.ar y el soporte para clientes es soporte@fitsystem.com.ar. La prioridad depende del plan contratado. Para evitar expectativas incorrectas, consultá el horario vigente al activar tu licencia.',
   },
   {
-    q: '¿Puedo cancelar y pedir un reembolso?',
-    a: 'Podés iniciar la solicitud escribiendo a contacto@fitsystem.com.ar con la referencia de compra. Se aplicará la política de reembolso publicada, sin limitar los derechos irrenunciables que correspondan por ley.',
+    q: '¿Puedo dar de baja la licencia?',
+    a: 'Podés consultar el procedimiento de baja o no renovación por email. Las solicitudes se evalúan según las condiciones de contratación y los derechos que correspondan por ley.',
   },
 ];
 
@@ -201,13 +202,6 @@ export default function LandingPage() {
         url: 'https://fitsystem.com.ar',
         email: CONTACT_EMAIL,
         logo: 'https://fitsystem.com.ar/logo.png',
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: 'Calle 464 N.º 310',
-          addressLocality: 'City Bell',
-          addressRegion: 'Buenos Aires',
-          addressCountry: 'AR',
-        },
       },
       {
         '@type': 'SoftwareApplication',
@@ -477,11 +471,9 @@ export default function LandingPage() {
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">Registro de cobros</th><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">Reportes por sede</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Avanzados</td></tr>
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">Soporte prioritario</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
-                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Packs adicionales</th><td className="px-4 py-3">—</td><td className="px-4 py-3">Hasta 2</td><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td></tr>
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs leading-5 text-text-muted">El cupo se refiere a socios con acceso a la app; el escritorio no limita el padrón. Los packs de 100 socios cuestan $100.000 por 12 meses o $10.000 por mes y solo están disponibles en Básico, hasta 2 packs.</p>
 
           <p className="mt-8 text-center text-xs text-text-muted">
             Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
@@ -639,6 +631,8 @@ export default function LandingPage() {
         WhatsApp
       </a>
 
+      <FititoChat />
+
       {/* Footer */}
       <footer className="border-t border-line bg-surface/40">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
@@ -653,8 +647,7 @@ export default function LandingPage() {
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
                 y app móvil para tus socios.
               </p>
-              <p className="mt-3 text-xs leading-relaxed text-text-muted">Titular: Matias Dario Duranovich · CUIT 20-35720586-8 · Calle 464 N.º 310, City Bell, Buenos Aires.</p>
-              <p className="mt-4 text-xs text-text-muted">Datos en tu equipo · Opera sin internet · Pagás por el período elegido</p>
+              <p className="mt-4 text-xs text-text-muted">App del socio incluida · Planes mensuales y anuales</p>
             </div>
             <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-text">Contacto</h4>
@@ -668,27 +661,11 @@ export default function LandingPage() {
                 <a href="/control-de-acceso-qr" className="transition-colors hover:text-text">Control de acceso QR</a>
                 <a href="/cobros-mercadopago-gimnasios" className="transition-colors hover:text-text">Cobros con MercadoPago</a>
                 <a href="/app-para-socios" className="transition-colors hover:text-text">App para socios</a>
-                <a href="/gimnasio-sin-internet" className="transition-colors hover:text-text">Gimnasio sin internet</a>
                 <a href="/privacidad" className="transition-colors hover:text-text">Política de privacidad</a>
                 <a href="/terminos" className="transition-colors hover:text-text">Términos y condiciones</a>
                 <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>
                 <a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noreferrer" className="transition-colors hover:text-text">Defensa del Consumidor</a>
               </div>
-              <a
-                href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,,"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 inline-block"
-              >
-                <img
-                  src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg"
-                  alt="Constancia de inscripción AFIP"
-                  width="160"
-                  height="60"
-                  loading="lazy"
-                  className="h-auto w-40"
-                />
-              </a>
             </div>
           </div>
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-line pt-6 text-xs text-text-muted sm:flex-row">

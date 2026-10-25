@@ -46,8 +46,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     title: 'Gestioná tu gimnasio',
     titleAccent: 'de punta a punta',
     subtitle:
-      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.',
-    chips: ['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida', 'Pagás por el período elegido'],
+      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Conecta a tus socios con una app móvil propia.',
+    chips: ['App del socio incluida', 'Todos tus módulos en un solo lugar', 'Pagás por el período elegido'],
     ctaPrimary: 'Probar gratis',
     ctaSecondary: 'Ver planes',
   },

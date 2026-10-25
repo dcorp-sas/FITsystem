@@ -5,9 +5,6 @@ export const metadata = {
   description: 'Condiciones de licencia, pagos, soporte, cancelación y tratamiento de datos de FIT system™.',
 };
 
-const legalName = 'Matias Dario Duranovich';
-const taxId = '20-35720586-8';
-const address = 'Calle 464 N.º 310, City Bell, Provincia de Buenos Aires';
 const contact = 'contacto@fitsystem.com.ar';
 const support = 'soporte@fitsystem.com.ar';
 
@@ -21,7 +18,7 @@ export default function TermsPage() {
         <p className="mt-4 text-sm leading-7 text-text-muted">Última actualización: 25 de octubre de 2026.</p>
         <section className="mt-8 space-y-4 text-sm leading-7 text-text-muted">
           <h2 className="text-xl font-semibold text-text">1. Responsable y contacto</h2>
-          <p>FIT system™ es el nombre comercial de {legalName}, CUIT {taxId}, con domicilio en {address}. Contacto comercial: <a className="text-primary-light hover:underline" href={`mailto:${contact}`}>{contact}</a>. Soporte de clientes: <a className="text-primary-light hover:underline" href={`mailto:${support}`}>{support}</a>.</p>
+          <p>FIT system™ ofrece herramientas de gestión para gimnasios. Contacto comercial: <a className="text-primary-light hover:underline" href={`mailto:${contact}`}>{contact}</a>. Soporte de clientes: <a className="text-primary-light hover:underline" href={`mailto:${support}`}>{support}</a>.</p>
           <h2 className="pt-4 text-xl font-semibold text-text">2. Servicio y alcance de la licencia</h2>
           <p>FIT system ofrece herramientas para gestionar socios, cuotas, caja, clases, asistencia, productos y una app para socios. Salvo que la oferta contratada indique otra cosa, la licencia habilita una instalación del escritorio y el cupo de socios con acceso a la app indicado en el plan. El padrón del escritorio no está limitado por ese cupo.</p>
           <p>La prueba gratuita disponible actualmente dura 7 días y no requiere tarjeta. La duración y condiciones vigentes se mostrarán antes de iniciar una prueba o contratación.</p>
@@ -35,9 +32,8 @@ export default function TermsPage() {
           <h2 className="pt-4 text-xl font-semibold text-text">6. Precios, IVA y facturación</h2>
           <p>Los importes se muestran en pesos argentinos (ARS). Antes de confirmar el pago se debe revisar el importe final y el tratamiento impositivo aplicable. La condición fiscal del proveedor y el comprobante que corresponda se rigen por su constancia fiscal vigente y por la normativa aplicable. La revisión del código disponible no confirmó una integración para emitir comprobantes fiscales electrónicos ARCA en FIT system; el registro de pagos no equivale a emitir una factura fiscal. Antes de contratar, pedí confirmación por escrito si necesitás esa función.</p>
           <p>MercadoPago procesa las operaciones conforme a sus términos, comisiones y disponibilidad. Las comisiones de MercadoPago y el destino de los fondos dependen del flujo de pago y la cuenta vinculada que se informe para la compra o integración correspondiente.</p>
-          <h2 className="pt-4 text-xl font-semibold text-text">7. Cancelación y política comercial de reembolso</h2>
-          <p>Para las licencias compradas directamente a FIT system, el cliente puede solicitar voluntariamente la devolución del importe de la licencia dentro de los primeros 15 días corridos desde su activación, enviando un email a {contact} con nombre, email del comprador, referencia de la operación y motivo. La solicitud se verificará y, si corresponde, se tramitará por el medio de pago original; el plazo de acreditación puede depender del procesador de pagos.</p>
-          <p>Esta política comercial no limita derechos irrenunciables que pudieran corresponder por ley ni reemplaza las condiciones de terceros. Si la contratación se realizó mediante otro canal, indicaremos el procedimiento aplicable. Para pedir la baja o iniciar una solicitud de arrepentimiento, visitá <Link href="/arrepentimiento" className="text-primary-light hover:underline">Arrepentimiento y baja</Link>.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">7. Cancelación y derechos del consumidor</h2>
+          <p>Podés consultar el procedimiento de baja o no renovación escribiendo a {contact} o usando la página de <Link href="/arrepentimiento" className="text-primary-light hover:underline">arrepentimiento y baja</Link>. Las solicitudes se evaluarán según las condiciones de contratación y la normativa vigente. Esta información no limita los derechos irrenunciables que pudieran corresponder por ley. No se ofrece una política comercial general de devolución voluntaria adicional a esos derechos.</p>
           <h2 className="pt-4 text-xl font-semibold text-text">8. Soporte</h2>
           <p>Las consultas generales se reciben en {contact} y las de clientes en {support}. El alcance y prioridad dependen del plan. El horario y tiempo de respuesta deben confirmarse en la oferta vigente; no se garantiza disponibilidad ininterrumpida salvo acuerdo expreso.</p>
           <h2 className="pt-4 text-xl font-semibold text-text">9. Seguridad y copias de respaldo</h2>

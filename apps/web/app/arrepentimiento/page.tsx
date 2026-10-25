@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { WithdrawalForm } from './solicitud-form';
 
 export const metadata: Metadata = {
-  title: 'Arrepentimiento, baja y reembolsos · FIT system',
+  title: 'Arrepentimiento y baja · FIT system',
   description: 'Formulario para iniciar solicitudes de arrepentimiento, cancelación o reembolso de una compra de FIT system.',
   alternates: { canonical: '/arrepentimiento' },
 };
@@ -16,8 +16,7 @@ export default function WithdrawalPage() {
       <h1 className="mt-3 text-3xl font-bold tracking-tight">Arrepentimiento, baja y reembolsos</h1>
       <p className="mt-4 text-sm leading-7 text-text-muted">Usá este formulario para solicitar el arrepentimiento de una compra, pedir la baja o no renovación, o consultar por un reembolso. Te enviaremos un acuse por email cuando el servicio de correo esté disponible. La recepción no significa que la solicitud haya sido aprobada.</p>
       <div className="mt-5 rounded-xl border border-line bg-base p-4 text-sm leading-6 text-text-muted">
-        <strong className="text-text">Política comercial:</strong> para las licencias compradas directamente a FIT system, los términos publicados contemplan solicitar voluntariamente la devolución dentro de los primeros 15 días corridos desde la activación. Los derechos que correspondan por ley no quedan limitados por esa política. Revisá los <Link href="/terminos" className="text-primary-light underline">términos y condiciones</Link>.
-      </div>
+        <strong className="text-text">Importante:</strong> las solicitudes se evaluarán según las condiciones de contratación y la normativa vigente. Esta página no limita los derechos que pudieran corresponder por ley. Revisá los <Link href="/terminos" className="text-primary-light underline">términos y condiciones</Link>.</div>
       <WithdrawalForm />
     </article>
   </main>;
