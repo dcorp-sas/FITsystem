@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       '/cobros-mercadopago-gimnasios',
       '/app-para-socios',
       '/gimnasio-sin-internet',
+      '/blog',
     ].map((route) => ({
       url: `https://fitsystem.com.ar${route}`,
       lastModified: new Date(),
