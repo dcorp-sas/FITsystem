@@ -82,12 +82,12 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const isAdmin = user ? user.role === 'OWNER' || user.role === 'ADMIN' : false;
-  // El profesor solo navega por las dos áreas operativas autorizadas.
+  // El profesor solo ve los dos módulos autorizados, conservando los nombres y áreas del sistema.
   const navGroups: NavGroup[] = user?.role === 'INSTRUCTOR'
-    ? [{ title: 'Área docente', items: [
-        { href: '/classes', label: 'Clases y agenda', icon: 'classes' },
-        { href: '/routines', label: 'Rutinas de socios', icon: 'routines' },
-      ] }]
+    ? [
+        { title: 'Operación', items: [{ href: '/classes', label: 'Clases', icon: 'classes' }] },
+        { title: 'App móvil', items: [{ href: '/routines', label: 'Rutinas', icon: 'routines' }] },
+      ]
     : GROUPS;
 
   const content = (
