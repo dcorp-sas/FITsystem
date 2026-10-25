@@ -47,6 +47,7 @@ import { startSubscriptionEnforcement } from './services/subscriptions.js';
 import { shutdownWhatsApp } from './services/whatsapp-client.js';
 import { recordError } from './services/observability.js';
 import { licensePublicKeyFingerprint } from './services/license.js';
+import { startLocalBackupScheduler } from './services/local-backup.js';
 
 export async function buildServer() {
   const app = Fastify({
@@ -231,6 +232,7 @@ async function start() {
     startReminderScheduler();
     startCloudSyncScheduler();
     startSubscriptionEnforcement();
+    startLocalBackupScheduler();
   } catch (error) {
     app.log.error(error);
     process.exit(1);
