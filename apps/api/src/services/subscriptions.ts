@@ -93,7 +93,10 @@ function mapPreapprovalStatus(status?: string): SubscriptionStatus {
 export function subscriptionQuote(plan: BillingPlan, seatPacks: number, period: BillingPeriod = 'MONTHLY') {
   const packs = Math.max(0, Math.min(50, Math.floor(seatPacks)));
   const base = PLAN_CATALOG[plan][period === 'ANNUAL' ? 'annual' : 'monthly'];
-  const amount = base + packs * PRODUCT_CATALOG.SEAT_PACK.amount;
+  const packPrice = period === 'ANNUAL'
+    ? PRODUCT_CATALOG.SEAT_PACK.amount
+    : (PRODUCT_CATALOG.SEAT_PACK.monthlyAmount ?? Math.round(PRODUCT_CATALOG.SEAT_PACK.amount / 10));
+  const amount = base + packs * packPrice;
   const seats = PLAN_CATALOG[plan].seats + packs * PRODUCT_CATALOG.SEAT_PACK.seats;
   return { packs, amount, seats };
 }
@@ -136,7 +139,7 @@ export async function createSubscription(input: {
       items: JSON.stringify([
         { tag: input.plan, name: `${planName} (${period === 'ANNUAL' ? 'anual' : 'mensual'})`, qty: 1, unitAmount: PLAN_CATALOG[input.plan][period === 'ANNUAL' ? 'annual' : 'monthly'] },
         ...(packs > 0
-          ? [{ tag: 'SEAT_PACK', name: `${PRODUCT_CATALOG.SEAT_PACK.name} (visible los 12 meses)`, qty: packs, unitAmount: PRODUCT_CATALOG.SEAT_PACK.amount }]
+          ? [{ tag: 'SEAT_PACK', name: `${PRODUCT_CATALOG.SEAT_PACK.name} (visible los 12 meses)`, qty: packs, unitAmount: period === 'ANNUAL' ? PRODUCT_CATALOG.SEAT_PACK.amount : (PRODUCT_CATALOG.SEAT_PACK.monthlyAmount ?? Math.round(PRODUCT_CATALOG.SEAT_PACK.amount / 10)) }]
           : []),
       ]),
     },
