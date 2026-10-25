@@ -18,7 +18,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     // El profesor trabaja exclusivamente en el portal separado. Nunca mostrar
     // la carcasa administrativa, incluso si abre una URL interna directamente.
-    if (ready && user?.role === 'INSTRUCTOR' && pathname !== '/classes' && pathname !== '/routines') router.replace('/profes');
+    if (ready && user?.role === 'INSTRUCTOR' && pathname !== '/profes') router.replace('/profes');
   }, [ready, user, router, pathname]);
 
   if (!ready) {
@@ -50,7 +50,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return <LoginScreen />;
   }
 
-  if (user.role === 'INSTRUCTOR' && pathname !== '/classes' && pathname !== '/routines') {
+  if (user.role === 'INSTRUCTOR') {
     return <div className="flex min-h-screen items-center justify-center text-text-muted">Abriendo el portal de profesores…</div>;
   }
 
