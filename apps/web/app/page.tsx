@@ -94,7 +94,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Hay permanencia mínima?',
-    a: `La prueba es gratis por ${trialDays} días. Luego pagás por el período que elijas y podés no renovar; el pago anual cubre 12 meses.`,
+    a: `La prueba es gratis por ${trialDays} días. Después podés suscribirte mes a mes y cancelar la renovación cuando quieras.`,
   },
   {
     q: '¿Cómo consigo el código de licencia?',
@@ -208,22 +208,13 @@ export default function LandingPage() {
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Windows',
         description: 'Software para gimnasios en Windows: socios, cuotas, cobros, caja y asistencia. La operación local puede continuar sin internet; las funciones online requieren conexión.',
-        offers: plans.flatMap((plan) => [
-          {
-            '@type': 'Offer',
-            name: `${plan.name} mensual`,
-            price: String(plan.monthly),
-            priceCurrency: 'ARS',
-            description: 'Licencia por un mes.',
-          },
-          {
-            '@type': 'Offer',
-            name: `${plan.name} anual`,
-            price: String(plan.annual),
-            priceCurrency: 'ARS',
-            description: 'Licencia por doce meses.',
-          },
-        ]),
+        offers: plans.map((plan) => ({
+          '@type': 'Offer',
+          name: `${plan.name} mensual`,
+          price: String(plan.monthly),
+          priceCurrency: 'ARS',
+          description: 'Suscripción mensual de licencia. Se renueva mes a mes.',
+        })),
       },
       {
         '@type': 'FAQPage',
@@ -485,7 +476,7 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-8 text-center text-xs text-text-muted">
-            Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
+            Precios en pesos argentinos (ARS). Todos los planes se contratan y renuevan mensualmente.
             Todos los planes incluyen el sistema completo y la app del socio.
           </p>
         </div>
@@ -655,7 +646,7 @@ export default function LandingPage() {
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
                 y app móvil para tus socios.
               </p>
-              <p className="mt-4 text-xs text-text-muted">App del socio incluida · Planes mensuales y anuales</p>
+              <p className="mt-4 text-xs text-text-muted">App del socio incluida · Planes mensuales</p>
               <p className="mt-3 text-xs text-text-muted">FIT system™ · CUIT 20-35720586-8</p>
             </div>
             <div className="md:col-span-2">
