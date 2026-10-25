@@ -16,10 +16,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!ready || user?.role !== 'INSTRUCTOR') return;
-    const allowed = pathname === '/classes' || pathname.startsWith('/classes/') || pathname === '/routines' || pathname.startsWith('/routines/');
-    if (!allowed) router.replace('/profes');
-  }, [ready, user, pathname, router]);
+    // El profesor trabaja exclusivamente en el portal separado. Nunca mostrar
+    // la carcasa administrativa, incluso si abre una URL interna directamente.
+    if (ready && user?.role === 'INSTRUCTOR') router.replace('/profes');
+  }, [ready, user, router]);
 
   if (!ready) {
     return (
