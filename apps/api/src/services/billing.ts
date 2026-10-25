@@ -26,7 +26,7 @@ export interface ProductDef {
 
 /**
  * Catálogo de planes de la tienda (una sola fuente de verdad). Los importes están
- * en ARS. El anual equivale a 10 meses (2 meses gratis).
+ * en ARS. La oferta comercial pública es exclusivamente mensual.
  *
  * Los planes salen de content/site-content.json (raíz del repo): el mismo archivo
  * que muestra la landing, para que el precio publicado y el cobro no se separen.
@@ -141,7 +141,8 @@ export async function createPurchase(input: {
     seats = PRODUCT_CATALOG[input.plan].seats;
     periodStore = 'ONCE';
   } else if (isKnownPlan(input.plan)) {
-    const period: BillingPeriod = isKnownPeriod(input.period ?? '') ? (input.period as BillingPeriod) : 'ANNUAL';
+    if (input.period === 'ANNUAL') return { ok: false, error: 'Los planes disponibles son exclusivamente mensuales' };
+    const period: BillingPeriod = 'MONTHLY';
     const plan = PLAN_CATALOG[input.plan];
     amount = plan[period === 'ANNUAL' ? 'annual' : 'monthly'];
     seats = plan.seats;
