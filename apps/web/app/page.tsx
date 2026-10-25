@@ -288,7 +288,7 @@ export default function LandingPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/screens/sistema-dashboard.svg"
-                alt="Panel general de FIT system™ con métricas del gimnasio"
+                alt="Vista ilustrativa del panel general de FIT system™ con métricas del gimnasio"
                 className="w-full"
               />
             </BrowserFrame>
@@ -298,7 +298,7 @@ export default function LandingPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/screens/app-socios.svg"
-                  alt="App del socio de FIT system™"
+                  alt="Vista ilustrativa de la app del socio de FIT system™"
                   className="w-full rounded-[1.2rem]"
                 />
               </div>
@@ -368,7 +368,7 @@ export default function LandingPage() {
           <div className="mt-6 grid items-center gap-8 overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-8 sm:p-10 lg:grid-cols-[220px_1fr]">
             <div className="mx-auto w-[200px] shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/screens/app-socios.svg" alt="App del socio de FIT system™ en el celular" className="w-full" />
+              <img src="/screens/app-socios.svg" alt="Vista ilustrativa de la app del socio de FIT system™ en el celular" className="w-full" />
             </div>
             <div className="text-center lg:text-left">
               <h3 className="text-xl font-bold text-text">App del socio según el cupo de tu plan</h3>
@@ -495,6 +495,7 @@ export default function LandingPage() {
             text="La gestión en tu PC y acceso móvil para tus socios cuando tienen conexión."
           />
 
+          <p className="mt-5 text-center text-xs text-text-muted">Vistas ilustrativas de la interfaz; la disponibilidad de funciones depende de la versión y del plan contratado.</p>
           <div className="mt-14 grid gap-5 md:grid-cols-3">
             {[
               {
