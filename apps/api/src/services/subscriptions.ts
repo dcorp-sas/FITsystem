@@ -355,16 +355,16 @@ export async function changeSubscriptionPeriod(externalRef: string, period: Bill
   if (period === 'ANNUAL') return { ok: false, error: 'FIT System ofrece únicamente suscripciones mensuales' };
   const sub = await prisma.planSubscription.findUnique({ where: { externalRef } });
   if (!sub) return { ok: false, error: 'Suscripción no encontrada' };
-  if ((sub.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') === period) {
-    return { ok: false, error: `La suscripción ya está en período ${period === 'ANNUAL' ? 'anual' : 'mensual'}` };
+  if (sub.period === 'MONTHLY') {
+    return { ok: false, error: 'La suscripción ya está en período mensual' };
   }
   if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
   const plan = sub.plan as BillingPlan;
   if (!isKnownPlan(sub.plan)) return { ok: false, error: 'Plan inválido' };
 
-  const { amount } = subscriptionQuote(plan, sub.seatPacks, period);
+  const { amount } = subscriptionQuote(plan, sub.seatPacks, 'MONTHLY');
   const planName = PLAN_CATALOG[plan].name;
-  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — cambio a ${period === 'ANNUAL' ? 'anual' : 'mensual'}`;
+  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — suscripción mensual`;
 
   // Da de baja el preapproval vigente (si existe) antes de crear el nuevo.
   if (sub.providerId) {
@@ -377,7 +377,7 @@ export async function changeSubscriptionPeriod(externalRef: string, period: Bill
     payer_email: sub.buyerEmail,
     status: 'pending',
     auto_recurring: {
-      frequency: period === 'ANNUAL' ? 12 : 1,
+      frequency: 1,
       frequency_type: 'months',
       transaction_amount: amount,
       currency_id: sub.currency,
@@ -396,7 +396,7 @@ export async function changeSubscriptionPeriod(externalRef: string, period: Bill
       amount,
       providerId: data.id,
       status: 'PENDING',
-      notes: `Cambio de período a ${period === 'ANNUAL' ? 'anual' : 'mensual'} (${new Date().toISOString().slice(0, 10)})`,
+      notes: `Cambio a período mensual (${new Date().toISOString().slice(0, 10)})`,
     },
   });
   return { ok: true, externalRef: sub.externalRef, initPoint: data.init_point, amount };
