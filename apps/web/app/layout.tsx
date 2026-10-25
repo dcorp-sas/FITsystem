@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import { FititoChat } from '@/components/fitito-chat';
 
 export const metadata: Metadata = {
   title: 'FIT system™ · Gestión de gimnasios',
@@ -17,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es-AR">
       <body>
         <a href="#inicio" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-white">Saltar al contenido</a>
-        <Providers>{children}</Providers>
+        <Providers>{children}<FititoChat /></Providers>
       </body>
     </html>
   );
