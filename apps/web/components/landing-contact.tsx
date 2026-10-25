@@ -34,6 +34,7 @@ export function LandingContact({
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +42,8 @@ export function LandingContact({
     setError(null);
     try {
       const { reason, ...payload } = form;
-      await api('/contact', { method: 'POST', body: { ...payload, message: `Motivo: ${reason}\n\n${form.message}` } });
+      const result = await api<{ confirmationEmailSent?: boolean }>('/contact', { method: 'POST', body: { ...payload, message: `Motivo: ${reason}\n\n${form.message}` } });
+      setConfirmationEmailSent(Boolean(result?.confirmationEmailSent));
       setStatus('sent');
       setPrivacyAccepted(false);
       setForm({ name: '', email: '', phone: '', gymName: '', reason: 'Consulta general', message: '', company: '' });
@@ -77,7 +79,7 @@ export function LandingContact({
           ))}
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
-            Respuesta en el día
+            Respuesta en menos de 24 horas hábiles
           </li>
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
@@ -93,7 +95,7 @@ export function LandingContact({
               <Icon name="check" size={24} />
             </span>
             <p className="text-base font-semibold text-text">¡Mensaje enviado!</p>
-            <p className="text-sm text-text-muted">Te respondemos a la brevedad a tu email.</p>
+            <p className="text-sm text-text-muted">{confirmationEmailSent ? "También enviamos un acuse de recepción a tu email. Revisá la bandeja de entrada y spam." : "Tu mensaje fue recibido. No pudimos confirmar el acuse automático por email; el equipo revisará tu consulta."}</p>
             <button
               type="button"
               onClick={() => setStatus('idle')}
