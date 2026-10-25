@@ -670,23 +670,23 @@ export default function LandingPage() {
                 rel="noopener noreferrer"
                 aria-label="Seguir a FIT system en Instagram"
                 title="Seguir a FIT system en Instagram"
-                className="group mt-5 flex max-w-sm items-center gap-3 rounded-2xl border border-fuchsia-400/25 bg-gradient-to-r from-fuchsia-500/15 via-purple-500/10 to-orange-400/10 p-3.5 transition-all hover:border-fuchsia-400/60 hover:from-fuchsia-500/25 hover:via-purple-500/20 hover:to-orange-400/20"
+                className="group mt-5 flex w-full max-w-sm items-center gap-3 rounded-2xl border border-fuchsia-400/50 bg-gradient-to-r from-fuchsia-600/30 via-purple-600/25 to-orange-500/20 p-4 shadow-lg shadow-fuchsia-950/20 transition-all hover:border-fuchsia-300 hover:from-fuchsia-600/40 hover:via-purple-600/35 hover:to-orange-500/30"
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-orange-400 text-white shadow-lg shadow-fuchsia-950/30">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-orange-400 text-white shadow-lg shadow-fuchsia-950/30">
                   <Icon name="instagram" size={23} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-text">Seguinos en Instagram</span>
-                  <span className="mt-0.5 block text-xs text-text-muted">@fitsystemgym</span>
+                  <span className="block text-sm font-bold text-text">¡Seguinos en Instagram!</span>
+                  <span className="mt-0.5 block text-sm font-semibold text-fuchsia-200">@fitsystemgym</span>
                 </span>
                 <span aria-hidden="true" className="text-lg text-fuchsia-300 transition-transform group-hover:translate-x-0.5">↗</span>
               </a>
-              <div className="mt-4 flex items-center gap-3 border-t border-line/70 pt-3">
-                <a href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,," target="_blank" rel="noreferrer" aria-label="Consultar constancia fiscal de FIT system" className="inline-flex shrink-0 items-center rounded-md bg-white p-1.5">
+              <div className="mt-3 flex items-center gap-2 border-t border-line/70 pt-3">
+                <a href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,," target="_blank" rel="noreferrer" aria-label="Consultar constancia fiscal de FIT system" className="inline-flex shrink-0 items-center rounded bg-white p-0.5" style={{ width: 46, minWidth: 46 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg" alt="Constancia fiscal de FIT system" width="88" height="33" loading="lazy" className="block h-auto w-[88px]" />
+                  <img src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg" alt="Constancia fiscal de FIT system" width="42" height="16" loading="lazy" style={{ display: 'block', width: 42, maxWidth: 42, height: 'auto' }} />
                 </a>
-                <span className="text-[11px] leading-4 text-text-muted">Información fiscal · Consultar constancia</span>
+                <span className="text-[10px] leading-4 text-text-muted">Constancia fiscal · Ver datos</span>
               </div>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
                 <a href="/software-para-gimnasios" className="transition-colors hover:text-text">Software para gimnasios</a>
