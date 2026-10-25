@@ -10,13 +10,12 @@ import { Button, Field, Input } from '@/components/ui';
 // abrir el panel desde otra PC o en la nube, y exige usuario y contraseña.
 // Las credenciales iniciales son fijas y visibles para que cualquiera que
 // instale el sistema pueda ingresar.
-const DEFAULT_USER = 'admin';
-const DEFAULT_PASSWORD = 'admin123';
+// No precargar credenciales compartidas en la pantalla de ingreso.
 
 export function LoginScreen() {
   const { login, completeTwoFactorLogin } = useAuth();
-  const [email, setEmail] = useState(DEFAULT_USER);
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [method, setMethod] = useState<'totp' | 'email' | 'backup'>('totp');
   const [prompt, setPrompt] = useState<TwoFactorPrompt | null>(null);
@@ -51,7 +50,7 @@ export function LoginScreen() {
           <div className="text-2xl font-black tracking-[3px] text-primary-light">FIT</div>
           <h1 className="mt-2 text-lg font-semibold text-text">Panel del gimnasio</h1>
           <p className="mt-1 text-sm text-text-muted">
-            {prompt ? 'Ingresá el código de verificación' : 'Ingresá con tu usuario'}
+            {prompt ? 'Ingresá el código de verificación' : 'Ingresá con tus credenciales'}
           </p>
         </div>
 
@@ -62,6 +61,7 @@ export function LoginScreen() {
                 <Input
                   type="text"
                   autoComplete="username"
+                  placeholder="Usuario o email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin"
@@ -72,6 +72,7 @@ export function LoginScreen() {
                 <Input
                   type="password"
                   autoComplete="current-password"
+                  placeholder="Contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
