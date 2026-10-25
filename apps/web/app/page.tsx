@@ -559,6 +559,7 @@ export default function LandingPage() {
               Descargar FIT system™ Portable
             </a>
           </p>
+          <p className="mx-auto mt-2 max-w-3xl break-all text-center text-[11px] leading-5 text-text-muted">SHA-256 de la versión portable ({CURRENT_RELEASE}): <code>{PORTABLE_SHA256}</code></p>
         </div>
       </section>
 
