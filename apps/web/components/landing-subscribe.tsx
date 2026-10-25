@@ -21,6 +21,7 @@ interface ProductInfo {
   name: string;
   seats: number;
   amount: number;
+  monthlyAmount?: number;
 }
 interface Catalog {
   configured: boolean;
@@ -63,7 +64,7 @@ export function SubscribeModal({ plan, onClose }: { plan: SubscribeTarget; onClo
   const planInfo = catalog?.plans.find((p) => p.tag === plan.plan);
   const packInfo = catalog?.products.find((p) => p.tag === 'SEAT_PACK');
   const base = planInfo?.monthly ?? 0;
-  const packUnit = packInfo?.amount ?? 0;
+  const packUnit = packInfo?.monthlyAmount ?? (packInfo ? Math.round(packInfo.amount / 10) : 0);
   const packSeats = packInfo?.seats ?? 100;
   const total = base + packs * packUnit;
   const seats = (planInfo?.seats ?? 0) + packs * packSeats;
