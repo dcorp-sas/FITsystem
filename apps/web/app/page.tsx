@@ -22,14 +22,14 @@ export const metadata: Metadata = {
     title: 'Software para gimnasios | FIT system',
     description:
       'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
-    images: [{ url: '/og-fitsystem.svg', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Software para gimnasios | FIT system',
     description:
       'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
-    images: ['/og-fitsystem.svg'],
+    images: ['/opengraph-image.png'],
   },
 };
 
