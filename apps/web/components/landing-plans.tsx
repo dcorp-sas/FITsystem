@@ -140,6 +140,7 @@ export function LandingPlans({
           >
             Descargar gratis
           </a>
+          <p className="mt-3 text-center text-xs leading-5 text-text-muted">¿Necesitás más tiempo para evaluar? <a href="https://wa.me/5492212005382?text=Hola%2C%20necesito%20m%C3%A1s%20tiempo%20para%20probar%20FIT%20system" target="_blank" rel="noreferrer" className="text-primary-light underline">Consultanos por WhatsApp</a>.</p>
         </div>
 
         {/* Planes pagos */}
