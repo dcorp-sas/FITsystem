@@ -306,12 +306,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="absolute -right-3 top-16 hidden animate-float-slow items-center gap-2 rounded-xl border border-line glass px-3 py-2 text-xs font-medium text-text shadow-xl sm:flex">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success/20 text-success">
-                <Icon name="check" size={14} />
-              </span>
-              Cobro acreditado en caja
-            </div>
+            
           </div>
         </div>
       </section>
