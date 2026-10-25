@@ -84,6 +84,7 @@ export function classRoutes(app: FastifyInstance) {
         where: { id },
         data: {
           branchId: input.branchId || null,
+          userId: input.userId || null,
           name: input.name,
           email: input.email || null,
           phone: input.phone || null,
