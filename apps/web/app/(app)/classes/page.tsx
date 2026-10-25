@@ -312,6 +312,7 @@ function ClassModal({
   gymClass,
   branchId,
   instructors,
+  isInstructor,
   onSaved,
 }: {
   open: boolean;
@@ -319,6 +320,7 @@ function ClassModal({
   gymClass: GymClass | null;
   branchId: string;
   instructors: Instructor[];
+  isInstructor: boolean;
   onSaved: () => void;
 }) {
   const toast = useToast();
@@ -390,7 +392,7 @@ function ClassModal({
         <Field label="Nombre *" className="sm:col-span-2">
           <Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </Field>
-        <Field label="Profesor">
+        {!isInstructor ? <Field label="Profesor">
           <Select value={form.instructorId} onChange={(e) => setForm((f) => ({ ...f, instructorId: e.target.value }))}>
             <option value="">Sin asignar</option>
             {instructors.map((i) => (
@@ -399,7 +401,7 @@ function ClassModal({
               </option>
             ))}
           </Select>
-        </Field>
+        </Field> : null}
         <Field label="Sala">
           <Input value={form.room} onChange={(e) => setForm((f) => ({ ...f, room: e.target.value }))} />
         </Field>
@@ -429,12 +431,14 @@ function SessionModal({
   onClose,
   classes,
   instructors,
+  isInstructor,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   classes: GymClass[];
   instructors: Instructor[];
+  isInstructor: boolean;
   onSaved: () => void;
 }) {
   const toast = useToast();
@@ -507,7 +511,7 @@ function SessionModal({
               </option>
             ))}
           </Select>
-        </Field>
+        </Field> : null}
         <Field label="Fecha y hora *">
           <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required />
         </Field>
