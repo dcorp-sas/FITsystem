@@ -88,6 +88,7 @@ export default function AttendancePage() {
   const [devices, setDevices] = useState<DeviceProfile | null>(null);
   const [scanning, setScanning] = useState(false);
   const isStandalone = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('standalone') === '1';
+  const isQrDisplay = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('qrdisplay') === '1';
 
   async function openStandalone() {
     const openAccessWindow = typeof window !== 'undefined' ? window.fitsystem?.openAccessWindow : undefined;
@@ -179,6 +180,10 @@ export default function AttendancePage() {
     } finally {
       setChecking(false);
     }
+  }
+
+  if (isQrDisplay) {
+    return <AccessQrCard branchId={branchId} displayMode />;
   }
 
   if (loading && !today) {
@@ -387,7 +392,7 @@ export default function AttendancePage() {
   );
 }
 
-function AccessQrCard({ branchId }: { branchId: string }) {
+function AccessQrCard({ branchId, displayMode = false }: { branchId: string; displayMode?: boolean }) {
   const toast = useToast();
   const [data, setData] = useState<AccessQrData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -409,6 +414,15 @@ function AccessQrCard({ branchId }: { branchId: string }) {
     load();
   }, [load]);
 
+  async function openQrWindow() {
+    const openWindow = typeof window !== 'undefined' ? window.fitsystem?.openAccessQrWindow : undefined;
+    if (openWindow) {
+      await openWindow();
+      return;
+    }
+    window.open('/attendance?qrdisplay=1', '_blank', 'noopener,noreferrer');
+  }
+
   function print() {
     if (!data?.image) {
       toast.error('El QR todavía no está listo. Probá "Actualizar".');
@@ -422,13 +436,42 @@ function AccessQrCard({ branchId }: { branchId: string }) {
   const rotationLabel =
     data?.rotation === 'DAILY' ? 'rota cada día' : data?.rotation === 'WEEKLY' ? 'rota cada semana' : 'fijo';
 
+  if (displayMode) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface px-6 py-10 text-center">
+        <div className="text-3xl font-bold text-text">{data?.title || 'QR de ingreso'}</div>
+        {data?.subtitle && <p className="max-w-2xl text-lg text-text-muted">{data.subtitle}</p>}
+        {data?.image ? (
+          <img src={data.image} alt="QR de ingreso" className="h-[min(65vh,560px)] w-[min(65vh,560px)] rounded-2xl border border-line bg-white p-4" />
+        ) : (
+          <div className="flex h-80 w-80 items-center justify-center rounded-xl border border-dashed border-line text-text-muted">
+            {loading ? 'Generando QR…' : data && !data.enabled ? 'El ingreso por QR está desactivado' : 'Sin QR generado'}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <Badge color={data?.enabled ? 'green' : 'gray'}>{data?.enabled ? 'Activo' : 'Desactivado'}</Badge>
+          {data && <span className="text-sm text-text-muted">QR {rotationLabel}</span>}
+        </div>
+        {data?.footer && <p className="text-sm text-text-muted">{data.footer}</p>}
+        <Button variant="secondary" onClick={load} loading={loading}>
+          <Icon name="activity" size={16} /> Actualizar QR
+        </Button>
+      </main>
+    );
+  }
+
   return (
     <Card
       title="QR de ingreso para socios"
       action={
-        <Button variant="secondary" size="sm" onClick={load} loading={loading}>
-          <Icon name="activity" size={15} /> Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={openQrWindow}>
+            <Icon name="external-link" size={15} /> Abrir en ventana
+          </Button>
+          <Button variant="secondary" size="sm" onClick={load} loading={loading}>
+            <Icon name="activity" size={15} /> Actualizar
+          </Button>
+        </div>
       }
     >
       <p className="text-sm text-text-muted">
