@@ -329,11 +329,12 @@ export default function LandingPage() {
             title="Todo tu gimnasio, en una pantalla"
             text="El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT system™ por dentro."
           />
+          <p className="mt-5 text-center text-xs text-text-muted">Vistas ilustrativas de la interfaz; la disponibilidad de funciones depende de la versión y del plan contratado.</p>
 
           <div className="mt-12 ring-glow rounded-2xl">
             <BrowserFrame title="FIT system™ · Panel general">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT system™ con métricas del gimnasio" className="w-full" />
+              <img src="/screens/sistema-dashboard.svg" alt="Vista ilustrativa del panel general de FIT system™ con métricas del gimnasio" className="w-full" />
             </BrowserFrame>
           </div>
 
@@ -341,13 +342,13 @@ export default function LandingPage() {
             {[
               {
                 src: '/screens/sistema-socios.svg',
-                alt: 'Gestión de socios y cuotas en FIT system™',
+                alt: 'Vista ilustrativa de la gestión de socios y cuotas en FIT system™',
                 title: 'Socios y cuotas',
                 text: 'Ficha de cada socio, estado de cuenta e historial de cobros.',
               },
               {
                 src: '/screens/sistema-caja.svg',
-                alt: 'Cobros y caja diaria en FIT system™',
+                alt: 'Vista ilustrativa de cobros y caja diaria en FIT system™',
                 title: 'Cobros y caja',
                 text: 'Registro de cobros y arqueo por turno.',
               },
@@ -495,7 +496,6 @@ export default function LandingPage() {
             text="La gestión en tu PC y acceso móvil para tus socios cuando tienen conexión."
           />
 
-          <p className="mt-5 text-center text-xs text-text-muted">Vistas ilustrativas de la interfaz; la disponibilidad de funciones depende de la versión y del plan contratado.</p>
           <div className="mt-14 grid gap-5 md:grid-cols-3">
             {[
               {
