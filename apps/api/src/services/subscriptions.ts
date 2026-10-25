@@ -140,22 +140,22 @@ export async function createSubscription(input: {
       gymName: input.gymName ?? null,
       externalRef,
       items: JSON.stringify([
-        { tag: input.plan, name: `${planName} (${period === 'ANNUAL' ? 'anual' : 'mensual'})`, qty: 1, unitAmount: PLAN_CATALOG[input.plan][period === 'ANNUAL' ? 'annual' : 'monthly'] },
+        { tag: input.plan, name: `${planName} (mensual)`, qty: 1, unitAmount: PLAN_CATALOG[input.plan].monthly },
         ...(packs > 0
-          ? [{ tag: 'SEAT_PACK', name: `${PRODUCT_CATALOG.SEAT_PACK.name} (visible los 12 meses)`, qty: packs, unitAmount: period === 'ANNUAL' ? PRODUCT_CATALOG.SEAT_PACK.amount : (PRODUCT_CATALOG.SEAT_PACK.monthlyAmount ?? Math.round(PRODUCT_CATALOG.SEAT_PACK.amount / 10)) }]
+          ? [{ tag: 'SEAT_PACK', name: `${PRODUCT_CATALOG.SEAT_PACK.name} (visible los 12 meses)`, qty: packs, unitAmount: PRODUCT_CATALOG.SEAT_PACK.monthlyAmount ?? Math.round(PRODUCT_CATALOG.SEAT_PACK.amount / 10) }]
           : []),
       ]),
     },
   });
 
-  const reason = `${planName}${packs > 0 ? ` + ${packs} pack(s) de asientos` : ''} — ${period === 'ANNUAL' ? 'anual' : 'mensual'}`;
+  const reason = `${planName}${packs > 0 ? ` + ${packs} pack(s) de asientos` : ''} — mensual`;
   const body: Record<string, unknown> = {
     reason,
     external_reference: externalRef,
     payer_email: input.buyerEmail,
     status: 'pending',
     auto_recurring: {
-      frequency: period === 'ANNUAL' ? 12 : 1,
+      frequency: 1,
       frequency_type: 'months',
       transaction_amount: amount,
       currency_id: 'ARS',
