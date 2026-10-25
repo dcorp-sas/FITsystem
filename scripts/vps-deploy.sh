@@ -31,7 +31,19 @@ fi
 STAMP="$(date +%s)"
 SERVICES=(api web socios licensador)
 
-# Guardar referencias de las imágenes previas antes de compilar.
+# Limpiar etiquetas de rollback abandonadas por despliegues fallidos anteriores.
+# No se tocan volúmenes: PostgreSQL y los datos del licenciador quedan intactos.
+while IFS= read -r image; do
+  [ -n "$image" ] && docker image rm "$image" >/dev/null 2>&1 || true
+done < <(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^fitsystem-(api|web|socios|licensador):rollback-' || true)
+
+# Liberar capas no utilizadas ANTES de guardar las imágenes de rollback.
+docker builder prune -af >/dev/null 2>&1 || true
+docker system prune -af >/dev/null 2>&1 || true
+df -h /
+docker system df || true
+
+# Guardar referencias de las imágenes actualmente desplegadas para poder revertir.
 for svc in "${SERVICES[@]}"; do
   image="fitsystem-${svc}:latest"
   rollback="fitsystem-${svc}:rollback-${STAMP}"
