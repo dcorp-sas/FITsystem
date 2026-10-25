@@ -472,6 +472,22 @@ export default function LandingPage() {
           />
 
           <LandingPlans setupUrl={SETUP_URL} trialDays={trialDays} plans={plans} />
+          <div className="mt-10 overflow-x-auto rounded-2xl border border-line bg-surface">
+            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <caption className="px-5 py-4 text-left text-base font-semibold text-text">Comparativa de planes</caption>
+              <thead><tr className="border-y border-line bg-base text-text-muted"><th scope="col" className="px-5 py-3">Función</th><th scope="col" className="px-4 py-3">Prueba</th><th scope="col" className="px-4 py-3">Básico</th><th scope="col" className="px-4 py-3">Pro</th><th scope="col" className="px-4 py-3">Empresa</th></tr></thead>
+              <tbody className="divide-y divide-line">
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Socios con app</th><td className="px-4 py-3">10</td><td className="px-4 py-3">100</td><td className="px-4 py-3">300</td><td className="px-4 py-3">500</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Módulos de escritorio</th><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">App del socio</th><td className="px-4 py-3">Hasta 10</td><td className="px-4 py-3">Incluida</td><td className="px-4 py-3">Incluida</td><td className="px-4 py-3">Incluida</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Registro de cobros</th><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Reportes por sede</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Avanzados</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Soporte prioritario</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Packs adicionales</th><td className="px-4 py-3">—</td><td className="px-4 py-3">Hasta 2</td><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-text-muted">El cupo se refiere a socios con acceso a la app; el escritorio no limita el padrón. Los packs de 100 socios cuestan $100.000 por 12 meses o $10.000 por mes y solo están disponibles en Básico, hasta 2 packs.</p>
 
           <p className="mt-8 text-center text-xs text-text-muted">
             Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
