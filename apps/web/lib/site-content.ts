@@ -53,9 +53,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   },
   stats: [
     { value: '+10', label: 'Módulos integrados' },
-    { value: '100%', label: 'Funciona sin internet' },
   ],
-  trialDays: 15,
+  trialDays: 7,
   contact: {
     email: 'contacto@fitsystem.com.ar',
     salesEmail: 'ventas@fitsystem.com.ar',
