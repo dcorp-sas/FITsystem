@@ -154,8 +154,11 @@ export function authRoutes(app: FastifyInstance) {
           orderBy: { name: 'asc' },
           select: { id: true },
         });
+        const adminEmail = genericAdminEmail(org.slug);
+        const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+        if (existingAdmin) return existingAdmin;
         await ensureGenericAdmin(org, branch?.id ?? null);
-        return prisma.user.findUnique({ where: { email: genericAdminEmail(org.slug) } });
+        return prisma.user.findUnique({ where: { email: adminEmail } });
       }
     }
 
