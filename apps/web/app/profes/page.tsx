@@ -14,6 +14,7 @@ interface ClassSession {
   _count?: { reservations: number };
 }
 interface Routine { id: string; name: string; memberName?: string | null; isTemplate: boolean; isActive: boolean; days: { exercises: { id: string }[] }[] }
+interface RoutineLogEntry { id: string; exerciseName: string; weight?: string | null; sets?: number | null; reps?: string | null; completedAt: string; member?: { firstName: string; lastName: string; memberCode: string } | null }
 interface RosterItem { id: string; status: string; member?: { id: string; firstName: string; lastName: string; memberCode: string; phone?: string | null } | null }
 
 function localDateTime(value: Date) {
@@ -32,6 +33,8 @@ export default function TeacherPortalPage() {
   const [classes, setClasses] = useState<GymClass[]>([]);
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
+  const [archivedRoutines, setArchivedRoutines] = useState<Routine[]>([]);
+  const [comparison, setComparison] = useState<{ routine: Routine; logs: RoutineLogEntry[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSchedule, setShowSchedule] = useState(false);
@@ -56,6 +59,7 @@ export default function TeacherPortalPage() {
       setClasses(cls);
       setSessions(ses);
       setRoutines(routineRes.items.filter((r) => r.isActive));
+      setArchivedRoutines(routineRes.items.filter((r) => !r.isActive && !r.isTemplate));
       setClassId((current) => current || cls[0]?.id || '');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'No se pudieron cargar tus datos.');
@@ -83,6 +87,14 @@ export default function TeacherPortalPage() {
     setRosterSession(session); setRoster([]);
     try { setRoster(await http.get<RosterItem[]>(`/sessions/${session.id}/reservations`)); }
     catch (e) { setError(e instanceof ApiError ? e.message : 'No se pudieron cargar los inscriptos.'); }
+  }
+
+  async function compareRoutine(routine: Routine) {
+    setError('');
+    try {
+      const result = await http.get<{ items: RoutineLogEntry[] }>(`/routines/${routine.id}/logs`);
+      setComparison({ routine, logs: result.items });
+    } catch (e) { setError(e instanceof ApiError ? e.message : 'No se pudo cargar el historial de esta rutina.'); }
   }
 
   async function removeSession(session: ClassSession) {
@@ -133,9 +145,13 @@ export default function TeacherPortalPage() {
               <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold">Rutinas de entrenamiento</h2><p className="mt-1 text-sm text-text-muted">Las rutinas que asignás se guardan en el mismo sistema y aparecen en la app del socio.</p></div><a className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white" href="/routines">Crear o editar rutina</a></div>
               <div className="mt-4 divide-y divide-line">{routines.length ? routines.map((routine) => <div key={routine.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-semibold">{routine.name}</p><p className="text-sm text-text-muted">{routine.memberName || (routine.isTemplate ? 'Plantilla reutilizable' : 'Rutina asignada')} · {routine.days?.length || 0} días</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">Activa</span><button className="rounded-lg border border-line px-3 py-1.5 text-xs hover:border-amber-400" onClick={async () => { if (!window.confirm('¿Cerrar este ciclo y conservar su historial?')) return; try { await http.post(`/routines/${routine.id}/archive`); await load(); } catch (e) { setError(e instanceof ApiError ? e.message : 'No se pudo archivar la rutina.'); } }}>Archivar ciclo</button></div></div>) : <p className="py-6 text-sm text-text-muted">Todavía no hay rutinas disponibles para tu sede.</p>}</div>
             </section>
+
+            {archivedRoutines.length ? <section className="rounded-2xl border border-line bg-surface p-5 sm:p-6"><h2 className="text-xl font-bold">Ciclos anteriores</h2><p className="mt-1 text-sm text-text-muted">Rutinas archivadas con sus registros conservados para comparar la evolución.</p><div className="mt-4 divide-y divide-line">{archivedRoutines.map((routine) => <div key={routine.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-semibold">{routine.name}</p><p className="text-sm text-text-muted">{routine.memberName || 'Plantilla'} · {routine.days?.length || 0} días</p></div><button className="rounded-lg border border-line px-3 py-2 text-sm hover:border-primary" onClick={() => void compareRoutine(routine)}>Comparar progreso</button></div>)}</div></section> : null}
           </>
         )}
       </div>
+
+      {comparison ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setComparison(null)}><section className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-surface p-5" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-bold">Historial del ciclo</h2><p className="text-sm text-text-muted">{comparison.routine.name}</p></div><button className="rounded-lg border border-line px-3 py-1" onClick={() => setComparison(null)}>Cerrar</button></div>{comparison.logs.length ? <div className="mt-4 divide-y divide-line">{comparison.logs.map((log) => <div key={log.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-medium">{log.exerciseName}</p><p className="text-sm text-text-muted">{log.member ? `${log.member.firstName} ${log.member.lastName} · ${log.member.memberCode}` : 'Socio'} · {new Date(log.completedAt).toLocaleString('es-AR')}</p></div><p className="text-sm text-text-muted">{log.weight ? `${log.weight} kg` : 'Sin peso'}{log.sets ? ` · ${log.sets} series` : ''}{log.reps ? ` · ${log.reps} reps` : ''}</p></div>)}</div> : <p className="py-8 text-sm text-text-muted">Este ciclo no tiene registros de progreso todavía.</p>}</section></div> : null}
 
       {rosterSession ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setRosterSession(null)}><section className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">Inscriptos · {rosterSession.gymClass?.name || 'Clase'}</h2><button className="rounded-lg border border-line px-3 py-1" onClick={() => setRosterSession(null)}>Cerrar</button></div>{roster.length ? <div className="mt-4 divide-y divide-line">{roster.map((item) => <div key={item.id} className="py-3"><p className="font-medium">{item.member ? `${item.member.firstName} ${item.member.lastName}` : 'Socio'}</p><p className="text-sm text-text-muted">{item.member?.memberCode || ''} · {item.status}</p></div>)}</div> : <p className="py-8 text-sm text-text-muted">No hay inscriptos o todavía se están cargando.</p>}</section></div> : null}
     </main>
