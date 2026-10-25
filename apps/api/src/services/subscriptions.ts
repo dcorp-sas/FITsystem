@@ -89,13 +89,11 @@ function mapPreapprovalStatus(status?: string): SubscriptionStatus {
   }
 }
 
-/** Importe y asientos totales de un carrito (plan + packs) según el período. */
-export function subscriptionQuote(plan: BillingPlan, seatPacks: number, period: BillingPeriod = 'MONTHLY') {
+/** Importe y asientos totales de un carrito mensual (plan + packs). */
+export function subscriptionQuote(plan: BillingPlan, seatPacks: number) {
   const packs = Math.max(0, Math.min(50, Math.floor(seatPacks)));
-  const base = PLAN_CATALOG[plan][period === 'ANNUAL' ? 'annual' : 'monthly'];
-  const packPrice = period === 'ANNUAL'
-    ? PRODUCT_CATALOG.SEAT_PACK.amount
-    : (PRODUCT_CATALOG.SEAT_PACK.monthlyAmount ?? Math.round(PRODUCT_CATALOG.SEAT_PACK.amount / 10));
+  const base = PLAN_CATALOG[plan].monthly;
+  const packPrice = PRODUCT_CATALOG.SEAT_PACK.monthlyAmount ?? Math.round(PRODUCT_CATALOG.SEAT_PACK.amount / 10);
   const amount = base + packs * packPrice;
   const seats = PLAN_CATALOG[plan].seats + packs * PRODUCT_CATALOG.SEAT_PACK.seats;
   return { packs, amount, seats };
@@ -121,7 +119,7 @@ export async function createSubscription(input: {
   if (requestedPacks > 0 && input.plan !== 'BASIC') return { ok: false, error: 'Los packs adicionales están disponibles únicamente en el plan Básico. Para mayor capacidad, elegí Pro o Empresa.' };
 
   const period: BillingPeriod = 'MONTHLY';
-  const { packs, amount, seats } = subscriptionQuote(input.plan, input.seatPacks ?? 0, period);
+  const { packs, amount, seats } = subscriptionQuote(input.plan, input.seatPacks ?? 0);
   const externalRef = `FITS-${randomBytes(8).toString('hex')}`;
   const planName = PLAN_CATALOG[input.plan].name;
 
@@ -232,7 +230,7 @@ export async function applyApprovedPayment(subscriptionId: string, paymentId: st
       status: 'ACTIVE',
       lastPaymentId: paymentId,
       lastPaymentAt: paidAt,
-      nextPaymentAt: addMonths(paidAt, fresh?.period === 'ANNUAL' ? 12 : 1),
+      nextPaymentAt: addMonths(paidAt, 1),
     },
   });
 }
@@ -281,15 +279,15 @@ export async function reactivateSubscription(externalRef: string): Promise<Subsc
   if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
 
   const planName = PLAN_CATALOG[sub.plan as BillingPlan]?.name ?? sub.plan;
-  const period: BillingPeriod = sub.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
-  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — ${period === 'ANNUAL' ? 'anual' : 'mensual'} (reactivación)`;
+  const period: BillingPeriod = 'MONTHLY';
+  const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — mensual (reactivación)`;
   const body = {
     reason,
     external_reference: sub.externalRef,
     payer_email: sub.buyerEmail,
     status: 'pending',
     auto_recurring: {
-      frequency: period === 'ANNUAL' ? 12 : 1,
+      frequency: 1,
       frequency_type: 'months',
       transaction_amount: sub.amount,
       currency_id: sub.currency,
@@ -345,14 +343,13 @@ export async function listSubscriptions(filter?: string) {
 }
 
 /**
- * Cambia el período (mensual <-> anual) de una suscripción. MercadoPago no
+ * Reconfigura una suscripción existente a la modalidad mensual. MercadoPago no
  * permite editar la frecuencia de un preapproval existente, así que se da de
- * baja el actual y se crea uno nuevo con la frecuencia pedida, devolviendo el
- * `init_point` para que el cliente lo autorice. La licencia sigue vigente hasta
- * que el nuevo débito se apruebe (el webhook llama a `applyApprovedPayment`).
+ * baja el actual y se crea uno nuevo, devolviendo el `init_point` para que el
+ * cliente lo autorice. La licencia sigue vigente hasta que el nuevo débito se
+ * apruebe (el webhook llama a `applyApprovedPayment`).
  */
 export async function changeSubscriptionPeriod(externalRef: string, period: BillingPeriod): Promise<SubscriptionDraft> {
-  if (period === 'ANNUAL') return { ok: false, error: 'FIT System ofrece únicamente suscripciones mensuales' };
   const sub = await prisma.planSubscription.findUnique({ where: { externalRef } });
   if (!sub) return { ok: false, error: 'Suscripción no encontrada' };
   if (sub.period === 'MONTHLY') {
@@ -362,7 +359,7 @@ export async function changeSubscriptionPeriod(externalRef: string, period: Bill
   const plan = sub.plan as BillingPlan;
   if (!isKnownPlan(sub.plan)) return { ok: false, error: 'Plan inválido' };
 
-  const { amount } = subscriptionQuote(plan, sub.seatPacks, 'MONTHLY');
+  const { amount } = subscriptionQuote(plan, sub.seatPacks);
   const planName = PLAN_CATALOG[plan].name;
   const reason = `${planName}${sub.seatPacks > 0 ? ` + ${sub.seatPacks} pack(s) de asientos` : ''} — suscripción mensual`;
 
