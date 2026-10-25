@@ -53,9 +53,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   },
   stats: [
     { value: '+10', label: 'Módulos integrados' },
-    { value: '100%', label: 'Funciona sin internet' },
   ],
-  trialDays: 15,
+  trialDays: 7,
   contact: {
     email: 'contacto@fitsystem.com.ar',
     salesEmail: 'ventas@fitsystem.com.ar',
@@ -69,7 +68,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 45000,
       annual: 450000,
       popular: false,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Soporte por email'],
+      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Soporte por email'],
     },
     {
       tag: 'PRO',
@@ -78,7 +77,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 75000,
       annual: 750000,
       popular: true,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Reportes por sede', 'Soporte prioritario'],
+      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes por sede', 'Soporte prioritario'],
     },
     {
       tag: 'ENTERPRISE',
@@ -87,7 +86,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 140000,
       annual: 1400000,
       popular: false,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Sedes y reportes avanzados', 'Soporte prioritario'],
     },
   ],
 };

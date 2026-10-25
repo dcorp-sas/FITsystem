@@ -64,7 +64,7 @@ export function metricsRoutes(app: FastifyInstance) {
 
   // Redireccion contada de descarga. La web apunta los botones aca y este
   // endpoint registra el hit y manda al asset real de GitHub Releases.
-  app.get('/metrics/download/go', async (request, reply) => {
+  app.get('/metrics/download/go', { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'download' })] }, async (request, reply) => {
     const query = request.query as { asset?: string };
     const asset = typeof query.asset === 'string' && DOWNLOADS[query.asset] ? query.asset : 'setup';
     const target = DOWNLOADS[asset] as string;

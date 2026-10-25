@@ -43,12 +43,15 @@ export default function PrivacyPage() {
           <p>Conservamos los datos mientras sean necesarios para prestar el servicio, cumplir obligaciones legales o resolver reclamos. Al cancelar una licencia, el cliente debe solicitar la exportación o eliminación de los datos y conservar sus propios respaldos. Los plazos concretos dependen del servicio y de las obligaciones aplicables.</p>
 
           <h2 className="pt-4 text-xl font-semibold text-text">6. Derechos</h2>
-          <p>Podés solicitar acceso, rectificación, actualización o supresión de tus datos escribiendo a {contact}. La solicitud debe permitir identificar al titular y describir claramente el pedido. También podés recurrir a la Agencia de Acceso a la Información Pública, autoridad de aplicación de la Ley 25.326, según corresponda.</p>
+          <p>Podés solicitar acceso, rectificación, actualización o supresión de tus datos escribiendo a {contact}. La solicitud debe permitir identificar al titular y describir claramente el pedido. Conforme a la Ley 25.326, el derecho de acceso debe atenderse dentro de los 10 días corridos y las solicitudes de rectificación o supresión dentro de los 5 días hábiles, según corresponda y sujeto a la verificación de identidad. También podés recurrir a la Agencia de Acceso a la Información Pública (AAIP), autoridad de aplicación de la Ley 25.326. La AAIP tiene atribuciones para atender denuncias y reclamos de quienes resulten afectados en sus derechos por incumplimientos de la normativa de protección de datos personales. Más información: https://www.argentina.gob.ar/aaip/datospersonales.</p>
 
-          <h2 className="pt-4 text-xl font-semibold text-text">7. Seguridad</h2>
+          <h2 className="pt-4 text-xl font-semibold text-text">7. Plazos de respuesta y solicitudes</h2>
+          <p>Para ejercer derechos, escribí a {contact} con el asunto “Privacidad”, identificando el dato o pedido. Responderemos dentro de los plazos que establezca la normativa aplicable. Las solicitudes referidas a socios de un gimnasio pueden requerir que el titular se comunique también con el gimnasio, que normalmente determina el uso de esos datos.</p>
+
+          <h2 className="pt-4 text-xl font-semibold text-text">8. Seguridad</h2>
           <p>Aplicamos controles técnicos y organizativos razonables, como autenticación, control de acceso, cifrado de secretos y copias de seguridad de la infraestructura. Ningún sistema conectado a Internet puede garantizar riesgo cero.</p>
 
-          <h2 className="pt-4 text-xl font-semibold text-text">8. Cambios</h2>
+          <h2 className="pt-4 text-xl font-semibold text-text">9. Cambios</h2>
           <p>Podemos actualizar esta política para reflejar cambios legales, técnicos o del servicio. Publicaremos la versión vigente en esta página.</p>
         </section>
       </article>

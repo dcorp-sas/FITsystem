@@ -21,6 +21,7 @@ interface ProductInfo {
   name: string;
   seats: number;
   amount: number;
+  monthlyAmount?: number;
 }
 interface Catalog {
   configured: boolean;
@@ -63,7 +64,8 @@ export function SubscribeModal({ plan, onClose }: { plan: SubscribeTarget; onClo
   const planInfo = catalog?.plans.find((p) => p.tag === plan.plan);
   const packInfo = catalog?.products.find((p) => p.tag === 'SEAT_PACK');
   const base = planInfo?.monthly ?? 0;
-  const packUnit = packInfo?.amount ?? 0;
+  const packUnit = packInfo?.monthlyAmount ?? (packInfo ? Math.round(packInfo.amount / 10) : 0);
+  const maxPacks = plan.plan === 'BASIC' ? 2 : 0;
   const packSeats = packInfo?.seats ?? 100;
   const total = base + packs * packUnit;
   const seats = (planInfo?.seats ?? 0) + packs * packSeats;
@@ -137,13 +139,16 @@ export function SubscribeModal({ plan, onClose }: { plan: SubscribeTarget; onClo
                   <span className="w-6 text-center text-sm font-semibold text-text">{packs}</span>
                   <button
                     type="button"
-                    onClick={() => setPacks((n) => Math.min(50, n + 1))}
+                    onClick={() => setPacks((n) => Math.min(maxPacks, n + 1))}
+                    disabled={packs >= maxPacks}
                     className="h-8 w-8 rounded-lg border border-line text-lg leading-none text-text hover:bg-surface-alt"
                   >
                     +
                   </button>
                 </div>
               </div>
+
+              <p className="mt-2 text-xs leading-5 text-text-muted">{plan.plan === 'BASIC' ? 'Básico permite hasta 2 packs adicionales de 100 socios.' : 'Los packs adicionales están disponibles solo en Básico, hasta 2. Para mayor capacidad elegí Pro o Empresa.'}</p>
 
               <div className="mt-3 flex items-center justify-between border-t border-line pt-3 text-sm">
                 <span className="text-text-muted">{seats} socios con app · total mensual</span>
@@ -179,6 +184,11 @@ export function SubscribeModal({ plan, onClose }: { plan: SubscribeTarget; onClo
               onChange={(e) => setForm({ ...form, gymName: e.target.value })}
               className="w-full rounded-lg border border-line bg-base px-3 py-2.5 text-sm text-text outline-none focus:border-primary"
             />
+
+            <label className="flex items-start gap-2 text-xs leading-5 text-text-muted">
+              <input type="checkbox" required className="mt-1" />
+              <span>Leí y acepto los <a href="/terminos" target="_blank" rel="noreferrer" className="text-primary-light underline">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noreferrer" className="text-primary-light underline">Política de privacidad</a>. <a href="/arrepentimiento" target="_blank" rel="noreferrer" className="text-primary-light underline">Ver cancelación y reembolsos</a>.</span>
+            </label>
 
             {error && <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
 

@@ -30,20 +30,23 @@ export function LandingContact({
     ? [{ label: 'Contacto general', email: contactEmail }]
     : [{ label: 'Contacto general', email: '' }];
   const primary = items[0];
-  const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', reason: 'Consulta general', message: '', company: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setStatus('sending');
     setError(null);
     try {
-      await api('/contact', { method: 'POST', body: form });
+      const { reason, ...payload } = form;
+      const result = await api<{ confirmationEmailSent?: boolean }>('/contact', { method: 'POST', body: { ...payload, message: `Motivo: ${reason}\n\n${form.message}` } });
+      setConfirmationEmailSent(Boolean(result?.confirmationEmailSent));
       setStatus('sent');
       setPrivacyAccepted(false);
-      setForm({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
+      setForm({ name: '', email: '', phone: '', gymName: '', reason: 'Consulta general', message: '', company: '' });
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -76,7 +79,7 @@ export function LandingContact({
           ))}
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
-            Respuesta en el día
+            Respuesta en menos de 24 horas hábiles
           </li>
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
@@ -92,7 +95,7 @@ export function LandingContact({
               <Icon name="check" size={24} />
             </span>
             <p className="text-base font-semibold text-text">¡Mensaje enviado!</p>
-            <p className="text-sm text-text-muted">Te respondemos a la brevedad a tu email.</p>
+            <p className="text-sm text-text-muted">{confirmationEmailSent ? "También enviamos un acuse de recepción a tu email. Revisá la bandeja de entrada y spam." : "Tu mensaje fue recibido. No pudimos confirmar el acuse automático por email; el equipo revisará tu consulta."}</p>
             <button
               type="button"
               onClick={() => setStatus('idle')}
@@ -104,14 +107,20 @@ export function LandingContact({
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
+              <label className="sr-only" htmlFor="contact-name">Nombre y apellido</label>
               <input
+                id="contact-name"
+                aria-label="Nombre y apellido"
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Nombre y apellido"
                 className={inputClass}
               />
+              <label className="sr-only" htmlFor="contact-email">Email</label>
               <input
+                id="contact-email"
+                aria-label="Email"
                 required
                 type="email"
                 value={form.email}
@@ -119,21 +128,38 @@ export function LandingContact({
                 placeholder="Email"
                 className={inputClass}
               />
+              <label className="sr-only" htmlFor="contact-phone">WhatsApp o teléfono</label>
               <input
+                id="contact-phone"
+                aria-label="WhatsApp o teléfono"
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="Teléfono (opcional)"
                 className={inputClass}
               />
+              <label className="sr-only" htmlFor="contact-gym">Nombre del gimnasio</label>
               <input
+                id="contact-gym"
+                aria-label="Nombre del gimnasio"
                 value={form.gymName}
                 onChange={(e) => setForm({ ...form, gymName: e.target.value })}
                 placeholder="Gimnasio (opcional)"
                 className={inputClass}
               />
             </div>
+            <label className="sr-only" htmlFor="contact-reason">Motivo de consulta</label>
+            <select id="contact-reason" aria-label="Motivo de consulta" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={`${inputClass} mt-3`}>
+              <option>Consulta general</option>
+              <option>Solicitar demo</option>
+              <option>Comprar o renovar licencia</option>
+              <option>Migración de datos</option>
+              <option>Soporte técnico</option>
+            </select>
+            <label className="sr-only" htmlFor="contact-message">Mensaje</label>
             <textarea
+              id="contact-message"
+              aria-label="Mensaje"
               required
               rows={4}
               value={form.message}
@@ -170,7 +196,7 @@ export function LandingContact({
               <Icon name="mail" size={18} />
               {status === 'sending' ? 'Enviando…' : 'Enviar mensaje'}
             </button>
-            <p className="mt-2 text-center text-xs text-text-muted">Usamos tus datos solo para responderte.</p>
+            <p className="mt-2 text-center text-xs text-text-muted">Al enviar aceptás la Política de privacidad y usamos tus datos para gestionar tu consulta.</p>
           </>
         )}
       </form>

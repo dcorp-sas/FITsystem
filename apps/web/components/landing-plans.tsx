@@ -26,7 +26,7 @@ const PLANS: PlanDef[] = [
     seats: 'Hasta 100 socios con app',
     monthly: 45000,
     annual: 450000,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Soporte por email'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Soporte por email'],
   },
   {
     tag: 'PRO',
@@ -35,7 +35,7 @@ const PLANS: PlanDef[] = [
     monthly: 75000,
     annual: 750000,
     popular: true,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Reportes por sede', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes por sede', 'Soporte prioritario'],
   },
   {
     tag: 'ENTERPRISE',
@@ -43,7 +43,7 @@ const PLANS: PlanDef[] = [
     seats: 'Hasta 500 socios con app',
     monthly: 140000,
     annual: 1400000,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Sedes y reportes avanzados', 'Soporte prioritario'],
   },
 ];
 
@@ -115,6 +115,8 @@ export function LandingPlans({
         </div>
       </div>
 
+      <p className="mt-5 text-center text-xs leading-relaxed text-text-muted">Importes en ARS. El tratamiento de IVA y el comprobante fiscal aplicable se informan según la condición fiscal vigente antes de confirmar el pago. El plan anual cubre 12 meses.</p>
+
       <div className="mt-10 grid gap-5 lg:grid-cols-4">
         {/* Prueba gratis */}
         <div className="relative flex flex-col rounded-2xl border border-dashed border-line bg-surface/50 p-6">
@@ -138,6 +140,7 @@ export function LandingPlans({
           >
             Descargar gratis
           </a>
+          <p className="mt-3 text-center text-xs leading-5 text-text-muted">¿Necesitás más tiempo para evaluar? <a href="https://wa.me/5492212005382?text=Hola%2C%20necesito%20m%C3%A1s%20tiempo%20para%20probar%20FIT%20system" target="_blank" rel="noreferrer" className="text-primary-light underline">Consultanos por WhatsApp</a>.</p>
         </div>
 
         {/* Planes pagos */}

@@ -2,48 +2,51 @@ import Link from 'next/link';
 
 export const metadata = {
   title: 'Términos y condiciones · FIT system™',
-  description: 'Términos y condiciones de uso de FIT system™.',
+  description: 'Condiciones de licencia, pagos, soporte, cancelación y tratamiento de datos de FIT system™.',
 };
+
+const legalName = 'Matias Dario Duranovich';
+const taxId = '20-35720586-8';
+const address = 'Calle 464 N.º 310, City Bell, Provincia de Buenos Aires';
+const contact = 'contacto@fitsystem.com.ar';
+const support = 'soporte@fitsystem.com.ar';
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-base px-4 py-12 text-text sm:px-6 lg:px-8">
+    <main id="contenido" className="min-h-screen bg-base px-4 py-12 text-text sm:px-6 lg:px-8">
       <article className="mx-auto max-w-3xl rounded-2xl border border-line bg-surface p-6 sm:p-10">
         <Link href="/" className="text-sm text-primary-light hover:underline">Volver a FIT system™</Link>
         <p className="mt-8 text-xs font-semibold uppercase tracking-widest text-primary-light">Información legal</p>
         <h1 className="mt-3 text-3xl font-bold tracking-tight">Términos y condiciones</h1>
         <p className="mt-4 text-sm leading-7 text-text-muted">Última actualización: 25 de octubre de 2026.</p>
-
         <section className="mt-8 space-y-4 text-sm leading-7 text-text-muted">
-          <h2 className="text-xl font-semibold text-text">1. Identificación y aceptación</h2>
-          <p>FIT system™ es el nombre de fantasía de Matias Dario Duranovich, CUIT 20-35720586-8, con domicilio en Calle 464 N.º 310, City Bell, Provincia de Buenos Aires. El uso del sitio, la descarga o la contratación del servicio implican la aceptación de estos términos.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">2. Servicio y licencia</h2>
-          <p>FIT system™ ofrece herramientas para gestionar socios, cuotas, caja, clases, asistencia, productos y una app para socios. La licencia habilita una instalación del escritorio y la cantidad de socios con acceso a la app indicada en el plan contratado. El padrón del escritorio no está limitado por ese cupo.</p>
-          <p>La prueba inicial dura 7 días y no requiere ingresar una tarjeta. Al finalizar, el cliente puede contratar un plan o dejar de utilizar el servicio.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">3. Usuarios y responsabilidades</h2>
-          <p>El cliente debe mantener actualizados sus datos, proteger sus credenciales, asignar roles adecuados y utilizar el sistema conforme a la ley. El gimnasio es responsable de la información de sus socios, de contar con las autorizaciones necesarias y de definir sus políticas de acceso y conservación.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">4. Licencia, vencimiento y cupos</h2>
-          <p>La licencia dura el período contratado. Cuando vence o queda suspendida, pueden limitarse las funciones de escritura hasta su renovación, conforme al estado de la licencia. El cliente debe exportar o respaldar sus datos antes de cancelar o dejar vencer el servicio.</p>
-          <p>Si se alcanza el cupo de socios con app, no se habilitan nuevos accesos móviles hasta contratar una capacidad disponible. Los socios ya cargados en el escritorio no se eliminan por superar ese cupo.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">5. Precios, pagos y facturación</h2>
-          <p>Los precios y el período aplicable se muestran antes de confirmar la compra. MercadoPago procesa el pago conforme a sus propios términos y comisiones. La facturación electrónica ARCA corresponde a la operación del gimnasio y se configura desde el sistema según la situación fiscal del cliente.</p>
-          <p>La condición fiscal del responsable de FIT system™ es la que surge de su constancia vigente. El comprobante aplicable se emitirá conforme a la normativa fiscal correspondiente.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">6. Cancelación y reembolsos</h2>
-          <p>La prueba de 7 días no genera cobros automáticos porque no requiere tarjeta. Para una licencia paga, cualquier solicitud de cancelación o reembolso debe enviarse a contacto@fitsystem.com.ar e indicar el comprador, la referencia de la operación y el motivo. Se analizará conforme a la legislación aplicable y a las condiciones informadas antes del pago.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">7. Soporte</h2>
-          <p>El soporte se brinda por los canales publicados en el sitio. El alcance y la prioridad dependen del plan contratado. Las consultas comerciales se reciben en contacto@fitsystem.com.ar y el soporte de clientes en soporte@fitsystem.com.ar.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">8. Datos y respaldos</h2>
-          <p>El cliente debe conservar respaldos propios y verificar que las copias puedan restaurarse. FIT system™ mantiene respaldos de infraestructura según su operación, pero no reemplaza la responsabilidad del cliente sobre sus datos.</p>
-
-          <h2 className="pt-4 text-xl font-semibold text-text">9. Cambios, ley y jurisdicción</h2>
-          <p>Podemos actualizar estos términos para reflejar cambios del servicio o de la normativa. Las relaciones se rigen por las leyes de la República Argentina, sin perjuicio de los derechos irrenunciables que correspondan al usuario. La jurisdicción aplicable debe validarse con asesoramiento legal.</p>
+          <h2 className="text-xl font-semibold text-text">1. Responsable y contacto</h2>
+          <p>FIT system™ es el nombre comercial de {legalName}, CUIT {taxId}, con domicilio en {address}. Contacto comercial: <a className="text-primary-light hover:underline" href={`mailto:${contact}`}>{contact}</a>. Soporte de clientes: <a className="text-primary-light hover:underline" href={`mailto:${support}`}>{support}</a>.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">2. Servicio y alcance de la licencia</h2>
+          <p>FIT system ofrece herramientas para gestionar socios, cuotas, caja, clases, asistencia, productos y una app para socios. Salvo que la oferta contratada indique otra cosa, la licencia habilita una instalación del escritorio y el cupo de socios con acceso a la app indicado en el plan. El padrón del escritorio no está limitado por ese cupo.</p>
+          <p>La prueba gratuita disponible actualmente dura 7 días y no requiere tarjeta. La duración y condiciones vigentes se mostrarán antes de iniciar una prueba o contratación.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">3. Usuarios, permisos y datos del cliente</h2>
+          <p>El cliente debe proteger sus credenciales, asignar permisos adecuados y asegurar que cuenta con base legal para cargar y tratar los datos de sus socios. El gimnasio normalmente determina para qué utiliza esos datos y FIT system puede tratarlos por cuenta del gimnasio para prestar las funciones contratadas; las responsabilidades concretas deben establecerse en el acuerdo aplicable y según la normativa vigente.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">4. Duración, renovación y vencimiento</h2>
+          <p>La licencia dura el período que figure en el comprobante de compra. Un plan anual cubre 12 meses. No se realiza un débito automático por la prueba gratuita. Al vencer una licencia, algunas funciones pueden quedar limitadas hasta su renovación. El cliente debe mantener copias de sus datos y solicitar asistencia para exportarlos antes de cancelar o dejar vencer el servicio.</p>
+          <p>Los precios pueden actualizarse para futuras contrataciones o renovaciones. El importe ya pagado se mantiene durante el período contratado; cualquier precio nuevo debe informarse antes de confirmar una nueva compra.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">5. Cupo de socios con app</h2>
+          <p>El límite indicado en el plan se refiere a los socios habilitados para utilizar la app. Al alcanzar el cupo, puede ser necesario ampliar el plan para habilitar nuevos accesos móviles. No se eliminan del escritorio los socios ya cargados por alcanzar ese límite.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">6. Precios, IVA y facturación</h2>
+          <p>Los importes se muestran en pesos argentinos (ARS). Antes de confirmar el pago se debe revisar el importe final y el tratamiento impositivo aplicable. La condición fiscal del proveedor y el comprobante que corresponda se rigen por su constancia fiscal vigente y por la normativa aplicable. La revisión del código disponible no confirmó una integración para emitir comprobantes fiscales electrónicos ARCA en FIT system; el registro de pagos no equivale a emitir una factura fiscal. Antes de contratar, pedí confirmación por escrito si necesitás esa función.</p>
+          <p>MercadoPago procesa las operaciones conforme a sus términos, comisiones y disponibilidad. Las comisiones de MercadoPago y el destino de los fondos dependen del flujo de pago y la cuenta vinculada que se informe para la compra o integración correspondiente.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">7. Cancelación y política comercial de reembolso</h2>
+          <p>Para las licencias compradas directamente a FIT system, el cliente puede solicitar voluntariamente la devolución del importe de la licencia dentro de los primeros 15 días corridos desde su activación, enviando un email a {contact} con nombre, email del comprador, referencia de la operación y motivo. La solicitud se verificará y, si corresponde, se tramitará por el medio de pago original; el plazo de acreditación puede depender del procesador de pagos.</p>
+          <p>Esta política comercial no limita derechos irrenunciables que pudieran corresponder por ley ni reemplaza las condiciones de terceros. Si la contratación se realizó mediante otro canal, indicaremos el procedimiento aplicable. Para pedir la baja o iniciar una solicitud de arrepentimiento, visitá <Link href="/arrepentimiento" className="text-primary-light hover:underline">Arrepentimiento y baja</Link>.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">8. Soporte</h2>
+          <p>Las consultas generales se reciben en {contact} y las de clientes en {support}. El alcance y prioridad dependen del plan. El horario y tiempo de respuesta deben confirmarse en la oferta vigente; no se garantiza disponibilidad ininterrumpida salvo acuerdo expreso.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">9. Seguridad y copias de respaldo</h2>
+          <p>El cliente debe conservar copias de seguridad independientes y comprobar periódicamente que se puedan restaurar. Los respaldos de infraestructura del proveedor no sustituyen una copia exportable de los datos del gimnasio. No cargues contraseñas ni información personal innecesaria en solicitudes de soporte.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">10. Disponibilidad y responsabilidad</h2>
+          <p>Trabajamos para mantener el servicio disponible, pero pueden existir interrupciones por mantenimiento, conectividad, proveedores o incidencias. El cliente debe verificar sus datos y mantener procedimientos alternativos para operar durante una interrupción. Ninguna disposición limita responsabilidades que no puedan excluirse legalmente.</p>
+          <h2 className="pt-4 text-xl font-semibold text-text">11. Ley aplicable</h2>
+          <p>Estos términos se interpretan conforme a las leyes de la República Argentina, sin perjuicio de las normas imperativas que correspondan. La jurisdicción aplicable y la validez de cada cláusula deben interpretarse de acuerdo con la legislación vigente.</p>
+          <p className="pt-4">Para consultas legales y de privacidad, escribí a <a className="text-primary-light hover:underline" href={`mailto:${contact}`}>{contact}</a>. Estos términos deben ser revisados por asesoría legal y contable antes de su uso comercial definitivo.</p>
         </section>
       </article>
     </main>

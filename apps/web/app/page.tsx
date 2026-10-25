@@ -43,6 +43,9 @@ const counted = (asset: 'setup' | 'portable', direct: string) =>
   API_ROOT ? `${API_ROOT}/metrics/download/go?asset=${asset}` : direct;
 const SETUP_URL = counted('setup', `${DOWNLOAD_BASE}/FIT-System-Setup.exe`);
 const PORTABLE_URL = counted('portable', `${DOWNLOAD_BASE}/FIT-System-Portable.exe`);
+const CURRENT_RELEASE = 'v0.3.35';
+const SETUP_SHA256 = 'ca8a9395278400a383f1060f24cffdb0ad50e15c2f771970efafad56dfbcdeaa';
+const PORTABLE_SHA256 = '08867ed7b860ac7c9f4b481c0b69feea859b209682cdd6c1e0a4bad1457972f7';
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
@@ -79,7 +82,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Cómo funciona la licencia?',
-    a: 'La licencia se activa una sola vez con una clave (FIT-XXXX-XXXX-XXXX). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
+    a: 'La licencia se activa una sola vez con una clave que comienza con FIT y contiene tres bloques de caracteres separados por guiones (formato de ejemplo: FIT-AB12-CD34-EF56). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
   },
   {
     q: '¿Puedo separar la operación por sede o caja?',
@@ -95,15 +98,19 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Cómo consigo el código de licencia?',
-    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave (FIT-XXXX-XXXX-XXXX) automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
+    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
   },
   {
     q: '¿La prueba requiere una tarjeta?',
     a: `No. Podés probar FIT system durante ${trialDays} días sin ingresar una tarjeta ni asumir un cobro automático. Al terminar la prueba, elegís si querés contratar un plan.`,
   },
   {
+    q: '¿Emiten factura electrónica ARCA?',
+    a: 'El registro de cobros del sistema no equivale a emitir una factura fiscal. En la revisión del código disponible no pudimos confirmar una integración de emisión electrónica ARCA; si necesitás esa función, consultá por escrito a contacto@fitsystem.com.ar antes de contratar.',
+  },
+  {
     q: '¿Qué pasa si se rompe o me roban la PC?',
-    a: 'La recuperación depende de que exista una copia de seguridad reciente y accesible. Recomendamos mantener una copia fuera de la computadora principal y probar periódicamente su restauración. Antes de instalar o migrar, consultá con soporte el procedimiento correspondiente a tu versión.',
+    a: 'En el escritorio, la API local genera copias automáticas diarias de SQLite y conserva las últimas 14 cuando la base es local. Para protegerte ante robo o fallo del disco, mantené además una copia externa y probá la restauración. Consultá la guía de backups o escribí a soporte antes de restaurar una copia en producción.',
   },
   {
     q: '¿Puedo migrar mis datos desde Excel u otro sistema?',
@@ -175,7 +182,6 @@ export default function LandingPage() {
   const content = getSiteContent();
   const { hero, stats, trialDays } = content;
   const CONTACT_EMAIL = content.contact.email;
-  const SALES_EMAIL = content.contact.salesEmail;
   const SUPPORT_EMAIL = content.contact.supportEmail;
   const plans: PlanDef[] = content.plans.map((plan) => ({
     tag: plan.tag === 'PRO' ? 'PRO' : plan.tag === 'ENTERPRISE' ? 'ENTERPRISE' : 'BASIC',
@@ -194,6 +200,14 @@ export default function LandingPage() {
         name: 'FIT system',
         url: 'https://fitsystem.com.ar',
         email: CONTACT_EMAIL,
+        logo: 'https://fitsystem.com.ar/logo.png',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: 'Calle 464 N.º 310',
+          addressLocality: 'City Bell',
+          addressRegion: 'Buenos Aires',
+          addressCountry: 'AR',
+        },
       },
       {
         '@type': 'SoftwareApplication',
@@ -292,12 +306,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="absolute -right-3 top-16 hidden animate-float-slow items-center gap-2 rounded-xl border border-line glass px-3 py-2 text-xs font-medium text-text shadow-xl sm:flex">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success/20 text-success">
-                <Icon name="check" size={14} />
-              </span>
-              Cobro acreditado en caja
-            </div>
+            
           </div>
         </div>
       </section>
@@ -457,15 +466,27 @@ export default function LandingPage() {
           />
 
           <LandingPlans setupUrl={SETUP_URL} trialDays={trialDays} plans={plans} />
+          <div className="mt-10 overflow-x-auto rounded-2xl border border-line bg-surface">
+            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <caption className="px-5 py-4 text-left text-base font-semibold text-text">Comparativa de planes</caption>
+              <thead><tr className="border-y border-line bg-base text-text-muted"><th scope="col" className="px-5 py-3">Función</th><th scope="col" className="px-4 py-3">Prueba</th><th scope="col" className="px-4 py-3">Básico</th><th scope="col" className="px-4 py-3">Pro</th><th scope="col" className="px-4 py-3">Empresa</th></tr></thead>
+              <tbody className="divide-y divide-line">
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Socios con app</th><td className="px-4 py-3">10</td><td className="px-4 py-3">100</td><td className="px-4 py-3">300</td><td className="px-4 py-3">500</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Módulos de escritorio</th><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">App del socio</th><td className="px-4 py-3">Hasta 10</td><td className="px-4 py-3">Incluida</td><td className="px-4 py-3">Incluida</td><td className="px-4 py-3">Incluida</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Registro de cobros</th><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Reportes por sede</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Avanzados</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Soporte prioritario</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
+                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Packs adicionales</th><td className="px-4 py-3">—</td><td className="px-4 py-3">Hasta 2</td><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-text-muted">El cupo se refiere a socios con acceso a la app; el escritorio no limita el padrón. Los packs de 100 socios cuestan $100.000 por 12 meses o $10.000 por mes y solo están disponibles en Básico, hasta 2 packs.</p>
 
           <p className="mt-8 text-center text-xs text-text-muted">
             Precios en pesos argentinos (ARS). El plan anual equivale a 10 meses (2 meses sin cargo).
             Todos los planes incluyen el sistema completo y la app del socio.
           </p>
-          <p className="mt-2 text-center text-xs text-text-muted">
-            La facturación electrónica ARCA corresponde a la operación del gimnasio.
-          </p>
-
         </div>
       </section>
 
@@ -487,6 +508,7 @@ export default function LandingPage() {
                 cta: 'Descargar para Windows',
                 href: SETUP_URL,
                 note: `Incluye ${trialDays} días de prueba gratis`,
+                sha256: SETUP_SHA256,
               },
               {
                 icon: 'mobile' as IconName,
@@ -512,6 +534,8 @@ export default function LandingPage() {
                 <h3 className="mt-4 text-base font-semibold text-text">{item.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{item.text}</p>
                 <p className="mt-2 text-xs text-text-muted">{item.note}</p>
+                {item.sha256 && <p className="mt-2 break-all text-[11px] leading-5 text-text-muted">SHA-256 ({CURRENT_RELEASE}): <code>{item.sha256}</code></p>}
+                {item.title === "Escritorio (Windows)" && <p className="mt-2 text-xs leading-5 text-text-muted">Si Windows muestra una advertencia, verificá que el archivo provenga de GitHub Releases y contrastá este hash antes de continuar.</p>}
                 <a
                   href={item.href}
                   className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
@@ -545,6 +569,7 @@ export default function LandingPage() {
               Descargar FIT system™ Portable
             </a>
           </p>
+          <p className="mx-auto mt-2 max-w-3xl break-all text-center text-[11px] leading-5 text-text-muted">SHA-256 de la versión portable ({CURRENT_RELEASE}): <code>{PORTABLE_SHA256}</code></p>
         </div>
       </section>
 
@@ -578,13 +603,24 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Quiénes somos */}
+      <section id="quienes-somos" className="scroll-mt-20 py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl border border-line bg-surface p-7 sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-light">Quiénes somos</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-text sm:text-3xl">Tecnología pensada para el día a día del gimnasio</h2>
+            <p className="mt-4 text-sm leading-7 text-text-muted">FIT system es una herramienta de gestión enfocada en reunir en un solo flujo la administración de socios, cuotas, caja, asistencia, clases y la comunicación con los socios. Buscamos que el equipo del gimnasio dedique menos tiempo a tareas dispersas y tenga una visión más ordenada de su operación.</p>
+            <p className="mt-3 text-sm leading-7 text-text-muted">Si querés conocer el alcance real de una función, consultar una integración o evaluar una migración, escribinos antes de contratar. Preferimos confirmar compatibilidad y condiciones de antemano.</p>
+          </div>
+        </div>
+      </section>
+
       {/* Contacto */}
       <section id="contacto" className="scroll-mt-20 pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <LandingContact
             contacts={[
               { label: 'Contacto general', email: CONTACT_EMAIL },
-              { label: 'Ventas', email: SALES_EMAIL },
               { label: 'Soporte', email: SUPPORT_EMAIL },
             ]}
           />
@@ -617,16 +653,22 @@ export default function LandingPage() {
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
                 y app móvil para tus socios.
               </p>
+              <p className="mt-3 text-xs leading-relaxed text-text-muted">Titular: Matias Dario Duranovich · CUIT 20-35720586-8 · Calle 464 N.º 310, City Bell, Buenos Aires.</p>
               <p className="mt-4 text-xs text-text-muted">Datos en tu equipo · Opera sin internet · Pagás por el período elegido</p>
             </div>
             <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-text">Contacto</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-text-muted">
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
-                <li><a href={`mailto:${SALES_EMAIL}`} className="transition-colors hover:text-text">{SALES_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
+                <a href="/software-para-gimnasios" className="transition-colors hover:text-text">Software para gimnasios</a>
+                <a href="/control-de-socios-y-cuotas" className="transition-colors hover:text-text">Socios y cuotas</a>
+                <a href="/control-de-acceso-qr" className="transition-colors hover:text-text">Control de acceso QR</a>
+                <a href="/cobros-mercadopago-gimnasios" className="transition-colors hover:text-text">Cobros con MercadoPago</a>
+                <a href="/app-para-socios" className="transition-colors hover:text-text">App para socios</a>
+                <a href="/gimnasio-sin-internet" className="transition-colors hover:text-text">Gimnasio sin internet</a>
                 <a href="/privacidad" className="transition-colors hover:text-text">Política de privacidad</a>
                 <a href="/terminos" className="transition-colors hover:text-text">Términos y condiciones</a>
                 <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>

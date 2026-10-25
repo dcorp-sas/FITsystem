@@ -63,7 +63,15 @@ export function contactRoutes(app: FastifyInstance) {
       if (!result.ok) {
         throw new HttpError(502, 'No pudimos enviar tu mensaje. Escribinos a ' + env.PLATFORM_CONTACT_TO);
       }
-      return ok(reply, { ok: true });
+      const isWithdrawal = input.message.toLocaleLowerCase('es').includes('solicitud de arrepentimiento') || input.message.toLocaleLowerCase('es').includes('solicitud de baja');
+      const confirmation = await sendPlatformEmail(
+        input.email,
+        isWithdrawal ? 'Recibimos tu solicitud de arrepentimiento o baja · FIT system' : 'Recibimos tu mensaje · FIT system',
+        isWithdrawal
+          ? 'Recibimos tu solicitud de arrepentimiento o baja. Este correo confirma la recepción, no la aprobación. El equipo revisará la referencia de compra y te responderá por este mismo canal. Si no reconocés la solicitud, respondé a este correo o escribí a contacto@fitsystem.com.ar.'
+          : 'Recibimos tu mensaje. Gracias por contactar a FIT system; el equipo revisará tu consulta y te responderá a la brevedad. Si no reconocés este envío, escribí a contacto@fitsystem.com.ar.',
+      ).catch(() => ({ ok: false }));
+      return ok(reply, { ok: true, confirmationEmailSent: confirmation.ok });
     } catch (error) {
       return fail(reply, error);
     }

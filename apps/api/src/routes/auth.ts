@@ -130,9 +130,8 @@ export function authRoutes(app: FastifyInstance) {
 
   /**
    * Resuelve el usuario que quiere ingresar al panel.
-   * - Usuario genérico "admin" en la instalación local -> OWNER local (admin/admin123).
-   * - Usuario genérico "admin" en la nube -> admin del gimnasio vinculado al
-   *   ID de instalación que envía el panel.
+   * - Usuario genérico inicial en la instalación local -> OWNER local.
+   * - Usuario genérico en la nube -> administrador del gimnasio vinculado al ID de instalación.
    * - Email + contraseña -> login normal (acotado al gimnasio si hay instalación).
    */
   async function resolveLoginUser(raw: string, installationId?: string) {
@@ -155,24 +154,19 @@ export function authRoutes(app: FastifyInstance) {
           orderBy: { name: 'asc' },
           select: { id: true },
         });
+        const adminEmail = genericAdminEmail(org.slug);
+        const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+        if (existingAdmin) return existingAdmin;
         await ensureGenericAdmin(org, branch?.id ?? null);
-        return prisma.user.findUnique({ where: { email: genericAdminEmail(org.slug) } });
+        return prisma.user.findUnique({ where: { email: adminEmail } });
       }
     }
 
     if (!looksLikeEmail) {
-      // Instalación local: "admin" es el OWNER por defecto. Se garantiza que la
-      // contraseña genérica esté vigente para que siempre se pueda ingresar.
+      // Instalación local: el administrador inicial puede ingresar, pero su
+      // contraseña no debe reescribirse en cada intento. Así persisten los cambios.
       if (raw !== GENERIC_ADMIN_USER || !env.LICENSE_INSTALLATION_ID) return null;
-      const local = await ensureLocalOwner();
-      const matches = await bcrypt.compare(GENERIC_ADMIN_PASSWORD, local.passwordHash);
-      if (!matches) {
-        await prisma.user.update({
-          where: { id: local.id },
-          data: { passwordHash: await bcrypt.hash(GENERIC_ADMIN_PASSWORD, 10) },
-        });
-      }
-      return prisma.user.findUnique({ where: { id: local.id } });
+      return ensureLocalOwner();
     }
 
     return prisma.user.findUnique({ where: { email: raw } });
@@ -183,7 +177,10 @@ export function authRoutes(app: FastifyInstance) {
    * con el usuario genérico admin/admin123. */
   app.post('/auth/desktop-session', async (_request, reply) => {
     try {
-      if (!env.LICENSE_INSTALLATION_ID) throw new HttpError(404, 'No disponible');
+      // El ingreso automático queda desactivado por defecto: requiere una
+      // habilitación explícita para entornos controlados y no expone datos al
+      // abrir la aplicación sin autenticar al operador.
+      if (process.env.DESKTOP_AUTO_LOGIN !== 'true' || !env.LICENSE_INSTALLATION_ID) throw new HttpError(404, 'No disponible');
       const user = await ensureLocalOwner();
       await logActivity(
         { user: { id: user.id, organizationId: user.organizationId, branchId: user.branchId, name: user.name, email: user.email, role: user.role } } as unknown as AuthedRequest,
