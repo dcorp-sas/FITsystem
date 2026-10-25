@@ -179,6 +179,12 @@ export async function generateReminders(organizationId: string, days = 3) {
     };
     created++;
     await notifyEvent(organizationId, m.memberId, event, vars);
+    // Los recordatorios de vencimiento también deben llegar como push a la app
+    // del socio, aunque la plantilla de mensajería del gimnasio use WhatsApp.
+    const message = expiring
+      ? `Tu cuota vence el ${m.endDate.toLocaleDateString('es-AR')}. Renovala para seguir entrenando.`
+      : `Tu cuota venció el ${m.endDate.toLocaleDateString('es-AR')}. Contactá a tu gimnasio para renovarla.`;
+    await sendPushToMember(organizationId, m.memberId, expiring ? 'Tu cuota está por vencer' : 'Tu cuota está vencida', message);
   }
   return created;
 }
