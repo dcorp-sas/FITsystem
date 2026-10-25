@@ -22,14 +22,14 @@ export const metadata: Metadata = {
     title: 'FIT system™ — Software de gestión para gimnasios',
     description:
       'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet, con app móvil para tus socios.',
-    images: [{ url: '/logo.png', width: 1254, height: 1254, alt: 'FIT system™' }],
+    images: [{ url: '/og-fitsystem.svg', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'FIT system™ — Software de gestión para gimnasios',
     description:
       'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema, con app móvil para tus socios.',
-    images: ['/logo.png'],
+    images: ['/og-fitsystem.svg'],
   },
 };
 
@@ -54,7 +54,7 @@ const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[]
   { icon: 'attendance', title: 'Asistencia y check-in', text: 'Ingresos por DNI o QR, control de acceso y estadísticas de concurrencia.' },
   { icon: 'classes', title: 'Clases y turnos', text: 'Grilla de clases, cupos, reservas, listas de espera e instructores asignados.' },
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
-  { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, en tiempo real.', wide: true },
+  { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, según las funciones del plan contratado.', wide: true },
   { icon: 'branches', title: 'Sedes y cajas', text: 'Operación por sede o caja, con reportes comparativos.' },
   { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas a la app del socio.' },
   { icon: 'news', title: 'Novedades', text: 'Publicá promos y avisos que tus socios ven en la app.' },
@@ -71,7 +71,7 @@ const STEPS = [
 const faqs = (trialDays: number) => [
   {
     q: '¿Necesito internet para usar el sistema?',
-    a: 'Para la operación diaria no: el sistema corre en la PC del gimnasio y sigue funcionando aunque se corte internet (socios, cuotas, caja, clases, asistencia y tienda). La conexión se usa para la app móvil de los socios, los pagos online, las novedades, el envío de recordatorios y la sincronización del consolidado para reportes.',
+    a: 'La operación local del escritorio puede continuar sin conexión a Internet. Las funciones en la nube, la app móvil de socios, los pagos online, las novedades y la sincronización de datos sí requieren conectividad.',
   },
   {
     q: '¿Qué es la app del socio?',
@@ -100,6 +100,42 @@ const faqs = (trialDays: number) => [
   {
     q: '¿La prueba requiere una tarjeta?',
     a: `No. Podés probar FIT system durante ${trialDays} días sin ingresar una tarjeta ni asumir un cobro automático. Al terminar la prueba, elegís si querés contratar un plan.`,
+  },
+  {
+    q: '¿Qué pasa si se rompe o me roban la PC?',
+    a: 'La recuperación depende de que exista una copia de seguridad reciente y accesible. Recomendamos mantener una copia fuera de la computadora principal y probar periódicamente su restauración. Antes de instalar o migrar, consultá con soporte el procedimiento correspondiente a tu versión.',
+  },
+  {
+    q: '¿Puedo migrar mis datos desde Excel u otro sistema?',
+    a: 'La posibilidad de migrar depende del formato y de la calidad de los datos de origen. Escribinos antes de contratar con una muestra sin datos sensibles para confirmar columnas, alcance, plazos y si el trabajo tiene costo.',
+  },
+  {
+    q: '¿Qué ocurre cuando vence la licencia?',
+    a: 'La licencia cubre el período contratado. Antes del vencimiento, revisá el estado de la licencia y conservá una copia de seguridad exportable. Para conocer qué funciones quedan disponibles en tu versión, contactá a soporte.',
+  },
+  {
+    q: '¿Qué pasa si supero el cupo de socios con app?',
+    a: 'El cupo de la licencia se aplica a los accesos de la app móvil, no al padrón cargado en el escritorio. Para habilitar más socios con app, consultá las opciones de ampliación disponibles.',
+  },
+  {
+    q: '¿Se integra con torniquetes o lectores de huella?',
+    a: 'El sistema permite registrar asistencia mediante DNI o QR según la función utilizada. No publicamos una lista general de torniquetes o lectores de huella compatibles; consultanos el modelo exacto antes de comprar hardware.',
+  },
+  {
+    q: '¿A dónde va el dinero de MercadoPago y qué comisión se cobra?',
+    a: 'Las condiciones dependen del flujo de pago configurado y de la cuenta de MercadoPago vinculada. MercadoPago aplica sus propias comisiones. Antes de habilitar cobros, confirmá con nosotros el flujo correspondiente a tu instalación; no asumimos que todas las integraciones acreditan a la misma cuenta.',
+  },
+  {
+    q: '¿Cuáles son los requisitos de la PC?',
+    a: 'FIT system está orientado a equipos con Windows. Como los requisitos dependen de la versión y del hardware, consultá soporte con el modelo de tu PC antes de instalarlo, especialmente si usás Windows de 32 bits o un equipo antiguo.',
+  },
+  {
+    q: '¿Cómo funciona el soporte?',
+    a: 'El canal de contacto general es contacto@fitsystem.com.ar y el soporte para clientes es soporte@fitsystem.com.ar. La prioridad depende del plan contratado. Para evitar expectativas incorrectas, consultá el horario vigente al activar tu licencia.',
+  },
+  {
+    q: '¿Puedo cancelar y pedir un reembolso?',
+    a: 'Podés iniciar la solicitud escribiendo a contacto@fitsystem.com.ar con la referencia de compra. Se aplicará la política de reembolso publicada, sin limitar los derechos irrenunciables que correspondan por ley.',
   },
 ];
 
@@ -593,6 +629,8 @@ export default function LandingPage() {
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
                 <a href="/privacidad" className="transition-colors hover:text-text">Política de privacidad</a>
                 <a href="/terminos" className="transition-colors hover:text-text">Términos y condiciones</a>
+                <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>
+                <a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noreferrer" className="transition-colors hover:text-text">Defensa del Consumidor</a>
               </div>
               <a
                 href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,,"
