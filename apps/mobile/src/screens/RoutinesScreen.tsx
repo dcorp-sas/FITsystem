@@ -42,7 +42,7 @@ export function RoutinesScreen() {
   const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
-    const [routines, progress, archived] = await Promise.all([portal.routines(), portal.routineLogs({ limit: 200 } as never), portal.routineHistory()]);
+    const [routines, progress, archived] = await Promise.all([portal.routines(), portal.routineLogs({ limit: 200 }), portal.routineHistory()]);
     setItems(routines.items);
     setLogs(progress.items);
     setHistory(archived.items);
