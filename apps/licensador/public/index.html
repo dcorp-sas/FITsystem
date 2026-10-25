@@ -43,7 +43,7 @@
           <option>BASIC</option><option selected>PRO</option><option>ENTERPRISE</option>
         </select>
       </label>
-      <label class="fld"><span>Días (≤3650)</span><input id="fDias" class="input" type="number" min="1" max="3650" value="365"></label>
+      <label class="fld"><span>Duración</span><input id="fDias" class="input" type="number" value="30" readonly title="Duración fija de 30 días"></label>
       <label class="fld"><span>Asientos</span><input id="fAsientos" class="input" type="number" min="1" value="300" readonly title="Se calcula automáticamente según el plan comercial"></label>
       <label class="fld grow"><span>Notas</span><input id="fNotas" class="input" placeholder="opcional"></label>
       <button class="btn primary" id="fCrear">Emitir</button>
@@ -168,8 +168,8 @@
   $('fCrear').onclick = async ()=>{
     $('fMsg').innerHTML='';
     try{
-      const dias = Number($('fDias').value)||365;
-      if(dias>3650) throw new Error('Máximo 3650 días');
+      const dias = 30;
+      $('fDias').value = '30';
       const r = await api('POST','/api/licenses',{ client:$('fCliente').value, plan:$('fPlan').value, days:dias, seats:Number($('fAsientos').value)||1, notas:$('fNotas').value });
       $('fMsg').innerHTML = `<div class="mini-ok">Licencia emitida — vence ${fmt(r.expires)}</div>
         <div class="keybox">${esc(r.key)}<button class="btn sm" data-cop2="${esc(r.key)}">copiar</button></div>`;
