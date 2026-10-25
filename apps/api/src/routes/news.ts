@@ -83,6 +83,11 @@ export function newsRoutes(app: FastifyInstance) {
         },
       });
       await logActivity(req, 'UPDATE', 'NEWS', id, existing, post);
+      // Si se publica o edita una novedad, avisar a los socios que activaron push.
+      if (post.isPublished && (!existing.isPublished || existing.title !== post.title || existing.body !== post.body)) {
+        const preview = post.body.length > 140 ? `${post.body.slice(0, 137)}...` : post.body;
+        void broadcastPushToOrg(req.user.organizationId, post.title, preview).catch(() => undefined);
+      }
       return ok(reply, post);
     } catch (error) {
       return fail(reply, error);
