@@ -1,12 +1,12 @@
 {
   "hero": {
-    "kicker": "Software de gestión para gimnasios",
+    "kicker": "Gestión integrada para gimnasios",
     "title": "Software para",
     "titleAccent": "gimnasios",
-    "subtitle": "Administrá socios, cuotas, cobros, caja y asistencia desde tu PC con Windows. La app móvil permite a tus socios consultar su información y usar funciones online cuando tienen conexión.",
+    "subtitle": "Administrá socios, cuotas, caja, clases y rutinas desde tu PC. La app de socios y el portal de profesores trabajan conectados al mismo sistema, con datos compartidos y funciones online cuando hay conexión.",
     "chips": [
-      "Escritorio con operación local",
-      "App para socios según plan",
+      "Sistema de escritorio + app + portal docente",
+      "Rutinas y clases conectadas",
       "Prueba gratis por 7 días"
     ],
     "ctaPrimary": "Probar gratis",
