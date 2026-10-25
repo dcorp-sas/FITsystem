@@ -28,6 +28,7 @@ export interface DesktopBridge {
   setNetwork?: (mode: 'standalone' | 'server' | 'cloud') => Promise<{ ok: boolean; mode: 'standalone' | 'server' | 'cloud' }>;
   restartApp?: () => Promise<{ ok: boolean }>;
   openAccessWindow?: () => Promise<{ ok: boolean }>;
+  openAccessQrWindow?: (data: { title: string; subtitle: string; footer: string; image: string | null; enabled: boolean; rotation: string }) => Promise<{ ok: boolean }>;
 }
 
 declare global {
