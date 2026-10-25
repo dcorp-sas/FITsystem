@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   title: 'FIT system™ · Gestión de gimnasios',
   description: 'Sistema integral de gestión para gimnasios: socios, cuotas, caja, clases y más.',
   icons: { icon: '/logo.png', apple: '/logo.png' },
-  other: { google: 'notranslate' },
 };
 
 export const viewport: Viewport = {

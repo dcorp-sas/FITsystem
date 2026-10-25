@@ -48,13 +48,12 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     subtitle:
       'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Corre en tu PC y sigue funcionando aunque se corte internet; conecta a tus socios con una app móvil propia.',
     chips: ['Opera sin internet', 'Datos en tu equipo', 'App del socio incluida', 'Pagás por el período elegido'],
-    ctaPrimary: 'Pedir una demo',
+    ctaPrimary: 'Probar gratis',
     ctaSecondary: 'Ver planes',
   },
   stats: [
     { value: '+10', label: 'Módulos integrados' },
     { value: '100%', label: 'Funciona sin internet' },
-    { value: '+10', label: 'Módulos integrados' },
   ],
   trialDays: 15,
   contact: {

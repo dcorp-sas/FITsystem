@@ -12,16 +12,6 @@ export const metadata: Metadata = {
   title: 'FIT system™ — Software de gestión para gimnasios',
   description:
     'Gestioná socios, cuotas, caja, clases, asistencia y tienda desde una sola app. Sistema de escritorio para tu PC que funciona sin internet, con app móvil para tus socios.',
-  keywords: [
-    'software para gimnasios',
-    'sistema de gestión de gimnasios',
-    'control de socios y cuotas',
-    'app para gimnasios',
-    'caja y cobros',
-    'control de acceso',
-    'MercadoPago',
-    'Argentina',
-  ],
   alternates: { canonical: '/' },
   robots: { index: true, follow: true },
   openGraph: {
@@ -164,10 +154,43 @@ export default function LandingPage() {
     popular: plan.popular,
     features: plan.features,
   }));
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'FIT system',
+        url: 'https://fitsystem.com.ar',
+        email: CONTACT_EMAIL,
+      },
+      {
+        '@type': 'SoftwareApplication',
+        name: 'FIT system',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Windows',
+        description: 'Software de gestión para gimnasios: socios, cuotas, caja, clases, asistencia y app del socio.',
+        offers: plans.map((plan) => ({
+          '@type': 'Offer',
+          name: plan.name,
+          price: String(plan.annual),
+          priceCurrency: 'ARS',
+        })),
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: faqs(trialDays).map((faq) => ({
+          '@type': 'Question',
+          name: faq.q,
+          acceptedAnswer: { '@type': 'Answer', text: faq.a },
+        })),
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-base">
       <TrackVisit />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <LandingNav />
 
       {/* Hero */}
@@ -189,7 +212,7 @@ export default function LandingPage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
-                href="#contacto"
+                href="#descargas"
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-6 text-base font-medium text-white shadow-lg shadow-primary/30 transition-colors hover:bg-primary-dark"
               >
                 <Icon name="dashboard" size={18} />

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.28",
+  "version": "0.3.29",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Mejora la comunicación comercial: corrige textos de licencia y acceso, agrega WhatsApp, aclara prueba sin tarjeta y facturación ARCA. Programa backups externos diarios con rotación de 30 copias.",
+  "notes": "Mejora SEO y conversión: agrega datos estructurados Organization, SoftwareApplication y FAQPage, incorpora robots y sitemap, corrige el CTA Probar gratis y limpia métricas y metadata obsoletas.",
   "mandatory": false
 }
