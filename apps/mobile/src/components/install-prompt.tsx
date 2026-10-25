@@ -11,6 +11,16 @@ interface BeforeInstallPromptEvent extends Event {
 
 type InstallWindow = Window & { __deferredInstallPrompt?: BeforeInstallPromptEvent | null };
 
+const INSTALL_DISMISSED_KEY = 'fitsystem.socios.install-dismissed-v1';
+
+function wasDismissed(): boolean {
+  try { return window.localStorage.getItem(INSTALL_DISMISSED_KEY) === '1'; } catch { return false; }
+}
+
+function rememberDismissal() {
+  try { window.localStorage.setItem(INSTALL_DISMISSED_KEY, '1'); } catch { /* ignore */ }
+}
+
 /**
  * Pide al usuario agregar la app a la pantalla de inicio. En Android/Chrome se
  * usa el prompt nativo (beforeinstallprompt); en navegadores que no lo soportan
@@ -37,6 +47,7 @@ export function InstallPrompt() {
     const adopt = () => {
       if (win.__deferredInstallPrompt) {
         setDeferred(win.__deferredInstallPrompt);
+        if (wasDismissed() && !wants) return true;
         setManual(false);
         setOpen(true);
         return true;
@@ -48,6 +59,7 @@ export function InstallPrompt() {
       win.__deferredInstallPrompt = e as BeforeInstallPromptEvent;
       setDeferred(e as BeforeInstallPromptEvent);
       setManual(false);
+      if (wasDismissed()) return;
       setOpen(true);
     };
     const onInstalled = () => {
@@ -65,6 +77,21 @@ export function InstallPrompt() {
     if (wants && !adopt()) {
       setManual(true);
       setOpen(true);
+    } else if (!wants && !wasDismissed() && !adopt()) {
+      // Recupera la invitacion inicial tambien en Safari/iOS, donde no existe
+      // beforeinstallprompt. Se muestra una sola vez si el usuario la descarta.
+      const timer = window.setTimeout(() => {
+        if (!wasDismissed()) {
+          setManual(true);
+          setOpen(true);
+        }
+      }, 3500);
+      return () => {
+        window.clearTimeout(timer);
+        window.removeEventListener('beforeinstallprompt', onPrompt);
+        window.removeEventListener('fitsystem:install-available', adopt);
+        window.removeEventListener('appinstalled', onInstalled);
+      };
     }
 
     return () => {
@@ -76,13 +103,15 @@ export function InstallPrompt() {
 
   async function confirm() {
     if (manual || !deferred) {
+      rememberDismissal();
       setOpen(false);
       return;
     }
     setBusy(true);
     try {
       await deferred.prompt();
-      await deferred.userChoice;
+      const choice = await deferred.userChoice;
+      if (choice.outcome === 'dismissed') rememberDismissal();
     } catch {
       /* el usuario canceló o el navegador no respondió */
     } finally {
