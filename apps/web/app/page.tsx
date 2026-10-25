@@ -182,7 +182,6 @@ export default function LandingPage() {
   const content = getSiteContent();
   const { hero, stats, trialDays } = content;
   const CONTACT_EMAIL = content.contact.email;
-  const SALES_EMAIL = content.contact.salesEmail;
   const SUPPORT_EMAIL = content.contact.supportEmail;
   const plans: PlanDef[] = content.plans.map((plan) => ({
     tag: plan.tag === 'PRO' ? 'PRO' : plan.tag === 'ENTERPRISE' ? 'ENTERPRISE' : 'BASIC',
@@ -627,7 +626,6 @@ export default function LandingPage() {
           <LandingContact
             contacts={[
               { label: 'Contacto general', email: CONTACT_EMAIL },
-              { label: 'Ventas', email: SALES_EMAIL },
               { label: 'Soporte', email: SUPPORT_EMAIL },
             ]}
           />
@@ -667,7 +665,6 @@ export default function LandingPage() {
               <h4 className="text-sm font-semibold text-text">Contacto</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-text-muted">
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
-                <li><a href={`mailto:${SALES_EMAIL}`} className="transition-colors hover:text-text">{SALES_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
