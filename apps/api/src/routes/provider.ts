@@ -115,14 +115,13 @@ export function providerRoutes(app: FastifyInstance) {
     }
   });
 
-  // Cambio de período (mensual <-> anual): da de baja el débito vigente y crea
-  // uno nuevo con la frecuencia pedida; devuelve el init_point para autorizarlo.
+  // Reconfigura una suscripción a la modalidad mensual y devuelve el init_point para autorizar el débito.
   app.post('/provider/subscriptions/period', async (request, reply) => {
     try {
       requireProviderToken(request);
       const { externalRef, period } = (request.body ?? {}) as { externalRef?: string; period?: string };
       if (!externalRef) throw new HttpError(400, 'Falta la referencia de la suscripción');
-      if (!period || !isKnownPeriod(period)) throw new HttpError(400, 'Período inválido (MONTHLY o ANNUAL)');
+      if (!period || !isKnownPeriod(period)) throw new HttpError(400, 'Período inválido (MONTHLY)');
       const result = await changeSubscriptionPeriod(externalRef, period);
       if (!result.ok) throw new HttpError(502, result.error || 'No se pudo cambiar el período');
       return ok(reply, { initPoint: result.initPoint, externalRef: result.externalRef, amount: result.amount, period });
