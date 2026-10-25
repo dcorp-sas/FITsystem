@@ -1,16 +1,26 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { prisma } from '../db.js';
 
 const KEEP_BACKUPS = 14;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function getLocalDatabasePath(): string | null {
   const value = process.env.DATABASE_URL || '';
   if (!value.startsWith('file:')) return null;
+
+  // Prisma suele usar "file:./dev.db" en instalaciones locales. Esa forma es
+  // una ruta relativa, no una URL file:// absoluta, y fileURLToPath la rechaza.
+  const raw = value.slice('file:'.length).split('?')[0] || '';
   try {
-    return fileURLToPath(value.split('?')[0] || value);
+    if (/^[A-Za-z]:[\\/]/.test(raw)) return path.resolve(raw);
+    if (raw.startsWith('/')) {
+      try {
+        return fileURLToPath(new URL(value));
+      } catch {
+        return path.resolve(raw);
+      }
+    }
+    return path.resolve(process.cwd(), decodeURIComponent(raw));
   } catch {
     return null;
   }
@@ -68,17 +78,16 @@ export function startLocalBackupScheduler(): void {
   };
 
   // Primera copia tras el arranque y luego una copia diaria a las 04:00 local.
+  // El temporizador se recalcula después de cada ejecución para evitar deriva
+  // y no programar dos cadenas de copias concurrentes.
   setTimeout(() => {
     void run();
     const scheduleNext = () => {
-      setTimeout(() => {
-        void run();
+      setTimeout(async () => {
+        await run();
         scheduleNext();
-      }, DAY_MS);
+      }, nextFourAmDelay());
     };
-    setTimeout(() => {
-      void run();
-      scheduleNext();
-    }, nextFourAmDelay());
+    scheduleNext();
   }, 60_000);
 }
