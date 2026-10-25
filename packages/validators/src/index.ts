@@ -815,7 +815,7 @@ export const contactSchema = z.object({
 export const checkoutSchema = z.object({
   // Planes (suscripción) o productos de pago único (asientos, kit MercadoPago).
   plan: z.enum(['BASIC', 'PRO', 'ENTERPRISE', 'SEAT_PACK', 'MP_KIT']),
-  period: z.enum(['MONTHLY', 'ANNUAL']).optional(),
+  period: z.literal('MONTHLY').optional(),
   buyerName: z.string().trim().min(2, 'Ingresá tu nombre'),
   buyerEmail: looseEmail,
   buyerPhone: z.string().trim().max(40).optional().nullable(),
