@@ -654,6 +654,17 @@ export default function LandingPage() {
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
+              <a
+                href="https://www.instagram.com/fitsystemgym/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Seguir a FIT system en Instagram"
+                title="Instagram de FIT system"
+                className="mt-4 inline-flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-text"
+              >
+                <Icon name="instagram" size={20} />
+                Instagram
+              </a>
               <a href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,," target="_blank" rel="noreferrer" className="mt-5 inline-block" aria-label="Consultar constancia fiscal de FIT system">
                 <img src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg" alt="Consultar constancia fiscal" width="160" height="60" loading="lazy" className="h-auto w-40" />
               </a>
