@@ -158,7 +158,7 @@ export function LandingPlans({
             >
               {plan.popular && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-white shadow-lg shadow-primary/40">
-                  Más elegido
+                  Plan destacado
                 </span>
               )}
               <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">{plan.tag}</div>

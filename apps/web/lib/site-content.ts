@@ -42,12 +42,12 @@ export interface SiteContent {
 
 export const DEFAULT_SITE_CONTENT: SiteContent = {
   hero: {
-    kicker: 'Software integral para gimnasios',
-    title: 'Gestioná tu gimnasio',
-    titleAccent: 'de punta a punta',
+    kicker: 'Software de gestión para gimnasios',
+    title: 'Software para',
+    titleAccent: 'gimnasios',
     subtitle:
-      'Socios, cuotas, caja, clases, asistencia y tienda en un solo sistema. Conecta a tus socios con una app móvil propia.',
-    chips: ['App del socio incluida', 'Todos tus módulos en un solo lugar', 'Pagás por el período elegido'],
+      'Administrá socios, cuotas, cobros, caja y asistencia desde tu PC con Windows. La app móvil permite a tus socios consultar su información y usar funciones online cuando tienen conexión.',
+    chips: ['Escritorio con operación local', 'App para socios según plan', 'Prueba gratis por 7 días'],
     ctaPrimary: 'Probar gratis',
     ctaSecondary: 'Ver planes',
   },
@@ -68,7 +68,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 45000,
       annual: 450000,
       popular: false,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Soporte por email'],
+      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Soporte por email'],
     },
     {
       tag: 'PRO',
@@ -77,7 +77,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 75000,
       annual: 750000,
       popular: true,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes por sede', 'Soporte prioritario'],
+      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Reportes por sede', 'Soporte prioritario'],
     },
     {
       tag: 'ENTERPRISE',
@@ -86,7 +86,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       monthly: 140000,
       annual: 1400000,
       popular: false,
-      features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Sedes y reportes avanzados', 'Soporte prioritario'],
     },
   ],
 };
