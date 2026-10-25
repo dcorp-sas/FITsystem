@@ -194,7 +194,7 @@ export function LandingContact({
               <Icon name="mail" size={18} />
               {status === 'sending' ? 'Enviando…' : 'Enviar mensaje'}
             </button>
-            <p className="mt-2 text-center text-xs text-text-muted">Usamos tus datos solo para responderte.</p>
+            <p className="mt-2 text-center text-xs text-text-muted">Al enviar aceptás la Política de privacidad y usamos tus datos para gestionar tu consulta.</p>
           </>
         )}
       </form>
