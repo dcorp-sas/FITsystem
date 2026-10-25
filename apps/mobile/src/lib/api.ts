@@ -347,10 +347,11 @@ export const portal = {
 
   routineHistory: () => request<{ items: ArchivedRoutine[] }>('/api/portal/routines/history'),
 
-  routineLogs: (params?: { routineId?: string; exerciseId?: string }) => {
+  routineLogs: (params?: { routineId?: string; exerciseId?: string; limit?: number }) => {
     const qs = new URLSearchParams();
     if (params?.routineId) qs.set('routineId', params.routineId);
     if (params?.exerciseId) qs.set('exerciseId', params.exerciseId);
+    if (params?.limit) qs.set('limit', String(params.limit));
     const suffix = qs.toString() ? `?${qs.toString()}` : '';
     return request<{ items: RoutineLog[] }>(`/api/portal/routines/logs${suffix}`);
   },
