@@ -44,6 +44,16 @@ www.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
 
+# --- Portal de profesores: misma aplicación, sesión y API compartida ---
+# Solo la raíz se reescribe; las rutas internas (/routines, /classes y assets)
+# siguen funcionando bajo el mismo origen para conservar la sesión del profesor.
+profes.{$SITE_DOMAIN} {
+	import security
+	@root path /
+	rewrite @root /profes
+	reverse_proxy web:3000
+}
+
 # --- API del gimnasio ---
 api.{$SITE_DOMAIN} {
 	import security

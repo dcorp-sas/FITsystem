@@ -9,6 +9,7 @@ automático de Let's Encrypt) y sirviendo por subdominio. **Reemplaza a Render.*
 | `www.fitsystem.com.ar` | 301 → dominio principal | — |
 | `api.fitsystem.com.ar` | API (Fastify + Prisma) | `api:3001` |
 | `socios.fitsystem.com.ar` | App del socio (PWA) | `socios:80` |
+| `profes.fitsystem.com.ar` | Portal de profesores (misma web/API y sesión del gimnasio) | `web:3000` |
 | `licensador.fitsystem.com.ar` | Licensador del proveedor | `licensador:3000` |
 
 Archivos del paquete:
@@ -42,6 +43,7 @@ a una IP no existen).
 | `CNAME` | `www.fitsystem.com.ar` | `fitsystem.com.ar` |
 | `A` | `api.fitsystem.com.ar` | IP del VPS |
 | `A` | `socios.fitsystem.com.ar` | IP del VPS |
+| `A` | `profes.fitsystem.com.ar` | IP del VPS |
 | `A` | `licensador.fitsystem.com.ar` | IP del VPS |
 
 No hace falta crear registros `TXT` para certificados: Caddy usa HTTP-01 (puerto 80).

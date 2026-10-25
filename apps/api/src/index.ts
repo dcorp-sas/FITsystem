@@ -64,7 +64,7 @@ export async function buildServer() {
   // CORS: lista fija de orígenes configurados + (en modo red local) los orígenes
   // privados de la LAN del gimnasio, para que las terminales encajen con la API
   // del servidor. Nunca se refleja un origen arbitrario: solo redes privadas.
-  const allowedOrigins = new Set([...env.WEB_ORIGINS, ...devOrigins]);
+  const allowedOrigins = new Set([...env.WEB_ORIGINS, 'https://profes.fitsystem.com.ar', ...devOrigins]);
 
   const isPrivateLanOrigin = (origin: string): boolean => {
     try {

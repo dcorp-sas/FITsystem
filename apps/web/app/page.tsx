@@ -22,14 +22,14 @@ export const metadata: Metadata = {
     title: 'Software para gimnasios | FIT system',
     description:
       'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
-    images: [{ url: '/og-fitsystem.svg', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Software para gimnasios | FIT system',
     description:
       'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
-    images: ['/og-fitsystem.svg'],
+    images: ['/opengraph-image.png'],
   },
 };
 
@@ -59,7 +59,8 @@ const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[]
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
   { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, según las funciones del plan contratado.', wide: true },
   { icon: 'branches', title: 'Sedes y cajas', text: 'Operación por sede o caja, con reportes comparativos.' },
-  { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas a la app del socio.' },
+  { icon: 'routines', title: 'Rutinas y seguimiento', text: 'Armá ciclos de entrenamiento, asigná rutinas y seguí el progreso que registra cada socio en su app.' },
+  { icon: 'classes', title: 'Portal de profesores', text: 'Los profesores acceden con su usuario para consultar clases, ver inscriptos y gestionar las rutinas asignadas.' },
   { icon: 'news', title: 'Novedades', text: 'Publicá promos y avisos que tus socios ven en la app.' },
   { icon: 'mobile', title: 'App del socio', text: 'Cuota, pagos, rutina y novedades, desde el celular del socio.' },
 ];
@@ -75,6 +76,10 @@ const faqs = (trialDays: number) => [
   {
     q: '¿Necesito internet para usar el sistema?',
     a: 'La operación local del escritorio puede continuar sin conexión a Internet. Las funciones en la nube, la app móvil de socios, los pagos online, las novedades y la sincronización de datos sí requieren conectividad.',
+  },
+  {
+    q: '¿Cómo trabajan los profesores con las rutinas y las clases?',
+    a: 'Cada profesor accede con el usuario que le asigna el gimnasio. Desde el portal puede consultar las clases vinculadas, ver inscriptos y gestionar las rutinas de entrenamiento. Los socios ven sus rutinas en la app y pueden registrar su progreso; las funciones online requieren conexión.',
   },
   {
     q: '¿Qué es la app del socio?',
@@ -283,7 +288,7 @@ export default function LandingPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/screens/sistema-dashboard.svg"
-                alt="Panel general de FIT system™ con métricas del gimnasio"
+                alt="Vista ilustrativa del panel general de FIT system™ con métricas del gimnasio"
                 className="w-full"
               />
             </BrowserFrame>
@@ -293,7 +298,7 @@ export default function LandingPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/screens/app-socios.svg"
-                  alt="App del socio de FIT system™"
+                  alt="Vista ilustrativa de la app del socio de FIT system™"
                   className="w-full rounded-[1.2rem]"
                 />
               </div>
@@ -324,11 +329,12 @@ export default function LandingPage() {
             title="Todo tu gimnasio, en una pantalla"
             text="El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT system™ por dentro."
           />
+          <p className="mt-5 text-center text-xs text-text-muted">Vistas ilustrativas de la interfaz; la disponibilidad de funciones depende de la versión y del plan contratado.</p>
 
           <div className="mt-12 ring-glow rounded-2xl">
             <BrowserFrame title="FIT system™ · Panel general">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/screens/sistema-dashboard.svg" alt="Panel general de FIT system™ con métricas del gimnasio" className="w-full" />
+              <img src="/screens/sistema-dashboard.svg" alt="Vista ilustrativa del panel general de FIT system™ con métricas del gimnasio" className="w-full" />
             </BrowserFrame>
           </div>
 
@@ -336,13 +342,13 @@ export default function LandingPage() {
             {[
               {
                 src: '/screens/sistema-socios.svg',
-                alt: 'Gestión de socios y cuotas en FIT system™',
+                alt: 'Vista ilustrativa de la gestión de socios y cuotas en FIT system™',
                 title: 'Socios y cuotas',
                 text: 'Ficha de cada socio, estado de cuenta e historial de cobros.',
               },
               {
                 src: '/screens/sistema-caja.svg',
-                alt: 'Cobros y caja diaria en FIT system™',
+                alt: 'Vista ilustrativa de cobros y caja diaria en FIT system™',
                 title: 'Cobros y caja',
                 text: 'Registro de cobros y arqueo por turno.',
               },
@@ -363,7 +369,7 @@ export default function LandingPage() {
           <div className="mt-6 grid items-center gap-8 overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-primary/10 via-surface to-base p-8 sm:p-10 lg:grid-cols-[220px_1fr]">
             <div className="mx-auto w-[200px] shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/screens/app-socios.svg" alt="App del socio de FIT system™ en el celular" className="w-full" />
+              <img src="/screens/app-socios.svg" alt="Vista ilustrativa de la app del socio de FIT system™ en el celular" className="w-full" />
             </div>
             <div className="text-center lg:text-left">
               <h3 className="text-xl font-bold text-text">App del socio según el cupo de tu plan</h3>
@@ -514,7 +520,7 @@ export default function LandingPage() {
                 title: 'Acceso desde la PC del gimnasio',
                 text: 'Accedé a tu gestión desde la computadora del gimnasio con la aplicación de escritorio y credenciales según el rol de cada operador.',
                 cta: 'Pedir demo',
-                href: '#descargas',
+                href: '#contacto',
                 note: 'Para administradores y recepción',
               },
             ].map((item) => (
