@@ -139,6 +139,8 @@ function getMachineId(): string {
 
 const TRIAL_REG_KEY = 'HKCU\\Software\\FITSystem';
 const TRIAL_REG_VALUE = 'FirstRunAt';
+const INSTALLATION_REG_KEY = 'HKCU\\Software\\FITSystem';
+const INSTALLATION_REG_VALUE = 'InstallationId';
 
 function readRegistryValue(key: string, name: string): string | null {
   try {
@@ -175,13 +177,27 @@ function getTrialAnchor(): string {
 // ID de instalación determinista por equipo (mismo equipo => mismo ID). Así la
 // licencia/prueba registrada en la API se reutiliza tras reinstalar.
 function getInstallationId(): string {
+  const registered = readRegistryValue(INSTALLATION_REG_KEY, INSTALLATION_REG_VALUE);
+  if (registered?.startsWith('inst_')) return registered;
+
+  const legacyFile = path.join(app.getPath('userData'), 'installation.json');
+  try {
+    const parsed = JSON.parse(fs.readFileSync(legacyFile, 'utf8')) as { installationId?: string };
+    if (parsed.installationId?.startsWith('inst_')) {
+      writeRegistryValue(INSTALLATION_REG_KEY, INSTALLATION_REG_VALUE, parsed.installationId);
+      return parsed.installationId;
+    }
+  } catch {
+    /* se genera abajo */
+  }
+
   const machineId = getMachineId();
   const installationId = `inst_${crypto.createHash('sha256').update(`fitsystem|${machineId}`).digest('hex').slice(0, 32)}`;
-  const file = path.join(app.getPath('userData'), 'installation.json');
+  writeRegistryValue(INSTALLATION_REG_KEY, INSTALLATION_REG_VALUE, installationId);
   try {
-    if (!fs.existsSync(file)) {
+    if (!fs.existsSync(legacyFile)) {
       fs.writeFileSync(
-        file,
+        legacyFile,
         JSON.stringify({ installationId, machineName: os.hostname(), createdAt: new Date().toISOString() }, null, 2),
       );
     }
@@ -210,6 +226,30 @@ function getApiSecret(): string {
     /* ignore */
   }
   return secret;
+}
+
+function getPersistentDataDir(): string {
+  const root = process.platform === 'win32' && process.env.PROGRAMDATA ? process.env.PROGRAMDATA : app.getPath('appData');
+  const dir = path.join(root, 'FIT system', 'data');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getDatabasePath(): string {
+  const dir = getPersistentDataDir();
+  const target = path.join(dir, 'fitsystem.db');
+  const legacy = path.join(app.getPath('userData'), 'fitsystem.db');
+
+  // Migra instalaciones anteriores antes de iniciar SQLite. También conserva
+  // archivos WAL/SHM si la base fue cerrada durante una transacción.
+  if (!fs.existsSync(target) && fs.existsSync(legacy)) {
+    fs.copyFileSync(legacy, target);
+    for (const suffix of ['-wal', '-shm']) {
+      const source = legacy + suffix;
+      if (fs.existsSync(source)) fs.copyFileSync(source, target + suffix);
+    }
+  }
+  return target;
 }
 
 // ---------------------------------------------------------------------------
@@ -858,7 +898,7 @@ function startApi(bindHost: string, lanMode: boolean): ChildProcess {
   const apiDir = path.join(process.resourcesPath, 'api');
   const entry = path.join(apiDir, 'dist', 'index.js');
 
-  const dbPath = path.join(app.getPath('userData'), 'fitsystem.db');
+  const dbPath = getDatabasePath();
 
   const env = {
     ...process.env,

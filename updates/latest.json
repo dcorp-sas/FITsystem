@@ -1,6 +1,6 @@
 {
-  "version": "0.3.29",
+  "version": "0.3.30",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Mejora SEO y conversión: agrega datos estructurados Organization, SoftwareApplication y FAQPage, incorpora robots y sitemap, corrige el CTA Probar gratis y limpia métricas y metadata obsoletas.",
+  "notes": "Corrige la pérdida de datos y licencia al reinstalar: migra la base SQLite a una carpeta persistente fuera de userData, conserva el installationId en el registro de Windows y evita borrar datos al desinstalar.",
   "mandatory": false
 }

@@ -1,7 +1,7 @@
 {
   "name": "@fitsystem/desktop",
   "productName": "FIT System",
-  "version": "0.3.29",
+  "version": "0.3.30",
   "private": true,
   "main": "dist/main.js",
   "type": "module",
@@ -88,6 +88,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "artifactName": "FIT-System-Setup.exe"
