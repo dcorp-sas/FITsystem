@@ -21,6 +21,7 @@ export interface ProductDef {
   desc: string;
   seats: number;
   amount: number;
+  monthlyAmount?: number;
 }
 
 /**
@@ -64,6 +65,7 @@ export const PRODUCT_CATALOG: Record<BillingProduct, ProductDef> = {
     desc: '100 socios adicionales con acceso a la app, por 12 meses.',
     seats: 100,
     amount: 100000,
+    monthlyAmount: 10000,
   },
   MP_KIT: {
     name: 'Kit MercadoPago (Terminal Point + QR)',
