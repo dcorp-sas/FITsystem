@@ -2,10 +2,8 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/icon';
-import { CheckoutModal, type CheckoutTarget } from '@/components/landing-checkout';
 import { SubscribeModal, type SubscribeTarget } from '@/components/landing-subscribe';
 
-type Period = 'MONTHLY';
 type PlanTag = 'BASIC' | 'PRO' | 'ENTERPRISE';
 
 export interface PlanDef {
@@ -63,20 +61,7 @@ export function LandingPlans({
   plans?: PlanDef[];
 }) {
   const list = plans && plans.length ? plans : PLANS;
-  const period: Period = 'MONTHLY';
-  const [checkout, setCheckout] = useState<CheckoutTarget | null>(null);
   const [subscribe, setSubscribe] = useState<SubscribeTarget | null>(null);
-
-  function openCheckout(plan: PlanDef, period: Period) {
-    const amount = plan.monthly;
-    setCheckout({
-      plan: plan.tag,
-      period,
-      title: `Comprar plan ${plan.name}`,
-      subtitle: `Mensual · ${ars.format(amount)}`,
-      amount,
-    });
-  }
 
   function buy(plan: PlanDef) {
     setSubscribe({ plan: plan.tag, name: plan.name });
@@ -114,7 +99,7 @@ export function LandingPlans({
 
         {/* Planes pagos */}
         {list.map((plan) => {
-          const amount = period === 'ANNUAL' ? plan.annual : plan.monthly;
+          const amount = plan.monthly;
           
           return (
             <div
@@ -165,7 +150,6 @@ export function LandingPlans({
         })}
       </div>
 
-      {checkout && <CheckoutModal target={checkout} onClose={() => setCheckout(null)} />}
       {subscribe && <SubscribeModal plan={subscribe} onClose={() => setSubscribe(null)} />}
     </div>
   );
