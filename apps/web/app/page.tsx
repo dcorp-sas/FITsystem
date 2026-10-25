@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Software para gimnasios | FIT system',
+    title: 'Software para gimnasios con app y portal docente | FIT System',
     description:
       'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
     images: ['/opengraph-image.png'],
@@ -79,7 +79,11 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Cómo trabajan los profesores con las rutinas y las clases?',
-    a: 'Cada profesor accede con el usuario que le asigna el gimnasio. Desde el portal puede consultar las clases vinculadas, ver inscriptos y gestionar las rutinas de entrenamiento. Los socios ven sus rutinas en la app y pueden registrar su progreso; las funciones online requieren conexión.',
+    a: 'El administrador crea un acceso para cada profesor. El portal usa el sistema principal y sus datos existentes: permite consultar clases y agenda, ver inscriptos, gestionar sesiones y revisar rutinas e historial según permisos. Los socios usan la app conectada para consultar rutinas y registrar ejercicios y pesos. Las funciones online requieren conexión.',
+  },
+  {
+    q: '¿Cómo se conectan el sistema, la app y el portal de profesores?',
+    a: 'No son tres sistemas independientes: el escritorio de FIT System, la app de socios y el portal de profesores trabajan conectados a la misma plataforma y comparten los datos disponibles para cada perfil. Las funciones online requieren conexión.',
   },
   {
     q: '¿Qué es la app del socio?',
