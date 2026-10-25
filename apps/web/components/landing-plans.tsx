@@ -26,7 +26,7 @@ const PLANS: PlanDef[] = [
     seats: 'Hasta 100 socios con app',
     monthly: 45000,
     annual: 450000,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Soporte por email'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Soporte por email'],
   },
   {
     tag: 'PRO',
@@ -35,7 +35,7 @@ const PLANS: PlanDef[] = [
     monthly: 75000,
     annual: 750000,
     popular: true,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Reportes por sede', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes por sede', 'Soporte prioritario'],
   },
   {
     tag: 'ENTERPRISE',
@@ -43,7 +43,7 @@ const PLANS: PlanDef[] = [
     seats: 'Hasta 500 socios con app',
     monthly: 140000,
     annual: 1400000,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y facturación electrónica ARCA', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Sedes y reportes avanzados', 'Soporte prioritario'],
   },
 ];
 
