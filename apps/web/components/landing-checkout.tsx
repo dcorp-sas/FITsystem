@@ -15,10 +15,9 @@ const ars = new Intl.NumberFormat('es-AR', {
 export interface CheckoutTarget {
   /** Etiqueta enviada al backend: plan (BASIC/PRO/ENTERPRISE) o producto (SEAT_PACK/MP_KIT). */
   plan: string;
-  period?: 'MONTHLY' | 'ANNUAL';
+  period?: 'MONTHLY';
   /** Título del formulario de compra, ej. "Comprar plan Pro". */
   title: string;
-  /** Detalle debajo del título, ej. "Anual (2 meses gratis) · $750.000". */
   subtitle: string;
   amount: number;
   /** Nota final del checkout (según sea licencia o complemento). */
