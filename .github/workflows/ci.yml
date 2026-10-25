@@ -25,10 +25,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: pnpm
 
       - name: Habilitar pnpm
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.0 --activate
+          pnpm --version
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
