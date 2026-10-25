@@ -120,8 +120,9 @@
             ${l.seats_used>0?' <span class="badge green">en uso</span>':''}</td>
         <td class="r">
           <button class="btn sm" data-copy="${esc(l.key)}">copiar clave</button>
+          ${l.state==='revoked'?`<button class="btn sm" data-unrevoke="${esc(l.key)}">rehabilitar misma licencia</button>`:'' }
           <button class="btn sm" data-act="${i}">activaciones ${l.activations.length?'('+l.activations.length+')':''}</button>
-          <button class="btn sm danger" data-del="${esc(l.key)}">eliminar</button>
+          <button class="btn sm danger" data-del="${esc(l.key)}">revocar</button>
         </td>
       </tr>
       ${l.activations.length?`
@@ -142,8 +143,13 @@
       navigator.clipboard.writeText(k).then(()=> toast('Clave copiada'), ()=> prompt('Copiá la clave:', k));
     });
     document.querySelectorAll('[data-del]').forEach(b=> b.onclick = async ()=>{
-      if(!confirm('¿Eliminar esta emisión y sus activaciones?')) return;
+      if(!confirm('¿Revocar esta licencia y bloquear sus activaciones? La clave se conserva.')) return;
       try{ await fetch('/api/licenses',{method:'DELETE',headers:{'Authorization':'Bearer '+token,'X-License-Key':encodeURIComponent(b.dataset.del)}}); await load(); }
+      catch(e){ toast(e.message,'err'); }
+    });
+    document.querySelectorAll('[data-unrevoke]').forEach(b=> b.onclick = async ()=>{
+      if(!confirm('¿Rehabilitar esta misma licencia sin emitir una clave nueva?')) return;
+      try{ await api('POST','/api/license/unrevoke',{key:b.dataset.unrevoke}); await load(); toast('Licencia rehabilitada. La clave no cambió.'); }
       catch(e){ toast(e.message,'err'); }
     });
     document.querySelectorAll('[data-act]').forEach(b=> b.onclick = ()=>{
