@@ -590,6 +590,10 @@ export default function LandingPage() {
                 <li><a href={`mailto:${SALES_EMAIL}`} className="transition-colors hover:text-text">{SALES_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
+              <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
+                <a href="/privacidad" className="transition-colors hover:text-text">Política de privacidad</a>
+                <a href="/terminos" className="transition-colors hover:text-text">Términos y condiciones</a>
+              </div>
               <a
                 href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,,"
                 target="_blank"

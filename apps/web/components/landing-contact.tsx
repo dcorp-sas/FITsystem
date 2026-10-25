@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { api, ApiError } from '@/lib/api';
 
@@ -32,6 +33,7 @@ export function LandingContact({
   const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +42,7 @@ export function LandingContact({
     try {
       await api('/contact', { method: 'POST', body: form });
       setStatus('sent');
+      setPrivacyAccepted(false);
       setForm({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
     } catch (err) {
       setError(
@@ -138,6 +141,18 @@ export function LandingContact({
               placeholder="Contanos sobre tu gimnasio y qué necesitás"
               className={`${inputClass} mt-3 resize-none`}
             />
+            <label className="mt-3 flex items-start gap-2 text-xs text-text-muted">
+              <input
+                type="checkbox"
+                required
+                checked={privacyAccepted}
+                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                className="mt-0.5 accent-primary"
+              />
+              <span>
+                Al enviar aceptás la <Link href="/privacidad" className="text-primary-light hover:underline">Política de privacidad</Link>.
+              </span>
+            </label>
             {/* Honeypot anti-spam (oculto para humanos) */}
             <div className="hidden" aria-hidden="true">
               <input tabIndex={-1} autoComplete="off" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
@@ -149,7 +164,7 @@ export function LandingContact({
 
             <button
               type="submit"
-              disabled={status === 'sending'}
+              disabled={status === 'sending' || !privacyAccepted}
               className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
             >
               <Icon name="mail" size={18} />
