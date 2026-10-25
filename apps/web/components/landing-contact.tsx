@@ -30,7 +30,7 @@ export function LandingContact({
     ? [{ label: 'Contacto general', email: contactEmail }]
     : [{ label: 'Contacto general', email: '' }];
   const primary = items[0];
-  const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', gymName: '', reason: 'Consulta general', message: '', company: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -40,10 +40,11 @@ export function LandingContact({
     setStatus('sending');
     setError(null);
     try {
-      await api('/contact', { method: 'POST', body: form });
+      const { reason, ...payload } = form;
+      await api('/contact', { method: 'POST', body: { ...payload, message: `Motivo: ${reason}\\n\\n${form.message}` } });
       setStatus('sent');
       setPrivacyAccepted(false);
-      setForm({ name: '', email: '', phone: '', gymName: '', message: '', company: '' });
+      setForm({ name: '', email: '', phone: '', gymName: '', reason: 'Consulta general', message: '', company: '' });
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -104,14 +105,20 @@ export function LandingContact({
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
+              <label className="sr-only" htmlFor="contact-name">Nombre y apellido</label>
               <input
+                id="contact-name"
+                aria-label="Nombre y apellido"
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Nombre y apellido"
                 className={inputClass}
               />
+              <label className="sr-only" htmlFor="contact-email">Email</label>
               <input
+                id="contact-email"
+                aria-label="Email"
                 required
                 type="email"
                 value={form.email}
@@ -119,21 +126,38 @@ export function LandingContact({
                 placeholder="Email"
                 className={inputClass}
               />
+              <label className="sr-only" htmlFor="contact-phone">WhatsApp o teléfono</label>
               <input
+                id="contact-phone"
+                aria-label="WhatsApp o teléfono"
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="Teléfono (opcional)"
                 className={inputClass}
               />
+              <label className="sr-only" htmlFor="contact-gym">Nombre del gimnasio</label>
               <input
+                id="contact-gym"
+                aria-label="Nombre del gimnasio"
                 value={form.gymName}
                 onChange={(e) => setForm({ ...form, gymName: e.target.value })}
                 placeholder="Gimnasio (opcional)"
                 className={inputClass}
               />
             </div>
+            <label className="sr-only" htmlFor="contact-reason">Motivo de consulta</label>
+            <select id="contact-reason" aria-label="Motivo de consulta" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={`${inputClass} mt-3`}>
+              <option>Consulta general</option>
+              <option>Solicitar demo</option>
+              <option>Comprar o renovar licencia</option>
+              <option>Migración de datos</option>
+              <option>Soporte técnico</option>
+            </select>
+            <label className="sr-only" htmlFor="contact-message">Mensaje</label>
             <textarea
+              id="contact-message"
+              aria-label="Mensaje"
               required
               rows={4}
               value={form.message}
