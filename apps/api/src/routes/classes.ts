@@ -121,17 +121,25 @@ export function classRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/classes', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER'])] }, async (request, reply) => {
+  app.post('/classes', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'INSTRUCTOR'])] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
       const input = validate(gymClassSchema, request.body);
-      await assertBranchInOrg(req.user.organizationId, input.branchId);
-      if (input.instructorId) await assertInstructorInOrg(req.user.organizationId, input.instructorId);
+      const instructor = req.user.role === 'INSTRUCTOR'
+        ? await requireInstructor(req.user.organizationId, req.user.id)
+        : null;
+      // Un profesor solo puede dar de alta clases en su propia sede y a su nombre.
+      // No se aceptan branchId ni instructorId enviados por el cliente para ampliar permisos.
+      const branchId = instructor ? instructor.branchId : input.branchId;
+      const instructorId = instructor ? instructor.id : (input.instructorId || null);
+      if (instructor && !branchId) throw new HttpError(403, 'Tu usuario de profesor debe tener una sede asignada para crear clases.');
+      await assertBranchInOrg(req.user.organizationId, branchId);
+      if (instructorId) await assertInstructorInOrg(req.user.organizationId, instructorId);
       const cls = await prisma.gymClass.create({
         data: {
           organizationId: req.user.organizationId,
-          branchId: input.branchId,
-          instructorId: input.instructorId || null,
+          branchId,
+          instructorId,
           name: input.name,
           description: input.description || null,
           capacity: input.capacity ?? 20,
