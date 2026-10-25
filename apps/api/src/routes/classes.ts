@@ -7,8 +7,21 @@ import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 
 async function requireInstructor(organizationId: string, userId: string) {
-  const instructor = await prisma.instructor.findFirst({ where: { organizationId, userId, isActive: true } });
-  if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Pedí al administrador que lo vincule desde Profesores.');
+  const user = await prisma.user.findFirst({ where: { id: userId, organizationId }, select: { email: true, branchId: true } });
+  if (!user) throw new HttpError(403, 'Usuario de profesor no encontrado en este gimnasio.');
+  let instructor = await prisma.instructor.findFirst({ where: { organizationId, userId, isActive: true } });
+  // Facilita el vínculo inicial: si el administrador creó el usuario y el profesor
+  // con el mismo email, el primer acceso establece la relación una sola vez.
+  if (!instructor && user.email) {
+    instructor = await prisma.instructor.findFirst({
+      where: { organizationId, isActive: true, email: { equals: user.email, mode: 'insensitive' }, userId: null },
+    });
+    if (instructor) instructor = await prisma.instructor.update({ where: { id: instructor.id }, data: { userId } });
+  }
+  if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Creá el profesor con el mismo email que el usuario y asignale una sede.');
+  if (!user.branchId && instructor.branchId) {
+    await prisma.user.update({ where: { id: userId }, data: { branchId: instructor.branchId } });
+  }
   return instructor;
 }
 
