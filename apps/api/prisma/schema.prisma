@@ -1182,7 +1182,7 @@ model PlanSubscription {
   id             String    @id @default(cuid())
   organizationId String? // se enlaza cuando el gym activa la licencia de la suscripcion
   plan          String // BASIC | PRO | ENTERPRISE
-  period        String    @default("MONTHLY") // MONTHLY | ANNUAL
+  period        String    @default("MONTHLY") // MONTHLY
   seats         Int // asientos base del plan + packs
   seatPacks     Int       @default(0) // cantidad de packs de +100
   amount        Float // importe mensual total (ARS)
