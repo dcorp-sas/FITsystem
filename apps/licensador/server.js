@@ -107,7 +107,7 @@ if (ADMIN_PASS.length < 8) {
 }
 const PORT = Number(process.env.PORT || 3000);
 const SESSION_TTL = Number(process.env.SESSION_TTL_H || 12) * 3600e3;
-const MAX_DAYS = 3650;
+const LICENSE_DAYS = 30;
 
 const db = new DatabaseSync(path.join(DATA_DIR, 'licensador.db'));
 db.exec(`
@@ -362,10 +362,11 @@ function restoreSnapshot(obj) {
   return { ok: true, licenses: lic.length, activations: act.length };
 }
 const ALLOWED_PLANS = ['BASIC', 'PRO', 'ENTERPRISE'];
-function createLicense({ client, plan = 'PRO', days = 365, seats = 100, notas = '' }) {
+function createLicense({ client, plan = 'PRO', seats = 100, notas = '' }) {
   plan = String(plan).toUpperCase();
   if (!ALLOWED_PLANS.includes(plan)) return { ok: false, error: 'Plan inválido (usar BASIC, PRO o ENTERPRISE)' };
-  days = Math.max(1, Math.min(MAX_DAYS, Number(days) || 365));
+  // La duración comercial es fija: toda licencia nueva vence en 30 días.
+  const days = LICENSE_DAYS;
   seats = Math.max(1, Math.min(100000, Number(seats) || 1));
   if (!client || !String(client).trim()) return { ok: false, error: 'Falta el cliente' };
   const issued = Date.now();
