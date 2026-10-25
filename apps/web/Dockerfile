@@ -23,7 +23,7 @@ COPY . .
 # Limita el heap de V8 y baja la prioridad del build: en el VPS (2 GB) el build
 # de Next.js puede dejar el servidor sin responder (sshd por los suelos). nice
 # le devuelve CPU a sshd para no perder la sesión de despliegue.
-RUN pnpm install --frozen-lockfile --prod=false \
+RUN pnpm install --filter @fitsystem/web... --frozen-lockfile --prod=false \
     && NODE_OPTIONS=--max-old-space-size=1024 nice -n 19 pnpm --filter @fitsystem/web build
 
 EXPOSE 3000
