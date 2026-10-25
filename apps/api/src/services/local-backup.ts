@@ -70,11 +70,15 @@ export function startLocalBackupScheduler(): void {
   // Primera copia tras el arranque y luego una copia diaria a las 04:00 local.
   setTimeout(() => {
     void run();
-    setTimeout(function scheduleNext() {
+    const scheduleNext = () => {
       setTimeout(() => {
         void run();
         scheduleNext();
       }, DAY_MS);
+    };
+    setTimeout(() => {
+      void run();
+      scheduleNext();
     }, nextFourAmDelay());
   }, 60_000);
 }
