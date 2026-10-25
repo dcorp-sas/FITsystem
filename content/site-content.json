@@ -29,8 +29,8 @@
       "tag": "BASIC",
       "name": "Básico",
       "seats": 100,
-      "monthly": 45000,
-      "annual": 450000,
+      "monthly": 39900,
+      "annual": 39900,
       "popular": false,
       "features": [
         "Módulos de gestión incluidos",
@@ -43,8 +43,8 @@
       "tag": "PRO",
       "name": "Pro",
       "seats": 300,
-      "monthly": 75000,
-      "annual": 750000,
+      "monthly": 64900,
+      "annual": 64900,
       "popular": true,
       "features": [
         "Módulos de gestión incluidos",
@@ -58,8 +58,8 @@
       "tag": "ENTERPRISE",
       "name": "Empresa",
       "seats": 500,
-      "monthly": 140000,
-      "annual": 1400000,
+      "monthly": 109900,
+      "annual": 109900,
       "popular": false,
       "features": [
         "Módulos de gestión incluidos",
