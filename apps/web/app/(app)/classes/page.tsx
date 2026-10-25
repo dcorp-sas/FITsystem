@@ -111,6 +111,14 @@ export default function ClassesPage() {
     load();
   }, [load]);
 
+  // Acceso directo desde el portal docente: abre el módulo real y su formulario de programación.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('action') === 'schedule') {
+      setTab('agenda');
+      setSessionOpen(true);
+    }
+  }, []);
+
   async function removeSession(id: string) {
     if (!confirm('¿Eliminar esta clase programada?')) return;
     try {
