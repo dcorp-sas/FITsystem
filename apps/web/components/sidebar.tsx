@@ -82,6 +82,13 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const isAdmin = user ? user.role === 'OWNER' || user.role === 'ADMIN' : false;
+  // El profesor solo navega por las dos áreas operativas autorizadas.
+  const navGroups: NavGroup[] = user?.role === 'INSTRUCTOR'
+    ? [{ title: 'Área docente', items: [
+        { href: '/classes', label: 'Clases y agenda', icon: 'classes' },
+        { href: '/routines', label: 'Rutinas de socios', icon: 'routines' },
+      ] }]
+    : GROUPS;
 
   const content = (
     <div className="flex h-full w-64 flex-col border-r border-line bg-surface">
@@ -116,7 +123,7 @@ export function Sidebar() {
       )}
 
       <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
-        {GROUPS.map((group) => {
+        {navGroups.map((group) => {
           const items = group.items.filter((i) => !i.adminOnly || isAdmin);
           if (!items.length) return null;
           const activeGroup = items.some((i) => pathname === i.href || pathname.startsWith(i.href + '/'));
