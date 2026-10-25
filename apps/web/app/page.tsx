@@ -194,6 +194,14 @@ export default function LandingPage() {
         name: 'FIT system',
         url: 'https://fitsystem.com.ar',
         email: CONTACT_EMAIL,
+        logo: 'https://fitsystem.com.ar/logo.png',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: 'Calle 464 N.º 310',
+          addressLocality: 'City Bell',
+          addressRegion: 'Buenos Aires',
+          addressCountry: 'AR',
+        },
       },
       {
         '@type': 'SoftwareApplication',
