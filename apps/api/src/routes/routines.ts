@@ -198,8 +198,15 @@ export function routineRoutes(app: FastifyInstance) {
         select: { id: true },
       });
       if (!routine) throw new HttpError(404, 'Rutina no encontrada');
+      if (req.user.role === 'INSTRUCTOR' && !req.user.branchId) {
+        throw new HttpError(403, 'Tu usuario debe estar vinculado a una sede para consultar el progreso de socios.');
+      }
       const items = await prisma.routineLog.findMany({
-        where: { organizationId: req.user.organizationId, routineId: id },
+        where: {
+          organizationId: req.user.organizationId,
+          routineId: id,
+          ...(req.user.role === 'INSTRUCTOR' ? { member: { branchId: req.user.branchId! } } : {}),
+        },
         orderBy: { completedAt: 'desc' },
         take: 300,
         include: { member: { select: { id: true, firstName: true, lastName: true, memberCode: true } } },
