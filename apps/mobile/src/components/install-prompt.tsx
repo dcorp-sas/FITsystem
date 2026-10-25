@@ -138,7 +138,7 @@ export function InstallPrompt() {
               : '¿Querés agregar FIT system™ a la pantalla de inicio? Se abrirá a pantalla completa, como una app común, sin la barra del navegador.'}
           </Muted>
           <View style={styles.actions}>
-            <Pressable style={[styles.button, styles.cancel]} onPress={() => setOpen(false)} disabled={busy}>
+            <Pressable style={[styles.button, styles.cancel]} onPress={() => { rememberDismissal(); setOpen(false); }} disabled={busy}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </Pressable>
             <Pressable style={[styles.button, styles.confirm]} onPress={confirm} disabled={busy}>
