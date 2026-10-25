@@ -39,7 +39,7 @@ function toInputDate(date: Date): string {
 
 export default function ClassesPage() {
   const toast = useToast();
-  const { branches, activeBranchId } = useAuth();
+  const { user, branches, activeBranchId } = useAuth();
   const branchId = activeBranchId || branches[0]?.id || '';
 
   const [tab, setTab] = useState<'classes' | 'agenda'>('classes');
@@ -167,9 +167,9 @@ export default function ClassesPage() {
                   <span className="h-3 w-3 rounded-full" style={{ background: c.color }} />
                   <div className="font-semibold text-text">{c.name}</div>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => { setEditing(c); setClassOpen(true); }}>
+                {user?.role !== 'INSTRUCTOR' ? <Button size="sm" variant="ghost" onClick={() => { setEditing(c); setClassOpen(true); }}>
                   <Icon name="edit" size={15} />
-                </Button>
+                </Button> : null}
               </div>
               {c.description && <p className="mt-2 text-xs text-text-muted">{c.description}</p>}
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -251,8 +251,8 @@ export default function ClassesPage() {
         </div>
       )}
 
-      <ClassModal open={classOpen} onClose={() => setClassOpen(false)} gymClass={editing} branchId={branchId} instructors={instructors} onSaved={load} />
-      <SessionModal open={sessionOpen} onClose={() => setSessionOpen(false)} classes={classes} instructors={instructors} onSaved={load} />
+      <ClassModal open={classOpen} onClose={() => setClassOpen(false)} gymClass={editing} branchId={branchId} instructors={instructors} isInstructor={user?.role === 'INSTRUCTOR'} onSaved={load} />
+      <SessionModal open={sessionOpen} onClose={() => setSessionOpen(false)} classes={classes} instructors={instructors} isInstructor={user?.role === 'INSTRUCTOR'} onSaved={load} />
 
       <Modal
         open={rosterOpen}
