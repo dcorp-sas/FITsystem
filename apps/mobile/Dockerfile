@@ -19,7 +19,7 @@ COPY . .
 
 # Limita el heap de V8 solo durante el build: en el VPS (2 GB) el export de Expo
 # puede quedarse sin memoria y dejar el contenedor viejo sin actualizar.
-RUN pnpm install --frozen-lockfile --prod=false \
+RUN pnpm install --filter @fitsystem/mobile... --frozen-lockfile --prod=false \
     && NODE_OPTIONS=--max-old-space-size=1024 pnpm --filter @fitsystem/mobile build:web
 
 # Etapa 2: servir el export estatico. Los headers de seguridad los agrega Caddy.
