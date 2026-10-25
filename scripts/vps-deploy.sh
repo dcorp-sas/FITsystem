@@ -25,10 +25,24 @@ docker compose -f docker-compose.prod.yml stop web api socios licensador >/dev/n
 
 for svc in api web socios licensador; do
   echo "=== build $svc ==="
-  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build "$svc"
+  if [ "$svc" = "web" ]; then
+    # Las rutas de Next.js se generan en build; no reutilizar una imagen web
+    # anterior o el deploy puede terminar sin publicar páginas nuevas.
+    COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build --no-cache web
+  else
+    COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build "$svc"
+  fi
 done
 
 docker compose -f docker-compose.prod.yml up -d
 docker image prune -f >/dev/null 2>&1 || true
 docker compose -f docker-compose.prod.yml ps
+
+for svc in api web; do
+  if [ -z "$(docker compose -f docker-compose.prod.yml ps --status running -q "$svc")" ]; then
+    echo "=== error: $svc no quedó ejecutándose ===" >&2
+    docker compose -f docker-compose.prod.yml logs --tail=120 "$svc" >&2 || true
+    exit 1
+  fi
+done
 echo "=== deploy ok ==="
