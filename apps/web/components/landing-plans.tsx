@@ -11,7 +11,6 @@ export interface PlanDef {
   name: string;
   seats: string;
   monthly: number;
-  annual: number;
   popular?: boolean;
   features: string[];
 }
@@ -23,7 +22,6 @@ const PLANS: PlanDef[] = [
     name: 'Básico',
     seats: 'Hasta 100 socios con app',
     monthly: 39900,
-    annual: 39900,
     features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Soporte por email'],
   },
   {
@@ -31,7 +29,6 @@ const PLANS: PlanDef[] = [
     name: 'Pro',
     seats: 'Hasta 300 socios con app',
     monthly: 64900,
-    annual: 64900,
     popular: true,
     features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes por sede', 'Soporte prioritario'],
   },
@@ -40,7 +37,6 @@ const PLANS: PlanDef[] = [
     name: 'Empresa',
     seats: 'Hasta 500 socios con app',
     monthly: 109900,
-    annual: 109900,
     features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Sedes y reportes avanzados', 'Soporte prioritario'],
   },
 ];
@@ -69,7 +65,7 @@ export function LandingPlans({
 
   return (
     <div>
-      <p className="mt-10 text-center text-xs leading-relaxed text-text-muted">Importes en ARS por mes. El tratamiento de IVA y el comprobante fiscal aplicable se informan antes de confirmar el pago. Sin permanencia anual: renovás mes a mes.</p>
+      <p className="mt-10 text-center text-xs leading-relaxed text-text-muted">Importes en ARS por mes. El tratamiento de IVA y el comprobante fiscal aplicable se informan antes de confirmar el pago. Renovación mensual.</p>
 
       <div className="mt-10 grid gap-5 lg:grid-cols-4">
         {/* Prueba gratis */}
