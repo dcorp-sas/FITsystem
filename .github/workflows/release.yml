@@ -60,6 +60,12 @@ jobs:
           $gatePortable = Get-ChildItem "apps/access-gate-desktop/release/*Portable*.exe" | Select-Object -First 1
           if ($gateSetup) { Copy-Item $gateSetup.FullName "out/FIT-System-Acceso-Setup.exe" }
           if ($gatePortable) { Copy-Item $gatePortable.FullName "out/FIT-System-Acceso-Portable.exe" }
+          # Publicar hashes SHA-256 para que los clientes puedan verificar cada instalador.
+          $hashLines = Get-ChildItem "out/*.exe" | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          }
+          $hashLines | Set-Content -Path "out/SHA256SUMS.txt" -Encoding utf8
           Get-ChildItem out | Format-Table Name, Length
 
       - name: Publicar en GitHub Releases
@@ -75,3 +81,4 @@ jobs:
             out/FIT-System-Setup.exe.blockmap
             out/FIT-System-Acceso-Setup.exe
             out/FIT-System-Acceso-Portable.exe
+            out/SHA256SUMS.txt
