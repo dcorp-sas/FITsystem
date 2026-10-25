@@ -43,9 +43,6 @@ const counted = (asset: 'setup' | 'portable', direct: string) =>
   API_ROOT ? `${API_ROOT}/metrics/download/go?asset=${asset}` : direct;
 const SETUP_URL = counted('setup', `${DOWNLOAD_BASE}/FIT-System-Setup.exe`);
 const PORTABLE_URL = counted('portable', `${DOWNLOAD_BASE}/FIT-System-Portable.exe`);
-const CURRENT_RELEASE = 'v0.3.35';
-const SETUP_SHA256 = 'ca8a9395278400a383f1060f24cffdb0ad50e15c2f771970efafad56dfbcdeaa';
-const PORTABLE_SHA256 = '08867ed7b860ac7c9f4b481c0b69feea859b209682cdd6c1e0a4bad1457972f7';
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
@@ -436,6 +433,30 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Portal de profesores */}
+      <section id="portal-profesores" className="scroll-mt-20 border-y border-line bg-surface/40 py-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-light">Para tu equipo</span>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-text sm:text-4xl">Un espacio propio para cada profesor</h2>
+            <p className="mt-4 text-base leading-relaxed text-text-muted">Tus profesores tienen un portal de trabajo propio, conectado a FIT System y a la app de los socios. Cada uno accede con su usuario y trabaja con la información que le corresponde, sin entrar a la administración del gimnasio.</p>
+            <ul className="mt-6 space-y-3 text-sm text-text-muted">
+              <li className="flex gap-3"><Icon name="check" size={18} className="shrink-0 text-success" /><span><strong className="text-text">Clases y agenda:</strong> programación de sesiones, horarios y consulta de inscriptos.</span></li>
+              <li className="flex gap-3"><Icon name="check" size={18} className="shrink-0 text-success" /><span><strong className="text-text">Rutinas de socios:</strong> creación y actualización de planes de entrenamiento desde el espacio docente.</span></li>
+              <li className="flex gap-3"><Icon name="check" size={18} className="shrink-0 text-success" /><span><strong className="text-text">Todo conectado:</strong> las rutinas y clases se comparten con el sistema principal y la app según los permisos del usuario.</span></li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-line bg-base p-6 shadow-xl shadow-black/10 sm:p-8">
+            <div className="flex items-center gap-3 border-b border-line pb-5"><span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary-light"><Icon name="classes" size={24} /></span><div><p className="font-semibold text-text">Portal de profesores</p><p className="mt-1 text-sm text-text-muted">Clases · agenda · rutinas</p></div></div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-line bg-surface p-4"><Icon name="calendar" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Agenda organizada</p><p className="mt-1 text-xs leading-5 text-text-muted">Próximas sesiones y participantes en un mismo lugar.</p></div>
+              <div className="rounded-xl border border-line bg-surface p-4"><Icon name="routines" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Rutinas conectadas</p><p className="mt-1 text-xs leading-5 text-text-muted">Planes de entrenamiento disponibles para los socios desde la app.</p></div>
+            </div>
+            <a href="#contacto" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark">Consultar por una demo</a>
+          </div>
+        </div>
+      </section>
+
       {/* Cómo funciona */}
       <section className="border-y border-line bg-surface/40 py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -509,7 +530,6 @@ export default function LandingPage() {
                 cta: 'Descargar para Windows',
                 href: SETUP_URL,
                 note: `Incluye ${trialDays} días de prueba gratis`,
-                sha256: SETUP_SHA256,
               },
               {
                 icon: 'mobile' as IconName,
@@ -535,8 +555,6 @@ export default function LandingPage() {
                 <h3 className="mt-4 text-base font-semibold text-text">{item.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{item.text}</p>
                 <p className="mt-2 text-xs text-text-muted">{item.note}</p>
-                {item.sha256 && <p className="mt-2 break-all text-[11px] leading-5 text-text-muted">SHA-256 ({CURRENT_RELEASE}): <code>{item.sha256}</code></p>}
-                {item.title === "Escritorio (Windows)" && <p className="mt-2 text-xs leading-5 text-text-muted">Si Windows muestra una advertencia, verificá que el archivo provenga de GitHub Releases y contrastá este hash antes de continuar.</p>}
                 <a
                   href={item.href}
                   className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
@@ -570,7 +588,6 @@ export default function LandingPage() {
               Descargar FIT system™ Portable
             </a>
           </p>
-          <p className="mx-auto mt-2 max-w-3xl break-all text-center text-[11px] leading-5 text-text-muted">SHA-256 de la versión portable ({CURRENT_RELEASE}): <code>{PORTABLE_SHA256}</code></p>
         </div>
       </section>
 
