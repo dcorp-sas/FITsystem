@@ -120,7 +120,7 @@ export async function createSubscription(input: {
   if (requestedPacks > 2) return { ok: false, error: 'El plan Básico permite hasta 2 packs adicionales. Para mayor capacidad, elegí Pro o Empresa.' };
   if (requestedPacks > 0 && input.plan !== 'BASIC') return { ok: false, error: 'Los packs adicionales están disponibles únicamente en el plan Básico. Para mayor capacidad, elegí Pro o Empresa.' };
 
-  const period: BillingPeriod = input.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
+  const period: BillingPeriod = 'MONTHLY';
   const { packs, amount, seats } = subscriptionQuote(input.plan, input.seatPacks ?? 0, period);
   const externalRef = `FITS-${randomBytes(8).toString('hex')}`;
   const planName = PLAN_CATALOG[input.plan].name;
