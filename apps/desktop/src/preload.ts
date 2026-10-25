@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('fitsystem', {
   setNetwork: (mode: 'standalone' | 'server' | 'cloud') => ipcRenderer.invoke('network:set', mode),
   restartApp: () => ipcRenderer.invoke('network:restart'),
   openAccessWindow: () => ipcRenderer.invoke('access:open'),
+  openAccessQrWindow: () => ipcRenderer.invoke('access:qr-open'),
   onUpdateEvent: (listener: (payload: unknown) => void) => {
     const wrapped = (_event: unknown, payload: unknown) => listener(payload);
     ipcRenderer.on('update:event', wrapped);
