@@ -6,7 +6,7 @@ import { Icon } from '@/components/icon';
 const LINKS = [
   { href: '#producto', label: 'Producto' },
   { href: '#modulos', label: 'Módulos' },
-  { href: '#portal-profesores', label: 'Portal de profesores' },
+  { href: 'https://profes.fitsystem.com.ar', label: 'Portal de profesores' },
   { href: '#planes', label: 'Planes' },
   { href: '#descargas', label: 'Descargas' },
   { href: '#faq', label: 'Preguntas' },
