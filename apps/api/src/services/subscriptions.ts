@@ -116,6 +116,9 @@ export async function createSubscription(input: {
 }): Promise<SubscriptionDraft> {
   if (!env.PLATFORM_MP_ACCESS_TOKEN) return { ok: false, error: 'La pasarela de pago no está configurada' };
   if (!isKnownPlan(input.plan)) return { ok: false, error: 'Plan inválido' };
+  const requestedPacks = Math.max(0, Math.floor(input.seatPacks ?? 0));
+  if (requestedPacks > 2) return { ok: false, error: 'El plan Básico permite hasta 2 packs adicionales. Para mayor capacidad, elegí Pro o Empresa.' };
+  if (requestedPacks > 0 && input.plan !== 'BASIC') return { ok: false, error: 'Los packs adicionales están disponibles únicamente en el plan Básico. Para mayor capacidad, elegí Pro o Empresa.' };
 
   const period: BillingPeriod = input.period === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
   const { packs, amount, seats } = subscriptionQuote(input.plan, input.seatPacks ?? 0, period);
