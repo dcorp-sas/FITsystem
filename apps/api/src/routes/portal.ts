@@ -469,6 +469,31 @@ export function portalRoutes(app: FastifyInstance) {
     }
   });
 
+  // Historial de rutinas archivadas: se conservan los registros de progreso al cerrar un ciclo.
+  app.get('/portal/routines/history', { onRequest: [portalAuth] }, async (request, reply) => {
+    try {
+      const req = request as PortalAuthedRequest;
+      const { organizationId, memberId } = req.portalAccount;
+      const routines = await prisma.routine.findMany({
+        where: { organizationId, memberId, isTemplate: false, isActive: false },
+        orderBy: { updatedAt: 'desc' },
+        take: 30,
+        include: { days: { orderBy: { dayIndex: 'asc' }, include: { exercises: { orderBy: { orderIndex: 'asc' } } } } },
+      });
+      const ids = routines.map((routine) => routine.id);
+      const logs = ids.length
+        ? await prisma.routineLog.findMany({
+            where: { organizationId, memberId, routineId: { in: ids } },
+            orderBy: { completedAt: 'desc' },
+            take: 500,
+          })
+        : [];
+      return ok(reply, { items: routines.map((routine) => ({ routine, logs: logs.filter((log) => log.routineId === routine.id) })) });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   // Historial de pagos
   app.get('/portal/payments', { onRequest: [portalAuth] }, async (request, reply) => {
     try {
