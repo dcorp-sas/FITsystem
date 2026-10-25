@@ -69,6 +69,9 @@ export function routineRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const input = validate(routineSchema, request.body);
       if (input.memberId) {
+        if (req.user.role === 'INSTRUCTOR' && !req.user.branchId) {
+          throw new HttpError(403, 'Asigná una sede a tu usuario antes de asignar rutinas a socios.');
+        }
         await assertMemberInOrg(req.user.organizationId, input.memberId);
         if (req.user.role === 'INSTRUCTOR' && req.user.branchId) {
           const member = await prisma.member.findFirst({ where: { id: input.memberId, organizationId: req.user.organizationId, branchId: req.user.branchId }, select: { id: true } });
@@ -138,7 +141,16 @@ export function routineRoutes(app: FastifyInstance) {
         },
       });
       if (!existing) throw new HttpError(404, 'Rutina no encontrada');
-      if (input.memberId) await assertMemberInOrg(req.user.organizationId, input.memberId);
+      if (input.memberId) {
+        if (req.user.role === 'INSTRUCTOR' && !req.user.branchId) {
+          throw new HttpError(403, 'Asigná una sede a tu usuario antes de asignar rutinas a socios.');
+        }
+        await assertMemberInOrg(req.user.organizationId, input.memberId);
+        if (req.user.role === 'INSTRUCTOR' && req.user.branchId) {
+          const member = await prisma.member.findFirst({ where: { id: input.memberId, organizationId: req.user.organizationId, branchId: req.user.branchId }, select: { id: true } });
+          if (!member) throw new HttpError(403, 'Solo podés asignar rutinas a socios de tu sede.');
+        }
+      }
 
       const routine = await prisma.$transaction(async (tx) => {
         await tx.routineDay.deleteMany({ where: { routineId: id } });
