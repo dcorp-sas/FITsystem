@@ -187,7 +187,8 @@ function BrowserFrame({ title, children }: { title: string; children: React.Reac
 }
 
 export default async function LandingPage() {
-  const host = (await headers()).get('host')?.split(':')[0]?.toLowerCase() || '';
+  const requestHeaders = await headers();
+  const host = (requestHeaders.get('x-forwarded-host') || requestHeaders.get('host') || '').split(',')[0].split(':')[0].trim().toLowerCase();
   if (host === 'profes.fitsystem.com.ar' || host === 'www.profes.fitsystem.com.ar') redirect('/profes');
 
   const content = getSiteContent();
