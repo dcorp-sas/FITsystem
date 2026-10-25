@@ -295,7 +295,8 @@ export function classRoutes(app: FastifyInstance) {
         where: {
           id,
           branch: { organizationId: req.user.organizationId },
-          ...(instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
+          ...(instructor?.branchId ? { branchId: instructor.branchId } : {}),
+          ...(!instructor?.branchId && instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
         },
       });
       if (!session) throw new HttpError(404, 'Sesion no encontrada o no asignada a tu usuario');
