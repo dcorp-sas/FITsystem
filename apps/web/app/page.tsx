@@ -5,7 +5,6 @@ import { LandingContact } from '@/components/landing-contact';
 import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
 import { TrackVisit } from '@/components/track-visit';
-import { FititoChat } from '@/components/fitito-chat';
 import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
@@ -625,13 +624,12 @@ export default function LandingPage() {
         rel="noreferrer"
         aria-label="Contactar por WhatsApp"
         title="Contactar por WhatsApp"
-        className="fixed bottom-5 right-5 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-semibold text-[#062b12] shadow-xl shadow-black/30 transition-transform hover:scale-105"
+        className="fixed bottom-5 left-5 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-semibold text-[#062b12] shadow-xl shadow-black/30 transition-transform hover:scale-105"
       >
         <Icon name="whatsapp" size={21} />
         WhatsApp
       </a>
 
-      <FititoChat />
 
       {/* Footer */}
       <footer className="border-t border-line bg-surface/40">
