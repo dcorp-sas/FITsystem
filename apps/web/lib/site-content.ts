@@ -27,7 +27,6 @@ export interface SitePlan {
   name: string;
   seats: number;
   monthly: number;
-  annual: number;
   popular: boolean;
   features: string[];
 }
@@ -66,7 +65,6 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       name: 'Básico',
       seats: 100,
       monthly: 39900,
-      annual: 39900,
       popular: false,
       features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Soporte por email'],
     },
@@ -75,7 +73,6 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       name: 'Pro',
       seats: 300,
       monthly: 64900,
-      annual: 64900,
       popular: true,
       features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Reportes por sede', 'Soporte prioritario'],
     },
@@ -84,7 +81,6 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       name: 'Empresa',
       seats: 500,
       monthly: 109900,
-      annual: 109900,
       popular: false,
       features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Sedes y reportes avanzados', 'Soporte prioritario'],
     },
@@ -148,7 +144,6 @@ function normalizePlans(value: unknown, fallback: SitePlan[]): SitePlan[] {
       name: asString(raw.name, plan.name),
       seats: asNumber(raw.seats, plan.seats, 1),
       monthly: asNumber(raw.monthly, plan.monthly, 1),
-      annual: asNumber(raw.annual, plan.annual, 1),
       popular: raw.popular !== undefined ? Boolean(raw.popular) : plan.popular,
       features: asChips(raw.features, plan.features),
     };
