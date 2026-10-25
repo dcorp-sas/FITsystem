@@ -132,7 +132,11 @@ export function classRoutes(app: FastifyInstance) {
       // No se aceptan branchId ni instructorId enviados por el cliente para ampliar permisos.
       const branchId = instructor ? instructor.branchId : input.branchId;
       const instructorId = instructor ? instructor.id : (input.instructorId || null);
-      if (instructor && !branchId) throw new HttpError(403, 'Tu usuario de profesor debe tener una sede asignada para crear clases.');
+      if (!branchId) {
+        throw new HttpError(instructor ? 403 : 400, instructor
+          ? 'Tu usuario de profesor debe tener una sede asignada para crear clases.'
+          : 'Seleccioná una sede para la clase.');
+      }
       await assertBranchInOrg(req.user.organizationId, branchId);
       if (instructorId) await assertInstructorInOrg(req.user.organizationId, instructorId);
       const cls = await prisma.gymClass.create({
