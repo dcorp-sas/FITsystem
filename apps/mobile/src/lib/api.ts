@@ -220,7 +220,15 @@ export interface Routine {
   description?: string | null;
   goal: string;
   level: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   days: RoutineDay[];
+}
+
+export interface ArchivedRoutine {
+  routine: Routine;
+  logs: RoutineLog[];
 }
 
 export interface RoutineLog {
@@ -336,6 +344,8 @@ export const portal = {
     }),
   news: () => request<{ items: NewsItem[] }>('/api/portal/news'),
   routines: () => request<{ items: Routine[] }>('/api/portal/routines'),
+
+  routineHistory: () => request<{ items: ArchivedRoutine[] }>('/api/portal/routines/history'),
 
   routineLogs: (params?: { routineId?: string; exerciseId?: string }) => {
     const qs = new URLSearchParams();
