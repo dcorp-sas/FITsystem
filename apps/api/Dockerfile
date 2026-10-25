@@ -22,7 +22,7 @@ WORKDIR /app
 # Todo el monorepo (node_modules/dist/.env quedan fuera via .dockerignore).
 COPY . .
 
-RUN pnpm install --frozen-lockfile --prod=false \
+RUN pnpm install --filter @fitsystem/api... --frozen-lockfile --prod=false \
     && pnpm --filter @fitsystem/api prisma:generate:pg \
     && pnpm --filter @fitsystem/api build
 
