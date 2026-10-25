@@ -12,6 +12,20 @@ cd /opt/fitsystem
 git fetch --prune origin main
 git reset --hard origin/main
 
+# Si una compilacion falla despues de parar los contenedores, levantar las
+# imagenes que ya existen. Evita dejar toda la web offline por un deploy fallido.
+restore_on_failure() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    trap - EXIT
+    echo "=== deploy fallo (exit $status); restaurando servicios con las imagenes existentes ===" >&2
+    docker compose -f docker-compose.prod.yml up -d || true
+    docker compose -f docker-compose.prod.yml ps || true
+  fi
+  exit "$status"
+}
+trap restore_on_failure EXIT
+
 # La cache de build de Docker crece en cada despliegue y puede llenar el disco
 # del VPS (30 GB): se poda antes de construir. Si el disco igual esta ajustado,
 # se hace una poda total.
