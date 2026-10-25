@@ -128,7 +128,15 @@ export function routineRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const { id } = request.params as { id: string };
       const input = validate(routineSchema, request.body);
-      const existing = await prisma.routine.findFirst({ where: { id, organizationId: req.user.organizationId } });
+      const existing = await prisma.routine.findFirst({
+        where: {
+          id,
+          organizationId: req.user.organizationId,
+          ...(req.user.role === 'INSTRUCTOR'
+            ? { OR: [{ createdById: req.user.id }, ...(req.user.branchId ? [{ member: { branchId: req.user.branchId } }] : []), { isTemplate: true }] }
+            : {}),
+        },
+      });
       if (!existing) throw new HttpError(404, 'Rutina no encontrada');
       if (input.memberId) await assertMemberInOrg(req.user.organizationId, input.memberId);
 
@@ -169,6 +177,29 @@ export function routineRoutes(app: FastifyInstance) {
 
       await logActivity(req, 'UPDATE', 'ROUTINE', id, existing, routine);
       return ok(reply, routine);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Archivar una rutina cierra el ciclo sin borrar los registros de progreso.
+  app.post('/routines/:id/archive', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'INSTRUCTOR'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const existing = await prisma.routine.findFirst({
+        where: {
+          id,
+          organizationId: req.user.organizationId,
+          ...(req.user.role === 'INSTRUCTOR'
+            ? { OR: [{ createdById: req.user.id }, ...(req.user.branchId ? [{ member: { branchId: req.user.branchId } }] : []), { isTemplate: true }] }
+            : {}),
+        },
+      });
+      if (!existing) throw new HttpError(404, 'Rutina no encontrada');
+      const routine = await prisma.routine.update({ where: { id }, data: { isActive: false } });
+      await logActivity(req, 'UPDATE', 'ROUTINE', id, { isActive: existing.isActive }, { isActive: false, archived: true });
+      return ok(reply, { archived: true, routine });
     } catch (error) {
       return fail(reply, error);
     }
