@@ -50,7 +50,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return <LoginScreen />;
   }
 
-  if (user.role === 'INSTRUCTOR' && pathname !== '/classes' && !pathname.startsWith('/classes/') && pathname !== '/routines' && !pathname.startsWith('/routines/')) {
+  if (user.role === 'INSTRUCTOR') {
     return <div className="flex min-h-screen items-center justify-center text-text-muted">Abriendo el portal de profesores…</div>;
   }
 
