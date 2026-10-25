@@ -65,7 +65,11 @@ trap restore_on_failure EXIT
 docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
 
-docker compose -f docker-compose.prod.yml stop web api socios licensador >/dev/null 2>&1 || true
+if [ "$NEED_API" -eq 1 ] || [ "$NEED_WEB" -eq 1 ] || [ "$NEED_SOCIOS" -eq 1 ] || [ "$NEED_LICENSADOR" -eq 1 ]; then
+  docker compose -f docker-compose.prod.yml stop web api socios licensador >/dev/null 2>&1 || true
+else
+  echo "=== no hay imágenes modificadas; se mantienen los servicios activos ==="
+fi
 
 if [ "$NEED_API" -eq 1 ]; then
   echo "=== build api ==="
@@ -99,7 +103,7 @@ df -h /
 docker system df || true
 
 docker compose -f docker-compose.prod.yml up -d db
-docker compose -f docker-compose.prod.yml up -d --no-deps caddy
+docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate caddy
 for svc in api web socios licensador; do
   echo "=== start $svc ==="
   if ! docker compose -f docker-compose.prod.yml up -d --no-deps "$svc"; then
