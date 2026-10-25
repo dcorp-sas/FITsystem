@@ -43,6 +43,9 @@ const counted = (asset: 'setup' | 'portable', direct: string) =>
   API_ROOT ? `${API_ROOT}/metrics/download/go?asset=${asset}` : direct;
 const SETUP_URL = counted('setup', `${DOWNLOAD_BASE}/FIT-System-Setup.exe`);
 const PORTABLE_URL = counted('portable', `${DOWNLOAD_BASE}/FIT-System-Portable.exe`);
+const CURRENT_RELEASE = 'v0.3.35';
+const SETUP_SHA256 = 'ca8a9395278400a383f1060f24cffdb0ad50e15c2f771970efafad56dfbcdeaa';
+const PORTABLE_SHA256 = '08867ed7b860ac7c9f4b481c0b69feea859b209682cdd6c1e0a4bad1457972f7';
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
@@ -495,6 +498,7 @@ export default function LandingPage() {
                 cta: 'Descargar para Windows',
                 href: SETUP_URL,
                 note: `Incluye ${trialDays} días de prueba gratis`,
+                sha256: SETUP_SHA256,
               },
               {
                 icon: 'mobile' as IconName,
@@ -520,6 +524,8 @@ export default function LandingPage() {
                 <h3 className="mt-4 text-base font-semibold text-text">{item.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{item.text}</p>
                 <p className="mt-2 text-xs text-text-muted">{item.note}</p>
+                {item.sha256 && <p className="mt-2 break-all text-[11px] leading-5 text-text-muted">SHA-256 ({CURRENT_RELEASE}): <code>{item.sha256}</code></p>}
+                {item.title === "Escritorio (Windows)" && <p className="mt-2 text-xs leading-5 text-text-muted">Si Windows muestra una advertencia, verificá que el archivo provenga de GitHub Releases y contrastá este hash antes de continuar.</p>}
                 <a
                   href={item.href}
                   className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
