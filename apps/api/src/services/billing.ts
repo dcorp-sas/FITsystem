@@ -6,14 +6,13 @@ import { sendPlatformEmail, isPlatformEmailConfigured } from './platform-email.j
 import siteContent from '../../../../content/site-content.json';
 
 export type BillingPlan = 'BASIC' | 'PRO' | 'ENTERPRISE';
-export type BillingPeriod = 'MONTHLY' | 'ANNUAL';
+export type BillingPeriod = 'MONTHLY';
 export type BillingProduct = 'SEAT_PACK' | 'MP_KIT';
 
 export interface PlanDef {
   name: string;
   seats: number;
   monthly: number;
-  annual: number;
 }
 
 export interface ProductDef {
@@ -36,7 +35,7 @@ function buildPlanCatalog(): Record<BillingPlan, PlanDef> {
   const catalog = {} as Record<BillingPlan, PlanDef>;
   for (const plan of siteContent.plans) {
     if (plan.tag === 'BASIC' || plan.tag === 'PRO' || plan.tag === 'ENTERPRISE') {
-      catalog[plan.tag] = { name: plan.name, seats: plan.seats, monthly: plan.monthly, annual: plan.annual };
+      catalog[plan.tag] = { name: plan.name, seats: plan.seats, monthly: plan.monthly };
     }
   }
   const tags = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
@@ -46,8 +45,8 @@ function buildPlanCatalog(): Record<BillingPlan, PlanDef> {
   }
   for (const tag of tags) {
     const plan = catalog[tag];
-    if (!plan || plan.monthly <= 0 || plan.annual <= 0 || plan.seats <= 0) {
-      throw new Error(`PLAN_CATALOG inválido (${tag}): monthly, annual y seats deben ser mayores a cero`);
+    if (!plan || plan.monthly <= 0 || plan.seats <= 0) {
+      throw new Error(`PLAN_CATALOG inválido (${tag}): monthly y seats deben ser mayores a cero`);
     }
   }
   return catalog;
@@ -84,15 +83,15 @@ export function isKnownProduct(product: string): product is BillingProduct {
 }
 
 export function isKnownPeriod(period: string): period is BillingPeriod {
-  return period === 'MONTHLY' || period === 'ANNUAL';
+  return period === 'MONTHLY';
 }
 
 export function planAmount(plan: BillingPlan, period: BillingPeriod): number {
-  return PLAN_CATALOG[plan][period === 'ANNUAL' ? 'annual' : 'monthly'];
+  return PLAN_CATALOG[plan].monthly;
 }
 
 export function planDays(period: BillingPeriod): number {
-  return period === 'ANNUAL' ? 365 : 30;
+  return 30;
 }
 
 export function isBillingConfigured(): boolean {
@@ -141,7 +140,6 @@ export async function createPurchase(input: {
     seats = PRODUCT_CATALOG[input.plan].seats;
     periodStore = 'ONCE';
   } else if (isKnownPlan(input.plan)) {
-    if (input.period === 'ANNUAL') return { ok: false, error: 'Los planes disponibles son exclusivamente mensuales' };
     const period: BillingPeriod = 'MONTHLY';
     const plan = PLAN_CATALOG[input.plan];
     amount = plan.monthly;
@@ -284,7 +282,7 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
   let licenseKey = purchase.licenseKey;
   if (!isProduct && !licenseKey && isLicensorIssueConfigured()) {
     const plan: BillingPlan = isKnownPlan(purchase.plan) ? purchase.plan : 'PRO';
-    const period: BillingPeriod = isKnownPeriod(purchase.period) ? purchase.period : 'ANNUAL';
+    const period: BillingPeriod = 'MONTHLY';
     const issued = await issueLicense({
       client: (purchase.gymName || purchase.buyerName || 'Cliente web').slice(0, 120),
       plan,
@@ -307,7 +305,7 @@ export async function fulfillPurchase(purchaseId: string): Promise<void> {
     ? PRODUCT_CATALOG[purchase.plan as BillingProduct].name
     : PLAN_CATALOG[purchase.plan as BillingPlan]?.name ?? purchase.plan;
   const periodLabel =
-    purchase.period === 'ANNUAL' ? 'anual' : purchase.period === 'MONTHLY' ? 'mensual' : 'pago único';
+    purchase.period === 'MONTHLY' ? 'mensual' : 'pago único';
 
   const buyerLines = isProduct
     ? [
