@@ -115,6 +115,8 @@ export function LandingPlans({
         </div>
       </div>
 
+      <p className="mt-5 text-center text-xs leading-relaxed text-text-muted">Importes en ARS. El tratamiento de IVA y el comprobante fiscal aplicable se informan según la condición fiscal vigente antes de confirmar el pago. El plan anual cubre 12 meses.</p>
+
       <div className="mt-10 grid gap-5 lg:grid-cols-4">
         {/* Prueba gratis */}
         <div className="relative flex flex-col rounded-2xl border border-dashed border-line bg-surface/50 p-6">
