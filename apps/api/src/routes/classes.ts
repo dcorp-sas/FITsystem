@@ -13,10 +13,13 @@ async function requireInstructor(organizationId: string, userId: string) {
   // Facilita el vínculo inicial: si el administrador creó el usuario y el profesor
   // con el mismo email, el primer acceso establece la relación una sola vez.
   if (!instructor && user.email) {
-    instructor = await prisma.instructor.findFirst({
-      where: { organizationId, isActive: true, email: { equals: user.email, mode: 'insensitive' }, userId: null },
+    // Comparación en JS para funcionar tanto con SQLite (escritorio) como PostgreSQL (nube).
+    const candidates = await prisma.instructor.findMany({
+      where: { organizationId, isActive: true, userId: null, email: { not: null } },
+      select: { id: true, email: true, organizationId: true, branchId: true, userId: true, name: true, specialty: true, hourlyRate: true, classRate: true, commissionPct: true, color: true, isActive: true, createdAt: true, updatedAt: true },
     });
-    if (instructor) instructor = await prisma.instructor.update({ where: { id: instructor.id }, data: { userId } });
+    const match = candidates.find((candidate) => candidate.email?.trim().toLowerCase() === user.email?.trim().toLowerCase());
+    if (match) instructor = await prisma.instructor.update({ where: { id: match.id }, data: { userId } });
   }
   if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Creá el profesor con el mismo email que el usuario y asignale una sede.');
   if (!user.branchId && instructor.branchId) {
