@@ -648,6 +648,7 @@ export default function LandingPage() {
                 y app móvil para tus socios.
               </p>
               <p className="mt-4 text-xs text-text-muted">App del socio incluida · Planes mensuales y anuales</p>
+              <p className="mt-3 text-xs text-text-muted">FIT system™ · CUIT 20-35720586-8</p>
             </div>
             <div className="md:col-span-2">
               <h4 className="text-sm font-semibold text-text">Contacto</h4>
@@ -655,6 +656,9 @@ export default function LandingPage() {
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
+              <a href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,," target="_blank" rel="noreferrer" className="mt-5 inline-block" aria-label="Consultar constancia fiscal de FIT system">
+                <img src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg" alt="Consultar constancia fiscal" width="160" height="60" loading="lazy" className="h-auto w-40" />
+              </a>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
                 <a href="/software-para-gimnasios" className="transition-colors hover:text-text">Software para gimnasios</a>
                 <a href="/control-de-socios-y-cuotas" className="transition-colors hover:text-text">Socios y cuotas</a>
