@@ -79,7 +79,7 @@ export function LandingContact({
           ))}
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
-            Respuesta en menos de 24 horas hábiles
+            Atención por email
           </li>
           <li className="flex items-center gap-2">
             <Icon name="check" size={16} className="text-success" />
