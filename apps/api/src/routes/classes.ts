@@ -20,7 +20,7 @@ export function classRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const instructorScope = req.user.role === 'INSTRUCTOR'
-        ? { userId: (await requireInstructor(req.user.organizationId, req.user.id)).id }
+        ? { id: (await requireInstructor(req.user.organizationId, req.user.id)).id }
         : {};
       const instructors = await prisma.instructor.findMany({
         where: { organizationId: req.user.organizationId, ...instructorScope },
