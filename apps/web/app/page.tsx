@@ -354,7 +354,7 @@ export default function LandingPage() {
                 src: '/screens/sistema-caja.svg',
                 alt: 'Cobros y caja diaria en FIT system™',
                 title: 'Cobros y caja',
-                text: 'Efectivo, transferencia o MercadoPago, con arqueo por turno.',
+                text: 'Registro de cobros y arqueo por turno.',
               },
             ].map((shot) => (
               <figure key={shot.src} className="overflow-hidden rounded-2xl border border-line bg-surface transition-colors hover:border-primary/40">
@@ -376,7 +376,7 @@ export default function LandingPage() {
               <img src="/screens/app-socios.svg" alt="App del socio de FIT system™ en el celular" className="w-full" />
             </div>
             <div className="text-center lg:text-left">
-              <h3 className="text-xl font-bold text-text">App del socio, incluida en tu licencia</h3>
+              <h3 className="text-xl font-bold text-text">App del socio según el cupo de tu plan</h3>
               <p className="mt-3 text-sm leading-relaxed text-text-muted">
                 Cada socio instala la app desde el navegador (sin descargas) y ve el estado de su cuota,
                 su rutina del día y las novedades del gimnasio. Registra su ingreso escaneando el QR de
@@ -497,7 +497,7 @@ export default function LandingPage() {
           <SectionHeading
             kicker="Descargas"
             title="Llevalo a todos lados"
-            text="La gestión en tu PC y a tus socios en el bolsillo."
+            text="La gestión en tu PC y acceso móvil para tus socios cuando tienen conexión."
           />
 
           <div className="mt-14 grid gap-5 md:grid-cols-3">
@@ -505,7 +505,7 @@ export default function LandingPage() {
               {
                 icon: 'dashboard' as IconName,
                 title: 'Escritorio (Windows)',
-                text: 'La app completa del gimnasio, con todos los módulos. Sigue operando aunque se corte internet.',
+                text: 'La gestión del gimnasio en Windows puede continuar con sus funciones locales si se corta internet. Las funciones online quedan temporalmente no disponibles.',
                 cta: 'Descargar para Windows',
                 href: SETUP_URL,
                 note: `Incluye ${trialDays} días de prueba gratis`,
@@ -514,7 +514,7 @@ export default function LandingPage() {
               {
                 icon: 'mobile' as IconName,
                 title: 'App del socio',
-                text: 'Se instala desde el navegador (PWA). Cada socio ve su cuota, rutinas, novedades y paga desde el celular.',
+                text: 'Se abre desde el navegador y puede agregarse a la pantalla de inicio. Las funciones online requieren conexión y dependen de la configuración.',
                 cta: 'Instalar app del socio',
                 href: PWA_INSTALL_URL,
                 note: 'Sin descargas: abrila y "Agregar a pantalla de inicio"',
