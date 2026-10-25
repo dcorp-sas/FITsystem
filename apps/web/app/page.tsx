@@ -586,6 +586,18 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Quiénes somos */}
+      <section id="quienes-somos" className="scroll-mt-20 py-16">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl border border-line bg-surface p-7 sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-light">Quiénes somos</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-text sm:text-3xl">Tecnología pensada para el día a día del gimnasio</h2>
+            <p className="mt-4 text-sm leading-7 text-text-muted">FIT system es una herramienta de gestión enfocada en reunir en un solo flujo la administración de socios, cuotas, caja, asistencia, clases y la comunicación con los socios. Buscamos que el equipo del gimnasio dedique menos tiempo a tareas dispersas y tenga una visión más ordenada de su operación.</p>
+            <p className="mt-3 text-sm leading-7 text-text-muted">Si querés conocer el alcance real de una función, consultar una integración o evaluar una migración, escribinos antes de contratar. Preferimos confirmar compatibilidad y condiciones de antemano.</p>
+          </div>
+        </div>
+      </section>
+
       {/* Contacto */}
       <section id="contacto" className="scroll-mt-20 pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
