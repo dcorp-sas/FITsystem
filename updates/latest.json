@@ -1,6 +1,6 @@
 {
-  "version": "0.3.33",
+  "version": "0.3.34",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Retira de la landing la venta de asientos extra y del kit Point/QR de MercadoPago. Se mantienen las integraciones de cobro existentes para los gimnasios.",
+  "notes": "Corrige la cámara de la app de socios en web: el stream se activa desde un gesto del usuario después del permiso y se muestra un error/reintento si el navegador no puede montar la cámara.",
   "mandatory": false
 }

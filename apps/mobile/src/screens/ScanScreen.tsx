@@ -37,6 +37,8 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
   const [permission, requestPermission] = useCameraPermissions();
   const [knownGranted, setKnownGranted] = useState(false);
   const [asked, setAsked] = useState(false);
+  const [cameraStarted, setCameraStarted] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanned, setScanned] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CheckinResult | null>(null);
@@ -53,8 +55,10 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
         setKnownGranted(true);
         void writeCameraFlag();
       }
+      if (Platform.OS !== 'web') setCameraStarted(true);
       return;
     }
+    if (Platform.OS === 'web') return;
     // Se pide una sola vez, de forma automática, si nunca se preguntó.
     if (!asked && permission.status === 'undetermined' && permission.canAskAgain) {
       setAsked(true);
@@ -85,7 +89,9 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
   const denied = permission?.status === 'denied';
   // En la web el navegador puede no exponer el estado real: si ya se habilitó
   // antes, se muestra la cámara directamente sin volver a pedir.
-  const cameraUsable = permission?.granted || (knownGranted && !denied);
+  const cameraUsable = Boolean(
+    permission?.granted && (Platform.OS !== 'web' ? true : cameraStarted),
+  );
 
   if (!cameraUsable && !permission && !knownGranted) {
     return (
@@ -101,19 +107,23 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
         <Card>
           <Subtitle>Escaneá el QR de la entrada</Subtitle>
           <Muted style={{ marginTop: spacing.sm }}>
-            {denied
+            {cameraError
+              ? cameraError
+              : denied
               ? 'El acceso a la cámara está bloqueado. Habilitalo desde los ajustes del navegador y volvé a intentar.'
               : 'Para registrar tu ingreso, la app necesita usar la cámara. Apuntá al cartel con el QR que está en la puerta del gimnasio.'}
           </Muted>
-          {permission?.canAskAgain !== false && (
+          {(Platform.OS === 'web' || permission?.canAskAgain !== false) && (
             <View style={{ marginTop: spacing.md }}>
               <PrimaryButton
-                label="Habilitar cámara"
+                label={permission?.granted ? 'Activar cámara' : 'Habilitar cámara'}
                 onPress={async () => {
-                  const res = await requestPermission();
+                  setCameraError(null);
+                  const res = permission?.granted ? permission : await requestPermission();
                   if (res.granted) {
                     setKnownGranted(true);
                     void writeCameraFlag();
+                    setCameraStarted(true);
                   }
                 }}
               />
@@ -134,6 +144,8 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
           onBarcodeScanned={scanned || busy ? undefined : handleScan}
           onMountError={(e) => {
             // La cámara no pudo iniciar (permiso revocado o sin dispositivo).
+            setCameraStarted(false);
+            setCameraError(e.message || 'No se pudo iniciar la cámara. Revisá los permisos del navegador.');
             showToast('Cámara no disponible', e.message || 'Revisá los permisos de la cámara.', 'error');
           }}
         />
