@@ -466,7 +466,7 @@ function AccessQrCard({ branchId, displayMode = false }: { branchId: string; dis
       action={
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={openQrWindow}>
-            <Icon name="external-link" size={15} /> Abrir en ventana
+            <Icon name="activity" size={15} /> Abrir en ventana
           </Button>
           <Button variant="secondary" size="sm" onClick={load} loading={loading}>
             <Icon name="activity" size={15} /> Actualizar
