@@ -188,6 +188,15 @@ export function routineRoutes(app: FastifyInstance) {
       });
 
       await logActivity(req, 'UPDATE', 'ROUTINE', id, existing, routine);
+      // Avisar al socio cuando se modifica una rutina que ya tiene asignada.
+      if (routine.memberId && routine.isActive) {
+        void sendPushToMember(
+          req.user.organizationId,
+          routine.memberId,
+          'Tu rutina fue actualizada',
+          `Se actualizaron los ejercicios de "${routine.name}". Abrí la app para ver los cambios.`,
+        ).catch(() => undefined);
+      }
       return ok(reply, routine);
     } catch (error) {
       return fail(reply, error);
