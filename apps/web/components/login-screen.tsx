@@ -64,7 +64,6 @@ export function LoginScreen() {
                   placeholder="Usuario o email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin"
                   required
                 />
               </Field>
@@ -78,10 +77,6 @@ export function LoginScreen() {
                   required
                 />
               </Field>
-              <p className="rounded-lg border border-line bg-base px-3 py-2 text-center text-xs text-text-muted">
-                Usuario: <span className="font-semibold text-text">admin</span> · Contraseña:{' '}
-                <span className="font-semibold text-text">admin123</span>
-              </p>
             </>
           ) : (
             <>
