@@ -55,7 +55,10 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
         setKnownGranted(true);
         void writeCameraFlag();
       }
-      if (Platform.OS !== 'web') setCameraStarted(true);
+      // En web tambien hay que marcar la camara como iniciada. Antes quedaba
+      // en false aunque el navegador ya hubiera concedido el permiso, y el socio
+      // volvia a ver la pantalla de autorizacion cada vez que entraba al QR.
+      setCameraStarted(true);
       return;
     }
     if (Platform.OS === 'web') return;
@@ -90,7 +93,8 @@ export function ScanScreen({ onDone }: { onDone?: (res: CheckinResult) => void }
   // En la web el navegador puede no exponer el estado real: si ya se habilitó
   // antes, se muestra la cámara directamente sin volver a pedir.
   const cameraUsable = Boolean(
-    permission?.granted && (Platform.OS !== 'web' ? true : cameraStarted),
+    (permission?.granted || (Platform.OS === 'web' && knownGranted)) &&
+      (Platform.OS !== 'web' || cameraStarted || knownGranted),
   );
 
   if (!cameraUsable && !permission && !knownGranted) {
