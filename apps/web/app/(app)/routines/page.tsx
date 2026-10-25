@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { http, ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
+import { useAuth } from '@/lib/auth';
 import { Badge, Button, Field, Input, Modal, PageHeader, Select, Spinner, Table, Textarea } from '@/components/ui';
 import { Icon } from '@/components/icon';
 
@@ -58,6 +59,7 @@ interface MemberOption {
 
 export default function RoutinesPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -94,7 +96,7 @@ export default function RoutinesPage() {
     <div>
       <PageHeader
         title="Rutinas"
-        subtitle="Planes de entrenamiento para la app móvil"
+        subtitle={user?.role === 'INSTRUCTOR' ? 'Rutinas de tus socios: asigná y modificá planes de entrenamiento' : 'Planes de entrenamiento para la app móvil'}
         action={
           <Button onClick={() => { setEditing(null); setOpen(true); }}>
             <Icon name="plus" size={16} /> Nueva rutina
@@ -134,9 +136,9 @@ export default function RoutinesPage() {
                   <Button size="sm" variant="ghost" onClick={() => { setEditing(r); setOpen(true); }}>
                     <Icon name="edit" size={15} />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => remove(r)}>
+                  {user?.role !== 'INSTRUCTOR' ? <Button size="sm" variant="ghost" onClick={() => remove(r)}>
                     <Icon name="trash" size={15} />
-                  </Button>
+                  </Button> : null}
                 </div>
               </td>
             </tr>
