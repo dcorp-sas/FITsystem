@@ -60,7 +60,7 @@ export default function TeacherPortalPage() {
     setError('');
     try {
       const from = dateInput(new Date());
-      const toDate = new Date(); toDate.setDate(toDate.getDate() + 14);
+      const toDate = new Date(); toDate.setDate(toDate.getDate() + 365);
       const [cls, ses, routineRes] = await Promise.all([
         http.get<GymClass[]>('/classes'),
         http.get<ClassSession[]>(`/sessions?from=${from}&to=${dateInput(toDate)}`),
@@ -190,8 +190,8 @@ export default function TeacherPortalPage() {
             {loading ? <div className="flex justify-center py-20"><Spinner className="h-7 w-7" /></div> : (
               <>
                 <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-[#0d1524] p-5 transition hover:border-cyan-300/30"><div className="flex items-center justify-between"><span className="text-sm text-slate-400">Clases asignadas</span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-400/10 text-lg text-blue-300">▤</span></div><p className="mt-4 text-4xl font-black tracking-tight">{classes.length}</p><p className="mt-2 text-xs text-slate-500">Clases vinculadas a tu usuario</p></div>
-                  <div className="rounded-2xl border border-white/10 bg-[#0d1524] p-5 transition hover:border-cyan-300/30"><div className="flex items-center justify-between"><span className="text-sm text-slate-400">Próximas sesiones</span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10 text-lg text-violet-300">◷</span></div><p className="mt-4 text-4xl font-black tracking-tight">{sessions.length}</p><p className="mt-2 text-xs text-slate-500">Agenda de los próximos 14 días</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-[#0d1524] p-5 transition hover:border-cyan-300/30"><div className="flex items-center justify-between"><span className="text-sm text-slate-400">Clases asignadas</span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-400/10 text-lg text-blue-300">▤</span></div><p className="mt-4 text-4xl font-black tracking-tight">{classes.length}</p><p className="mt-2 text-xs text-slate-500">Clases disponibles en tu sede</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-[#0d1524] p-5 transition hover:border-cyan-300/30"><div className="flex items-center justify-between"><span className="text-sm text-slate-400">Próximas sesiones</span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10 text-lg text-violet-300">◷</span></div><p className="mt-4 text-4xl font-black tracking-tight">{sessions.length}</p><p className="mt-2 text-xs text-slate-500">Agenda de los próximos 12 meses</p></div>
                   <div className="rounded-2xl border border-white/10 bg-[#0d1524] p-5 transition hover:border-cyan-300/30"><div className="flex items-center justify-between"><span className="text-sm text-slate-400">Rutinas activas</span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-lg text-emerald-300">↗</span></div><p className="mt-4 text-4xl font-black tracking-tight">{routines.length}</p><p className="mt-2 text-xs text-slate-500">Rutinas disponibles en el sistema</p></div>
                 </section>
 
