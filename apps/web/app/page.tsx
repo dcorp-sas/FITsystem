@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { LandingNav } from '@/components/landing-nav';
 import { LandingPlans, type PlanDef } from '@/components/landing-plans';
 import { LandingContact } from '@/components/landing-contact';
@@ -184,7 +186,10 @@ function BrowserFrame({ title, children }: { title: string; children: React.Reac
   );
 }
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const host = (await headers()).get('host')?.split(':')[0]?.toLowerCase() || '';
+  if (host === 'profes.fitsystem.com.ar' || host === 'www.profes.fitsystem.com.ar') redirect('/profes');
+
   const content = getSiteContent();
   const { hero, stats, trialDays } = content;
   const CONTACT_EMAIL = content.contact.email;
