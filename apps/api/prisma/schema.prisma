@@ -1150,7 +1150,7 @@ model ErrorLog {
 model PlanPurchase {
   id                String   @id @default(cuid())
   plan              String // BASIC | PRO | ENTERPRISE
-  period            String // MONTHLY | ANNUAL
+  period            String // MONTHLY
   seats             Int
   amount            Float
   currency          String   @default("ARS")
