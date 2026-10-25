@@ -18,6 +18,11 @@ export function routineRoutes(app: FastifyInstance) {
       const where: Record<string, unknown> = { organizationId: req.user.organizationId };
       if (query.memberId) where.memberId = query.memberId;
       if (query.template === 'true') where.isTemplate = true;
+      if (req.user.role === 'INSTRUCTOR') {
+        where.OR = req.user.branchId
+          ? [{ createdById: req.user.id }, { isTemplate: true }, { member: { branchId: req.user.branchId } }]
+          : [{ createdById: req.user.id }, { isTemplate: true }];
+      }
 
       const routines = await prisma.routine.findMany({
         where,
@@ -43,7 +48,13 @@ export function routineRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const { id } = request.params as { id: string };
       const routine = await prisma.routine.findFirst({
-        where: { id, organizationId: req.user.organizationId },
+        where: {
+          id,
+          organizationId: req.user.organizationId,
+          ...(req.user.role === 'INSTRUCTOR'
+            ? { OR: [{ createdById: req.user.id }, ...(req.user.branchId ? [{ member: { branchId: req.user.branchId } }] : []), { isTemplate: true }] }
+            : {}),
+        },
         include: { days: { orderBy: { dayIndex: 'asc' }, include: { exercises: { orderBy: { orderIndex: 'asc' } } } } },
       });
       if (!routine) throw new HttpError(404, 'Rutina no encontrada');
@@ -57,7 +68,13 @@ export function routineRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const input = validate(routineSchema, request.body);
-      if (input.memberId) await assertMemberInOrg(req.user.organizationId, input.memberId);
+      if (input.memberId) {
+        await assertMemberInOrg(req.user.organizationId, input.memberId);
+        if (req.user.role === 'INSTRUCTOR' && req.user.branchId) {
+          const member = await prisma.member.findFirst({ where: { id: input.memberId, organizationId: req.user.organizationId, branchId: req.user.branchId }, select: { id: true } });
+          if (!member) throw new HttpError(403, 'Solo podés asignar rutinas a socios de tu sede.');
+        }
+      }
       const routine = await prisma.routine.create({
         data: {
           organizationId: req.user.organizationId,
