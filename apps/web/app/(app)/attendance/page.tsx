@@ -414,12 +414,9 @@ function AccessQrCard({ branchId, displayMode = false }: { branchId: string; dis
     load();
   }, [load]);
 
-  async function openQrWindow() {
-    const openWindow = typeof window !== 'undefined' ? window.fitsystem?.openAccessQrWindow : undefined;
-    if (openWindow) {
-      await openWindow();
-      return;
-    }
+  function openQrWindow() {
+    // La vista del QR es opcional: abrirla aparte no cambia el panel principal.
+    // En navegador se abre una pestaña nueva; Electron puede abrirla en el navegador del equipo.
     window.open('/attendance?qrdisplay=1', '_blank', 'noopener,noreferrer');
   }
 
