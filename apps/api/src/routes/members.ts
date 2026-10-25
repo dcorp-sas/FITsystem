@@ -66,6 +66,9 @@ export function memberRoutes(app: FastifyInstance) {
   app.get('/members', { onRequest: [auth] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
+      if (req.user.role === 'INSTRUCTOR' && !req.user.branchId) {
+        throw new HttpError(403, 'Asigná una sede a tu usuario para consultar socios.');
+      }
       const query = request.query as {
         search?: string;
         status?: string;
@@ -186,8 +189,11 @@ export function memberRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const { id } = request.params as { id: string };
+      if (req.user.role === 'INSTRUCTOR' && !req.user.branchId) {
+        throw new HttpError(403, 'Asigná una sede a tu usuario para consultar socios.');
+      }
       const member = await prisma.member.findFirst({
-        where: { id, organizationId: req.user.organizationId },
+        where: { id, organizationId: req.user.organizationId, ...(req.user.role === 'INSTRUCTOR' ? { branchId: req.user.branchId! } : {}) },
         include: {
           branch: true,
           memberships: {
