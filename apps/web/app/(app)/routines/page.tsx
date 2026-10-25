@@ -179,9 +179,14 @@ function RoutineModal({
 
   useEffect(() => {
     if (!open) return;
+    // /members aplica el alcance por sede del rol INSTRUCTOR; no usar el listado
+    // administrativo de cuentas del portal, que incluye socios de toda la organización.
     http
-      .get<{ items: MemberOption[] }>('/portal-accounts/members')
-      .then((res) => setMembers(res.items))
+      .get<{ items: { id: string; firstName: string; lastName: string; memberCode: string }[] }>('/members?pageSize=100')
+      .then((res) => setMembers(res.items.map((member) => ({
+        id: member.id,
+        name: `${member.firstName} ${member.lastName} (${member.memberCode})`.trim(),
+      }))))
       .catch(() => undefined);
   }, [open]);
 
