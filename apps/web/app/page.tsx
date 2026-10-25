@@ -79,7 +79,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Cómo funciona la licencia?',
-    a: 'La licencia se activa una sola vez con una clave (FIT-XXXX-XXXX-XXXX). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
+    a: 'La licencia se activa una sola vez con una clave que comienza con FIT y contiene tres bloques de caracteres separados por guiones (formato de ejemplo: FIT-AB12-CD34-EF56). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
   },
   {
     q: '¿Puedo separar la operación por sede o caja?',
@@ -95,7 +95,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Cómo consigo el código de licencia?',
-    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave (FIT-XXXX-XXXX-XXXX) automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
+    a: `Elegís un plan en la página (pago con MercadoPago) y, al aprobarse el pago, el sistema emite tu clave automáticamente y te la enviamos por email. La activás una sola vez desde la app del gimnasio (Configuración > Licencia). Si necesitás ayuda, el ID de instalación aparece en la app.`,
   },
   {
     q: '¿La prueba requiere una tarjeta?',
