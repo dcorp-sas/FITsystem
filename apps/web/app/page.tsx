@@ -669,15 +669,25 @@ export default function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Seguir a FIT system en Instagram"
-                title="Instagram de FIT system"
-                className="mt-4 inline-flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-text"
+                title="Seguir a FIT system en Instagram"
+                className="group mt-5 flex max-w-sm items-center gap-3 rounded-2xl border border-fuchsia-400/25 bg-gradient-to-r from-fuchsia-500/15 via-purple-500/10 to-orange-400/10 p-3.5 transition-all hover:border-fuchsia-400/60 hover:from-fuchsia-500/25 hover:via-purple-500/20 hover:to-orange-400/20"
               >
-                <Icon name="instagram" size={20} />
-                Instagram
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-orange-400 text-white shadow-lg shadow-fuchsia-950/30">
+                  <Icon name="instagram" size={23} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-text">Seguinos en Instagram</span>
+                  <span className="mt-0.5 block text-xs text-text-muted">@fitsystemgym</span>
+                </span>
+                <span aria-hidden="true" className="text-lg text-fuchsia-300 transition-transform group-hover:translate-x-0.5">↗</span>
               </a>
-              <a href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,," target="_blank" rel="noreferrer" className="mt-5 inline-block" aria-label="Consultar constancia fiscal de FIT system">
-                <img src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg" alt="Consultar constancia fiscal" width="160" height="60" loading="lazy" className="h-auto w-40" />
-              </a>
+              <div className="mt-4 flex items-center gap-3 border-t border-line/70 pt-3">
+                <a href="https://qr.afip.gob.ar/?qr=Wm5cesE9tbTfPnnbeQW5tA,," target="_blank" rel="noreferrer" aria-label="Consultar constancia fiscal de FIT system" className="inline-flex shrink-0 items-center rounded-md bg-white p-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="https://www.afip.gob.ar/images/f960/DATAWEB.jpg" alt="Constancia fiscal de FIT system" width="88" height="33" loading="lazy" className="block h-auto w-[88px]" />
+                </a>
+                <span className="text-[11px] leading-4 text-text-muted">Información fiscal · Consultar constancia</span>
+              </div>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
                 <a href="/software-para-gimnasios" className="transition-colors hover:text-text">Software para gimnasios</a>
                 <a href="/control-de-socios-y-cuotas" className="transition-colors hover:text-text">Socios y cuotas</a>
