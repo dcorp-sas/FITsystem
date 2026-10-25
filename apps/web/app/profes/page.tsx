@@ -120,8 +120,8 @@ export default function TeacherPortalPage() {
           <p className="mb-3 mt-10 px-3 text-[10px] font-bold uppercase tracking-[.22em] text-slate-500">Espacio de trabajo</p>
           <nav className="space-y-1">
             <a href="/profes" className="flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-3 text-sm font-semibold text-cyan-200"><span>▦</span> Espacio docente</a>
-            <a href="#clases" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"><span>▤</span> Clases y agenda</a>
-            <a href="#rutinas" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"><span>↗</span> Rutinas de socios</a>
+            <a href="/classes" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"><span>▤</span> Clases y agenda</a>
+            <a href="/routines" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"><span>↗</span> Rutinas de socios</a>
           </nav>
           <div className="mt-auto rounded-2xl border border-white/10 bg-gradient-to-br from-slate-800/70 to-slate-900/40 p-4">
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">✓</div>
@@ -148,7 +148,7 @@ export default function TeacherPortalPage() {
                 <p className="text-xs font-bold uppercase tracking-[.24em] text-cyan-300">TU ESPACIO DE ENTRENAMIENTO</p>
                 <h1 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">Hola, {user.name} <span aria-hidden="true">👋</span></h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Organizá tus clases, consultá los inscriptos y seguí la evolución de tus alumnos desde un solo lugar.</p>
-                <div className="mt-6 flex flex-wrap gap-3"><Button onClick={() => setShowSchedule((v) => !v)} disabled={!classes.length}>{showSchedule ? 'Cerrar formulario' : '+ Programar una clase'}</Button><a href="#rutinas" className="inline-flex h-10 items-center rounded-lg border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:bg-white/10">Ir a rutinas <span className="ml-2">↗</span></a></div>
+                <div className="mt-6 flex flex-wrap gap-3"><Button onClick={() => setShowSchedule((v) => !v)} disabled={!classes.length}>{showSchedule ? 'Cerrar formulario' : '+ Programar una clase'}</Button><a href="/routines" className="inline-flex h-10 items-center rounded-lg border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:bg-white/10">Ir a rutinas <span className="ml-2">↗</span></a></div>
               </div>
             </section>
 
