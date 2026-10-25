@@ -617,6 +617,7 @@ export default function LandingPage() {
                 Software integral de gestión para gimnasios. Socios, cuotas, caja, clases, asistencia
                 y app móvil para tus socios.
               </p>
+              <p className="mt-3 text-xs leading-relaxed text-text-muted">Titular: Matias Dario Duranovich · CUIT 20-35720586-8 · Calle 464 N.º 310, City Bell, Buenos Aires.</p>
               <p className="mt-4 text-xs text-text-muted">Datos en tu equipo · Opera sin internet · Pagás por el período elegido</p>
             </div>
             <div className="md:col-span-2">
@@ -627,8 +628,16 @@ export default function LandingPage() {
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
+                <a href="/software-para-gimnasios" className="transition-colors hover:text-text">Software para gimnasios</a>
+                <a href="/control-de-socios-y-cuotas" className="transition-colors hover:text-text">Socios y cuotas</a>
+                <a href="/control-de-acceso-qr" className="transition-colors hover:text-text">Control de acceso QR</a>
+                <a href="/cobros-mercadopago-gimnasios" className="transition-colors hover:text-text">Cobros con MercadoPago</a>
+                <a href="/app-para-socios" className="transition-colors hover:text-text">App para socios</a>
+                <a href="/gimnasio-sin-internet" className="transition-colors hover:text-text">Gimnasio sin internet</a>
                 <a href="/privacidad" className="transition-colors hover:text-text">Política de privacidad</a>
                 <a href="/terminos" className="transition-colors hover:text-text">Términos y condiciones</a>
+                <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>
+                <a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noreferrer" className="transition-colors hover:text-text">Defensa del Consumidor</a>
                 <a href="/arrepentimiento" className="transition-colors hover:text-text">Arrepentimiento y baja</a>
                 <a href="https://www.argentina.gob.ar/produccion/defensadelconsumidor" target="_blank" rel="noreferrer" className="transition-colors hover:text-text">Defensa del Consumidor</a>
               </div>
