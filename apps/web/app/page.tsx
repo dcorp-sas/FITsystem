@@ -9,7 +9,7 @@ import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fitsystem.com.ar'),
-  title: 'Software para gimnasios | FIT system',
+  title: 'Software para gimnasios con app y portal docente | FIT System',
   description:
     'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. La operación local puede continuar sin internet; las funciones online requieren conexión.',
   alternates: { canonical: '/' },
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     locale: 'es_AR',
     url: 'https://fitsystem.com.ar',
     siteName: 'FIT system™',
-    title: 'Software para gimnasios | FIT system',
+    title: 'Software para gimnasios con app y portal docente | FIT System',
     description:
       'Software integral para gimnasios con escritorio Windows, app de socios y portal de profesores conectados. Gestioná socios, cuotas, clases, rutinas y progreso; las funciones online requieren conexión.',
     images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
@@ -59,17 +59,17 @@ const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[]
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
   { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, según las funciones del plan contratado.', wide: true },
   { icon: 'branches', title: 'Sedes y cajas', text: 'Operación por sede o caja, con reportes comparativos.' },
-  { icon: 'routines', title: 'Rutinas y seguimiento', text: 'Armá ciclos de entrenamiento, asigná rutinas y seguí el progreso que registra cada socio en su app.' },
-  { icon: 'classes', title: 'Portal de profesores', text: 'Los profesores acceden con su usuario para consultar clases, ver inscriptos y gestionar las rutinas asignadas.' },
+  { icon: 'routines', title: 'Rutinas y seguimiento', text: 'Creá y asigná rutinas desde el sistema, seguí los ejercicios y pesos registrados en la app y consultá el historial para comparar ciclos de entrenamiento de 4 semanas.' },
+  { icon: 'classes', title: 'Portal de profesores', text: 'Cada profesor entra con su propio usuario al portal conectado al sistema principal: consulta su agenda, revisa inscriptos, gestiona sesiones y accede a rutinas e historial según sus permisos.' },
   { icon: 'news', title: 'Novedades', text: 'Publicá promos y avisos que tus socios ven en la app.' },
-  { icon: 'mobile', title: 'App del socio', text: 'Cuota, pagos, rutina y novedades, desde el celular del socio.' },
+  { icon: 'mobile', title: 'App del socio', text: 'Cada socio consulta su cuota, pagos, rutinas y novedades; registra ejercicios y pesos para seguir su progreso y conservar el historial de entrenamiento.' },
 ];
 
 const STEPS = [
   { n: '1', title: 'Instalá el escritorio', text: 'Instalá FIT system™ en una PC con Windows y completá la configuración inicial. La operación local no requiere contratar un servidor externo.' },
   { n: '2', title: 'Activá tu licencia', text: 'Ingresá la clave de licencia que te damos. Elegís el plan según los socios con app.' },
   { n: '3', title: 'Cargá y operá', text: 'Cargá socios, planes y productos. Empezá a cobrar, controlar caja y registrar asistencias.' },
-  { n: '4', title: 'Tus socios, conectados', text: 'Tus socios acceden a la app web desde el celular para consultar cuota, rutinas y novedades. Las funciones online requieren conexión y dependen de la configuración.' },
+  { n: '4', title: 'Conectá profesores y socios', text: 'Los profesores trabajan desde su portal con las clases y rutinas del sistema principal. Los socios consultan su rutina en la app y registran su progreso; las funciones online requieren conexión.' },
 ];
 
 const faqs = (trialDays: number) => [
