@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     siteName: 'FIT system™',
     title: 'Software para gimnasios | FIT system',
     description:
-      'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
+      'Software integral para gimnasios con escritorio Windows, app de socios y portal de profesores conectados. Gestioná socios, cuotas, clases, rutinas y progreso; las funciones online requieren conexión.',
     images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
@@ -327,7 +327,7 @@ export default function LandingPage() {
           <SectionHeading
             kicker="Producto"
             title="Todo tu gimnasio, en una pantalla"
-            text="El panel de gestión en la PC y la app de cada socio en el celular. Así se ve FIT system™ por dentro."
+            text="El sistema de gestión en la PC, la app para socios y el portal docente trabajando conectados."
           />
           <p className="mt-5 text-center text-xs text-text-muted">Vistas ilustrativas de la interfaz; la disponibilidad de funciones depende de la versión y del plan contratado.</p>
 
