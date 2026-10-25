@@ -182,6 +182,34 @@ export function routineRoutes(app: FastifyInstance) {
     }
   });
 
+  // Historial de progreso para que el profesor compare ciclos anteriores.
+  app.get('/routines/:id/logs', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'INSTRUCTOR'])] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const { id } = request.params as { id: string };
+      const routine = await prisma.routine.findFirst({
+        where: {
+          id,
+          organizationId: req.user.organizationId,
+          ...(req.user.role === 'INSTRUCTOR'
+            ? { OR: [{ createdById: req.user.id }, ...(req.user.branchId ? [{ member: { branchId: req.user.branchId } }] : []), { isTemplate: true }] }
+            : {}),
+        },
+        select: { id: true },
+      });
+      if (!routine) throw new HttpError(404, 'Rutina no encontrada');
+      const items = await prisma.routineLog.findMany({
+        where: { organizationId: req.user.organizationId, routineId: id },
+        orderBy: { completedAt: 'desc' },
+        take: 300,
+        include: { member: { select: { id: true, firstName: true, lastName: true, memberCode: true } } },
+      });
+      return ok(reply, { items });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   // Archivar una rutina cierra el ciclo sin borrar los registros de progreso.
   app.post('/routines/:id/archive', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'MANAGER', 'INSTRUCTOR'])] }, async (request, reply) => {
     try {
