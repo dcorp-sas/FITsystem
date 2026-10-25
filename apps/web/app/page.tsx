@@ -59,7 +59,8 @@ const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[]
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
   { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, según las funciones del plan contratado.', wide: true },
   { icon: 'branches', title: 'Sedes y cajas', text: 'Operación por sede o caja, con reportes comparativos.' },
-  { icon: 'routines', title: 'Rutinas', text: 'Armá rutinas por día y ejercicio, y envialas a la app del socio.' },
+  { icon: 'routines', title: 'Rutinas y seguimiento', text: 'Armá ciclos de entrenamiento, asigná rutinas y seguí el progreso que registra cada socio en su app.' },
+  { icon: 'classes', title: 'Portal de profesores', text: 'Los profesores acceden con su usuario para consultar clases, ver inscriptos y gestionar las rutinas asignadas.' },
   { icon: 'news', title: 'Novedades', text: 'Publicá promos y avisos que tus socios ven en la app.' },
   { icon: 'mobile', title: 'App del socio', text: 'Cuota, pagos, rutina y novedades, desde el celular del socio.' },
 ];
@@ -75,6 +76,10 @@ const faqs = (trialDays: number) => [
   {
     q: '¿Necesito internet para usar el sistema?',
     a: 'La operación local del escritorio puede continuar sin conexión a Internet. Las funciones en la nube, la app móvil de socios, los pagos online, las novedades y la sincronización de datos sí requieren conectividad.',
+  },
+  {
+    q: '¿Cómo trabajan los profesores con las rutinas y las clases?',
+    a: 'Cada profesor accede con el usuario que le asigna el gimnasio. Desde el portal puede consultar las clases vinculadas, ver inscriptos y gestionar las rutinas de entrenamiento. Los socios ven sus rutinas en la app y pueden registrar su progreso; las funciones online requieren conexión.',
   },
   {
     q: '¿Qué es la app del socio?',
@@ -514,7 +519,7 @@ export default function LandingPage() {
                 title: 'Acceso desde la PC del gimnasio',
                 text: 'Accedé a tu gestión desde la computadora del gimnasio con la aplicación de escritorio y credenciales según el rol de cada operador.',
                 cta: 'Pedir demo',
-                href: '#descargas',
+                href: '#contacto',
                 note: 'Para administradores y recepción',
               },
             ].map((item) => (
