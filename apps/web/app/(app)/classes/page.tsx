@@ -502,7 +502,7 @@ function SessionModal({
             ))}
           </Select>
         </Field>
-        <Field label="Profesor">
+        {!isInstructor ? <Field label="Profesor">
           <Select value={instructorId} onChange={(e) => setInstructorId(e.target.value)}>
             <option value="">Según la clase</option>
             {instructors.map((i) => (
