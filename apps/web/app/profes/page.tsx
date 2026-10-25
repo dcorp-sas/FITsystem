@@ -188,3 +188,5 @@ export default function TeacherPortalPage() {
     </main>
   );
 }
+
+// Redeploy del portal de profesores: recompilar la aplicacion web en el VPS.
