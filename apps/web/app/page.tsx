@@ -188,7 +188,6 @@ export default function LandingPage() {
     name: plan.name,
     seats: `Hasta ${plan.seats} socios con app`,
     monthly: plan.monthly,
-    annual: plan.annual,
     popular: plan.popular,
     features: plan.features,
   }));
