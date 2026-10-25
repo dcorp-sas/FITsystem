@@ -452,7 +452,7 @@ export default function LandingPage() {
               <div className="rounded-xl border border-line bg-surface p-4"><Icon name="classes" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Agenda organizada</p><p className="mt-1 text-xs leading-5 text-text-muted">Próximas sesiones y participantes en un mismo lugar.</p></div>
               <div className="rounded-xl border border-line bg-surface p-4"><Icon name="routines" size={20} className="text-primary-light" /><p className="mt-3 text-sm font-semibold text-text">Rutinas conectadas</p><p className="mt-1 text-xs leading-5 text-text-muted">Planes de entrenamiento disponibles para los socios desde la app.</p></div>
             </div>
-            <a href="#contacto" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark">Consultar por una demo</a>
+            <a href="https://profes.fitsystem.com.ar" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary-dark">Ingresar al portal de profesores</a>
           </div>
         </div>
       </section>
