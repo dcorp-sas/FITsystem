@@ -144,7 +144,7 @@ export async function createPurchase(input: {
     if (input.period === 'ANNUAL') return { ok: false, error: 'Los planes disponibles son exclusivamente mensuales' };
     const period: BillingPeriod = 'MONTHLY';
     const plan = PLAN_CATALOG[input.plan];
-    amount = plan[period === 'ANNUAL' ? 'annual' : 'monthly'];
+    amount = plan.monthly;
     seats = plan.seats;
     periodStore = period;
   } else {
