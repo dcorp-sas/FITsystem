@@ -3,7 +3,8 @@
 set -Eeuo pipefail
 cd /opt/fitsystem
 
-git fetch --prune origin main
+# Actualizar explícitamente la referencia remota: sin el refspec, origin/main puede quedar viejo.
+git fetch --prune origin +main:refs/remotes/origin/main
 git reset --hard origin/main
 
 # Primera ejecución: última versión que completó un deploy correctamente.
