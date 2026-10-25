@@ -10,22 +10,15 @@ async function requireInstructor(organizationId: string, userId: string) {
   const user = await prisma.user.findFirst({ where: { id: userId, organizationId }, select: { email: true, branchId: true } });
   if (!user) throw new HttpError(403, 'Usuario de profesor no encontrado en este gimnasio.');
   let instructor = await prisma.instructor.findFirst({ where: { organizationId, userId, isActive: true } });
-  // Facilita el vínculo inicial: si el administrador creó el usuario y el profesor
-  // con el mismo email, el primer acceso establece la relación una sola vez.
+  // Si no existe vínculo explícito, se permite la coincidencia exacta de email.
+  // La comparación en JS funciona tanto con SQLite como con PostgreSQL.
   if (!instructor && user.email) {
-    // Comparación en JS para funcionar tanto con SQLite (escritorio) como PostgreSQL (nube).
-    const candidates = await prisma.instructor.findMany({
-      where: { organizationId, isActive: true, userId: null, email: { not: null } },
-      select: { id: true, email: true, organizationId: true, branchId: true, userId: true, name: true, specialty: true, hourlyRate: true, classRate: true, commissionPct: true, color: true, isActive: true, createdAt: true, updatedAt: true },
-    });
-    const match = candidates.find((candidate) => candidate.email?.trim().toLowerCase() === user.email?.trim().toLowerCase());
-    if (match) instructor = await prisma.instructor.update({ where: { id: match.id }, data: { userId } });
+    const candidates = await prisma.instructor.findMany({ where: { organizationId, isActive: true, userId: null, email: { not: null } } });
+    instructor = candidates.find((candidate) => candidate.email?.trim().toLowerCase() === user.email?.trim().toLowerCase()) ?? null;
   }
-  if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Creá el profesor con el mismo email que el usuario y asignale una sede.');
-  if (!user.branchId && instructor.branchId) {
-    await prisma.user.update({ where: { id: userId }, data: { branchId: instructor.branchId } });
-  }
+  if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Creá el profesor con el mismo email y asignale una sede a tu usuario.');
   return instructor;
+
 }
 
 export function classRoutes(app: FastifyInstance) {
