@@ -107,7 +107,7 @@ const faqs = (trialDays: number) => [
   },
   {
     q: '¿Qué pasa si se rompe o me roban la PC?',
-    a: 'La recuperación depende de que exista una copia de seguridad reciente y accesible. Recomendamos mantener una copia fuera de la computadora principal y probar periódicamente su restauración. Antes de instalar o migrar, consultá con soporte el procedimiento correspondiente a tu versión.',
+    a: 'En el escritorio, la API local genera copias automáticas diarias de SQLite y conserva las últimas 14 cuando la base es local. Para protegerte ante robo o fallo del disco, mantené además una copia externa y probá la restauración. Consultá la guía de backups o escribí a soporte antes de restaurar una copia en producción.',
   },
   {
     q: '¿Puedo migrar mis datos desde Excel u otro sistema?',
