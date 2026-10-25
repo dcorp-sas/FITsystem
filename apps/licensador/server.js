@@ -526,6 +526,9 @@ const server = http.createServer(async (req, res) => {
       const key = String((body || {}).key || '').trim();
       if (!key) return send(res, 400, { error: 'Falta la clave' });
       db.prepare('UPDATE licenses SET state=? WHERE key=?').run('emitida', key);
+      // Una renovación de pago rehabilita la misma clave y sus instalaciones previas.
+      // La clave firmada tiene validez larga; el corte comercial se aplica por estado.
+      db.prepare('UPDATE activations SET active=1 WHERE key=?').run(key);
       writeLatestBackup();
       return send(res, 200, { ok: true });
     }
