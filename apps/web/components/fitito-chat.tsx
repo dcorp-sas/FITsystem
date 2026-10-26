@@ -7,8 +7,12 @@ type Message = { from: 'fitito' | 'user'; text: string };
 
 const topics = [
   { label: 'Instalación', keys: ['instal', 'descarg', 'windows', 'pc'], text: 'Te acompaño con la instalación de FIT System en la PC del gimnasio. Descargá el instalador desde la web y seguí los pasos. Si aparece un error, mandanos el mensaje exacto a soporte@fitsystem.com.ar.' },
+  { label: 'Clases y agenda', keys: ['clase', 'clases', 'agenda', 'sesion', 'sesión', 'horario', 'programar', 'profesor', 'profe', 'portal docente', 'portal de profesores'], text: 'Las clases y las sesiones programadas se gestionan desde Operación → Clases en FIT System. El portal de profesores tiene una interfaz propia, pero comparte los datos: las clases creadas y las sesiones programadas en el sistema deben aparecer allí, y las sesiones creadas desde Profes deben guardarse en el mismo sistema. Si no ves una clase, comprobá que corresponda a la misma sede y que el usuario tenga acceso.' },
+  { label: 'Portal de profesores', keys: ['portal de profesor', 'portal profesores', 'portal docente', 'profes.fitsystem', 'profesores'], text: 'El portal de profesores es una interfaz separada para consultar clases, ver la agenda, programar sesiones, revisar inscriptos y trabajar con rutinas. No es otro sistema independiente: utiliza los datos compartidos de FIT System. El acceso a cada información depende del usuario y la sede asignada.' },
+  { label: 'Rutinas', keys: ['rutina', 'rutinas', 'ejercicio', 'ejercicios', 'series', 'repeticiones', 'descanso', 'entrenamiento'], text: 'Las rutinas se administran desde App móvil → Rutinas y también desde el portal de profesores. Se pueden editar los días, ejercicios, series, repeticiones y descansos. Las rutinas asignadas se guardan en el backend compartido para que estén disponibles en la app del socio. Si un cambio no aparece, actualizá la vista y verificá que la rutina esté activa y asignada al socio correcto.' },
+  { label: 'QR de ingreso', keys: ['qr', 'código qr', 'codigo qr', 'ingreso', 'asistencia', 'monitor', 'pantalla'], text: 'El QR de ingreso puede mostrarse en una ventana independiente para dejarlo visible en un monitor, sin ocupar la pantalla principal del panel. Es una opción manual: no reemplaza la pantalla habitual ni se abre automáticamente. Si no encontrás la opción, escribí a soporte@fitsystem.com.ar indicando la versión del sistema.' },
+  { label: 'Socios y app', keys: ['socio', 'cupo', 'límite', 'limite', 'app móvil', 'app movil', 'aplicación móvil', 'aplicacion movil'], text: 'La app móvil está vinculada a los datos de FIT System. Los socios pueden consultar el contenido que el gimnasio tenga habilitado, incluidas las rutinas que les fueron asignadas. El cupo de la app corresponde a los socios habilitados para usarla; no limita las fichas que administrás desde el escritorio. Para consultar opciones comerciales, escribí a ventas@fitsystem.com.ar.' },
   { label: 'Licencia', keys: ['licencia', 'clave', 'activar', 'venc'], text: 'La licencia se activa desde Configuración → Licencia. Si ya pagaste y no recibiste la clave, revisá el correo no deseado y escribí a soporte@fitsystem.com.ar con la referencia de compra.' },
-  { label: 'Socios y app', keys: ['socio', 'cupo', 'límite', 'limite', 'app'], text: 'El cupo de la app corresponde a los socios habilitados para usar la aplicación móvil; no limita las fichas que administrás desde el escritorio. Para consultar opciones, escribí a ventas@fitsystem.com.ar.' },
   { label: 'Cobros', keys: ['cobro', 'pago', 'mercadopago', 'mercado pago', 'cuota'], text: 'Podés registrar cobros en efectivo, transferencia y MercadoPago, según la configuración. Si un pago online no aparece, verificá su estado antes de intentar cobrarlo otra vez.' },
   { label: 'Usuarios', keys: ['contraseña', 'contrasena', 'usuario', 'admin', 'rol', 'permiso'], text: 'Los usuarios y permisos se administran dentro del sistema del gimnasio. Cambiá las credenciales iniciales antes de trabajar con datos reales y asigná a cada persona solo los permisos que necesita.' },
   { label: 'Copias de seguridad', keys: ['backup', 'respaldo', 'copia', 'restaur'], text: 'Te recomendamos guardar copias de seguridad fuera de la PC y comprobar que puedan restaurarse. Antes de restaurar una copia en producción, consultá soporte para evitar sobrescribir datos recientes.' },
@@ -43,7 +47,7 @@ export function FititoChat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { from: 'fitito', text: '¡Hola! 👋 Soy FITito, el asistente de FIT System.' },
-    { from: 'fitito', text: 'Estoy acá para ayudarte con la instalación, las licencias, los socios y los cobros. ¿Por dónde arrancamos?' },
+    { from: 'fitito', text: 'Puedo orientarte con clases y agenda, el portal de profesores, rutinas conectadas con la app del socio, el QR de ingreso, licencias y el uso diario del sistema. ¿Qué necesitás resolver?' },
   ]);
 
   function send(raw: string) {
@@ -81,7 +85,7 @@ export function FititoChat() {
             ))}
             {messages.length === 2 && (
               <div className="flex flex-wrap gap-2 pl-10">
-                {topics.slice(0, 4).map((topic) => <button key={topic.label} type="button" onClick={() => send(topic.label)} className="rounded-full border border-primary/30 bg-surface px-3 py-2 text-xs font-medium text-text transition hover:border-primary hover:bg-primary/5">{topic.label}</button>)}
+                {topics.slice(0, 6).map((topic) => <button key={topic.label} type="button" onClick={() => send(topic.label)} className="rounded-full border border-primary/30 bg-surface px-3 py-2 text-xs font-medium text-text transition hover:border-primary hover:bg-primary/5">{topic.label}</button>)}
               </div>
             )}
           </div>
