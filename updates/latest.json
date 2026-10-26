@@ -1,6 +1,6 @@
 {
-  "version": "0.3.37",
+  "version": "0.3.38",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "- Se completan las pantallas de clientes, sistemas activos, errores, descargas e IPs del proveedor.\n- Se agrega configuración y automatización de facturas de suscripciones con ARCA.\n- Las métricas distinguen navegadores únicos, vistas, solicitudes de descarga y transferencias reportadas por GitHub.\n- Se guarda la IP real de las solicitudes de descarga detrás del proxy de Render.",
+  "notes": "- Se configura el proxy Caddy en la API de producción para registrar IPs públicas en las descargas.",
   "mandatory": false
 }

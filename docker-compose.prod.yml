@@ -66,6 +66,8 @@ services:
       DATABASE_URL: postgresql://fitsystem:${POSTGRES_PASSWORD}@db:5432/fitsystem
       API_HOST: 0.0.0.0
       API_PORT: 3001
+      # Caddy es el único proxy de entrada; necesario para registrar la IP pública real.
+      TRUST_PROXY: "1"
       JWT_SECRET: ${JWT_SECRET:?defini JWT_SECRET en .env min 32 caracteres}
       SETTINGS_ENC_KEY: ${SETTINGS_ENC_KEY:-}
       # URL publica de la API: webhook de MercadoPago, onboarding, etc.
