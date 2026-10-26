@@ -479,7 +479,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.put('/provider/invoice-config', async (request, reply) => {
+  // El panel admite certificados PKCS#12 de hasta 10 MiB. En JSON/base64
+  // ocupan alrededor de 13.4 MiB, por eso esta ruta necesita un límite propio.
+  app.put('/provider/invoice-config', { bodyLimit: 15 * 1024 * 1024 }, async (request, reply) => {
     try {
       requireProviderToken(request);
       return ok(reply, await saveInvoiceSettings((request.body ?? {}) as never));

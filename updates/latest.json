@@ -1,6 +1,6 @@
 {
-  "version": "0.3.38",
+  "version": "0.3.39",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "- Se configura el proxy Caddy en la API de producción para registrar IPs públicas en las descargas.",
+  "notes": "Se corrige el guardado de la configuracion ARCA y se explican los requisitos pendientes.",
   "mandatory": false
 }

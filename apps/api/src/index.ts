@@ -197,6 +197,13 @@ export async function buildServer() {
     if ((error as { validation?: unknown }).validation) {
       return reply.status(400).send({ error: 'Bad Request', message: 'Datos invalidos' });
     }
+    const statusCode = Number((error as { statusCode?: unknown }).statusCode);
+    if (statusCode >= 400 && statusCode < 500) {
+      const message = statusCode === 413
+        ? 'El archivo o los datos enviados superan el tamaño permitido para esta operación'
+        : (error as Error).message || 'La solicitud no pudo procesarse';
+      return reply.status(statusCode).send({ error: 'Bad Request', message });
+    }
     app.log.error(error);
     const authed = request as { user?: { id: string; organizationId: string } };
     void recordError({

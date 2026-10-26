@@ -1,5 +1,6 @@
 import { prisma } from '../db.js';
 import { env } from '../env.js';
+import { HttpError } from '../lib/http.js';
 import { arcaTest, arcaEmitir } from './arca.js';
 import { getProviderArcaSetting, providerOrgId, saveProviderArcaSettings } from './provider-account.js';
 import { isPlatformEmailConfigured, sendPlatformEmail } from './platform-email.js';
@@ -168,10 +169,10 @@ export async function saveInvoiceSettings(input: InvoiceSettingsInput): Promise<
   ]);
   const hasNewCertificate = Boolean(String(input.certP12 || '').trim() || (input.certPem && input.keyPem));
   const hasStoredCertificate = Boolean((storedP12 && (input.certPassword || storedPassword)) || (storedCert && storedKey));
-  if (enabled && !/^\d{11}$/.test(cuit)) throw new Error('Para habilitar ARCA, ingresá un CUIT emisor válido de 11 dígitos');
-  if (enabled && !hasNewCertificate && !hasStoredCertificate) throw new Error('Para habilitar ARCA, cargá el certificado y la clave privada del emisor');
-  if ((autoIssue || autoEmail) && !enabled) throw new Error('Activá la facturación antes de habilitar la emisión o el envío automático');
-  if (autoEmail && !isPlatformEmailConfigured()) throw new Error('El envío automático requiere configurar el correo del proveedor en el servidor');
+  if (enabled && !/^\d{11}$/.test(cuit)) throw new HttpError(400, 'Para habilitar ARCA, ingresá un CUIT emisor válido de 11 dígitos');
+  if (enabled && !hasNewCertificate && !hasStoredCertificate) throw new HttpError(400, 'Para habilitar ARCA, cargá el certificado y la clave privada del emisor');
+  if ((autoIssue || autoEmail) && !enabled) throw new HttpError(400, 'Activá la facturación antes de habilitar la emisión o el envío automático');
+  if (autoEmail && !isPlatformEmailConfigured()) throw new HttpError(400, 'El envío automático requiere configurar el correo del proveedor en el servidor');
 
   const values: Record<string, string> = {};
   const set = (key: string, value: unknown) => {
@@ -199,9 +200,9 @@ export async function saveInvoiceSettings(input: InvoiceSettingsInput): Promise<
 
   const p12 = String(input.certP12 || '').replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
   if (p12) {
-    if (p12.length > 14 * 1024 * 1024) throw new Error('El certificado supera el máximo de 10 MB');
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(p12)) throw new Error('El certificado PKCS#12 no tiene un formato válido');
-    if (!input.certPassword) throw new Error('Falta la contraseña del certificado ARCA');
+    if (p12.length > 14 * 1024 * 1024) throw new HttpError(400, 'El certificado supera el máximo de 10 MB');
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(p12)) throw new HttpError(400, 'El certificado PKCS#12 no tiene un formato válido');
+    if (!input.certPassword) throw new HttpError(400, 'Falta la contraseña del certificado ARCA');
     values.CERT_P12 = p12;
     // Si se sube un PKCS#12, descartamos PEM viejos para que ARCA use el nuevo.
     values.CERT = '';
