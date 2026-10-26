@@ -48,6 +48,9 @@ export const env = {
   API_PORT: Number(process.env.API_PORT || 3001),
   // Por defecto solo loopback (escritorio). En la nube se define API_HOST=0.0.0.0.
   API_HOST: process.env.API_HOST || '127.0.0.1',
+  // En Render hay un proxy frontal. Se limita a un salto para no confiar en
+  // X-Forwarded-For enviado por el visitante y registrar su IP real.
+  TRUST_PROXY: process.env.TRUST_PROXY === '1',
   // Modo red local (escritorio en modo servidor): permite que otras PC de la
   // misma red accedan a la API y al panel. Implica CORS dinámico para orígenes
   // privados y el ingreso sin credenciales queda limitado a la propia máquina.

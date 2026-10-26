@@ -7,6 +7,7 @@ import { LandingContact } from '@/components/landing-contact';
 import { BuyButton } from '@/components/landing-checkout';
 import { Icon, type IconName } from '@/components/icon';
 import { TrackVisit } from '@/components/track-visit';
+import { TrackedDownloadLink } from '@/components/tracked-download-link';
 import { getSiteContent } from '@/lib/site-content';
 
 export const metadata: Metadata = {
@@ -561,13 +562,19 @@ export default async function LandingPage() {
                 <h3 className="mt-4 text-base font-semibold text-text">{item.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{item.text}</p>
                 <p className="mt-2 text-xs text-text-muted">{item.note}</p>
-                <a
+                {item.href === SETUP_URL ? <TrackedDownloadLink
                   href={item.href}
                   className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
                 >
                   <Icon name="import" size={16} />
                   {item.cta}
-                </a>
+                </TrackedDownloadLink> : <a
+                  href={item.href}
+                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line px-4 text-sm font-medium text-text transition-colors hover:bg-surface-alt"
+                >
+                  <Icon name="import" size={16} />
+                  {item.cta}
+                </a>}
               </div>
             ))}
           </div>
@@ -590,9 +597,9 @@ export default async function LandingPage() {
 
           <p className="mt-6 text-center text-xs text-text-muted">
             ¿Preferís la versión portable?{' '}
-            <a href={PORTABLE_URL} className="text-primary-light transition-colors hover:underline">
+            <TrackedDownloadLink href={PORTABLE_URL} className="text-primary-light transition-colors hover:underline">
               Descargar FIT system™ Portable
-            </a>
+            </TrackedDownloadLink>
           </p>
         </div>
       </section>
@@ -728,6 +735,9 @@ export default async function LandingPage() {
             <span>© {new Date().getFullYear()} FIT system™. Todos los derechos reservados.</span>
             <span>Hecho para gimnasios que quieren crecer.</span>
           </div>
+          <p className="mt-4 text-center text-[11px] text-text-muted">
+            Medimos visitas con un identificador aleatorio propio del navegador. Las solicitudes de descarga registran IP y navegador para soporte.
+          </p>
         </div>
       </footer>
     </div>

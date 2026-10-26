@@ -9,6 +9,7 @@ import {
   type BillingPlan,
 } from './billing.js';
 import { issueLicense, isLicensorIssueConfigured, revokeLicense, unrevokeLicense } from './licensing-client.js';
+import { maybeAutoInvoiceForPayment } from './provider-invoicing.js';
 
 /**
  * Suscripciones de la tienda del sitio (MercadoPago recurrente / "preapproval").
@@ -233,6 +234,9 @@ export async function applyApprovedPayment(subscriptionId: string, paymentId: st
       nextPaymentAt: addMonths(paidAt, 1),
     },
   });
+  // Factura electrónica automática del proveedor (si está habilitada). Nunca
+  // rompe el webhook: la función atrapa sus propios errores.
+  await maybeAutoInvoiceForPayment(subscriptionId, paymentId);
 }
 
 /** Marca un cobro rechazado: la suscripción queda vencida (con gracia). */

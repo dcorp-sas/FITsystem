@@ -5,7 +5,7 @@ import { prisma } from '../db.js';
 import { validate, ok, fail, HttpError } from '../lib/http.js';
 import { rateLimit } from '../lib/ratelimit.js';
 import { ensureOrgLicense } from '../services/license.js';
-import { bindInstallation, ensureGenericAdmin } from '../services/installation.js';
+import { bindInstallation, ensureGenericAdmin, recordSyncResult } from '../services/installation.js';
 
 /*
  * Sincronizacion escritorio -> nube.
@@ -143,8 +143,10 @@ export function syncRoutes(app: FastifyInstance) {
 
   // Empuja (upsert por id) las entidades indicadas. Idempotente: se puede repetir.
   app.post('/sync/push', async (request, reply) => {
+    let failedOrgId: string | null = null;
     try {
       const res = await orgFromSyncKey(request); const organizationId = typeof (res as any) === 'string' ? (res as any) : (res as any).orgId;
+      failedOrgId = organizationId;
       const input = validate(pushSchema, request.body);
 
       // El escritorio manda su ID de instalacion para quedar vinculado al
@@ -378,8 +380,13 @@ export function syncRoutes(app: FastifyInstance) {
         }
       }
 
+      await recordSyncResult(organizationId).catch(() => undefined);
       return ok(reply, { ok: true, syncedAt: new Date().toISOString(), counts });
     } catch (error) {
+      if (failedOrgId) {
+        const message = error instanceof Error ? error.message : String(error);
+        await recordSyncResult(failedOrgId, message).catch(() => undefined);
+      }
       return fail(reply, error);
     }
   });

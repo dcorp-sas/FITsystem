@@ -140,6 +140,87 @@ export function providerRoutes(app: FastifyInstance) {
       return fail(reply, error);
     }
   });
+
+  // --- Diagnóstico de clientes para el Panel de control FS ---
+  //
+  // Devuelve, por gimnasio (organización), el pulso de uso y el estado de la
+  // sincronización con el escritorio. El panel combina esto con las licencias
+  // del Licensador para detectar clientes sin actividad, sin sync o vencidos.
+  app.get('/provider/clients', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const orgs = await prisma.organization.findMany({
+        where: { NOT: { slug: { startsWith: '__' } } },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true, slug: true, createdAt: true },
+      });
+
+      const clients = [];
+      for (const org of orgs) {
+        const [branches, users, members, activeMembers, plans, classes, attendances, lastAttendance, lastMember, lastPayment, syncRows] =
+          await Promise.all([
+            prisma.branch.count({ where: { organizationId: org.id } }),
+            prisma.user.count({ where: { organizationId: org.id, isActive: true } }),
+            prisma.member.count({ where: { organizationId: org.id } }),
+            prisma.member.count({ where: { organizationId: org.id, status: 'ACTIVE' } }),
+            prisma.plan.count({ where: { organizationId: org.id } }),
+            prisma.gymClass.count({ where: { organizationId: org.id } }),
+            prisma.attendance.count({ where: { organizationId: org.id } }),
+            prisma.attendance.findFirst({
+              where: { organizationId: org.id },
+              orderBy: { checkedInAt: 'desc' },
+              select: { checkedInAt: true },
+            }),
+            prisma.member.findFirst({
+              where: { organizationId: org.id },
+              orderBy: { createdAt: 'desc' },
+              select: { createdAt: true },
+            }),
+            prisma.payment.findFirst({
+              where: { organizationId: org.id },
+              orderBy: { paidAt: 'desc' },
+              select: { paidAt: true },
+            }),
+            prisma.setting.findMany({
+              where: { organizationId: org.id, category: 'SYNC' },
+              select: { key: true, value: true },
+            }),
+          ]);
+
+        const sync = Object.fromEntries(syncRows.map((s) => [s.key, s.value]));
+        clients.push({
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          createdAt: org.createdAt,
+          branches,
+          users,
+          members,
+          activeMembers,
+          plans,
+          classes,
+          attendances,
+          lastAttendanceAt: lastAttendance?.checkedInAt ?? null,
+          lastMemberAt: lastMember?.createdAt ?? null,
+          lastPaymentAt: lastPayment?.paidAt ?? null,
+          sync: {
+            connected: Boolean(sync.KEY),
+            installationId: sync.INSTALLATION_ID ?? null,
+            lastPushAt: sync.LAST_PUSH_AT ?? null,
+            lastError: sync.LAST_ERROR ?? null,
+          },
+        });
+      }
+
+      return ok(reply, {
+        generatedAt: new Date().toISOString(),
+        totals: { clients: clients.length, members: clients.reduce((n, c) => n + c.members, 0) },
+        clients,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
 }
 
 export default providerRoutes;

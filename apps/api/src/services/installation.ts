@@ -42,6 +42,30 @@ export async function findOrgByInstallation(installationId: string): Promise<str
   return setting?.organizationId ?? null;
 }
 
+/**
+ * Guarda el resultado del último push del escritorio. El panel de control lee
+ * estas marcas para diagnosticar clientes sin sincronizar o con errores.
+ */
+export async function recordSyncResult(organizationId: string, error?: string | null): Promise<void> {
+  const at = new Date().toISOString();
+  await prisma.setting.upsert({
+    where: { organizationId_category_key: { organizationId, category: 'SYNC', key: 'LAST_PUSH_AT' } },
+    create: { organizationId, category: 'SYNC', key: 'LAST_PUSH_AT', value: at, isSecret: false },
+    update: { value: at },
+  });
+  if (error) {
+    const message = String(error).slice(0, 500);
+    await prisma.setting.upsert({
+      where: { organizationId_category_key: { organizationId, category: 'SYNC', key: 'LAST_ERROR' } },
+      create: { organizationId, category: 'SYNC', key: 'LAST_ERROR', value: message, isSecret: false },
+      update: { value: message },
+    });
+  } else {
+    await prisma.setting.deleteMany({ where: { organizationId, category: 'SYNC', key: 'LAST_ERROR' } });
+  }
+}
+
+
 /** Email del administrador genérico de una organización (único por gimnasio). */
 export function genericAdminEmail(orgSlug: string): string {
   const slug = (orgSlug || 'gimnasio').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'gimnasio';

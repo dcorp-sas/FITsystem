@@ -2,7 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { rateLimit } from '../lib/ratelimit.js';
 import { HttpError, fail, ok } from '../lib/http.js';
 import { prisma } from '../db.js';
+import { env } from '../env.js';
 import { requireProviderToken } from './provider.js';
+import { normalizeDownloadIp } from './provider-ops.js';
 
 /*
  * Metricas del sitio: visitas a la landing y descargas del escritorio.
@@ -19,27 +21,79 @@ const DOWNLOADS: Record<string, string> = {
   portable: 'https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Portable.exe',
 };
 
-const KEEP_DAYS = 400;
 const DAY_MS = 86_400_000;
+const BOT_USER_AGENT = /bot|crawler|spider|slurp|preview|facebookexternalhit|linkedinbot|twitterbot/i;
+
+let githubCache: { at: number; value: { version: string; setup: number; portable: number } | null } | null = null;
 
 function dayKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-/** Resumen diario de los ultimos `days` dias, rellenando los dias sin datos. */
-function buildSeries(dates: Date[], days: number): { date: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const d of dates) {
-    const key = dayKey(d);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+function argentinaDayStart(date: Date): Date {
+  return new Date(`${dayKey(date)}T00:00:00-03:00`);
+}
+
+function validVisitorId(value: unknown): string | null {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value.toLowerCase()
+    : null;
+}
+
+function ownWebsiteHosts(): Set<string> {
+  const hosts = new Set<string>();
+  for (const value of [env.SITE_URL, ...env.WEB_ORIGINS]) {
+    try {
+      hosts.add(new URL(value).hostname.toLowerCase());
+    } catch {
+      // Ignore malformed optional origins.
+    }
   }
-  const series: { date: string; count: number }[] = [];
-  const today = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const key = dayKey(new Date(today.getTime() - i * DAY_MS));
-    series.push({ date: key, count: counts.get(key) ?? 0 });
+  return hosts;
+}
+
+function refererHost(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase().slice(0, 200) || null;
+  } catch {
+    return null;
   }
-  return series;
+}
+
+async function latestGitHubDownloads(): Promise<{ version: string; setup: number; portable: number } | null> {
+  if (githubCache && Date.now() - githubCache.at < 15 * 60_000) return githubCache.value;
+  try {
+    const response = await fetch('https://api.github.com/repos/dcorp-sas/FITsystem/releases/latest', {
+      headers: { accept: 'application/vnd.github+json', 'user-agent': 'FIT-System-control-panel' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error(`GitHub HTTP ${response.status}`);
+    const release = (await response.json()) as {
+      tag_name?: string;
+      assets?: Array<{ name?: string; download_count?: number }>;
+    };
+    const totals = { version: release.tag_name || 'última versión', setup: 0, portable: 0 };
+    for (const asset of release.assets || []) {
+      const name = String(asset.name || '').toLowerCase();
+      const count = Math.max(0, Number(asset.download_count) || 0);
+      if (name.includes('setup') && name.endsWith('.exe')) totals.setup += count;
+      if (name.includes('portable') && name.endsWith('.exe')) totals.portable += count;
+    }
+    githubCache = { at: Date.now(), value: totals };
+    return totals;
+  } catch {
+    // Aggregate download counts are supplemental; local click tracking must remain available.
+    githubCache = { at: Date.now(), value: null };
+    return null;
+  }
 }
 
 export function metricsRoutes(app: FastifyInstance) {
@@ -49,13 +103,16 @@ export function metricsRoutes(app: FastifyInstance) {
     { onRequest: [rateLimit({ max: 60, windowMs: 60_000, keyPrefix: 'visit' })] },
     async (request, reply) => {
       try {
-        const body = (request.body ?? {}) as { path?: unknown; referer?: unknown };
+        const body = (request.body ?? {}) as { path?: unknown; referer?: unknown; visitorId?: unknown };
         const path = typeof body.path === 'string' ? body.path.slice(0, 300) : '/';
-        const referer = typeof body.referer === 'string' ? body.referer.slice(0, 300) : null;
-        const host = request.headers.host ?? '';
-        const external = referer && !referer.includes(host) ? 'referido' : 'directo';
-        await prisma.pageView.create({ data: { path: path || '/', source: external, referer } });
-        return ok(reply, { ok: true });
+        const referer = refererHost(body.referer);
+        const userAgent = String(request.headers['user-agent'] || '');
+        if (BOT_USER_AGENT.test(userAgent)) return ok(reply, { ok: true, tracked: false });
+        let source = 'directo';
+        if (referer) source = ownWebsiteHosts().has(referer) ? 'interno' : 'referido';
+        const visitorId = validVisitorId(body.visitorId);
+        await prisma.pageView.create({ data: { path: path || '/', source, referer, visitorId } });
+        return ok(reply, { ok: true, tracked: true });
       } catch (error) {
         return fail(reply, error);
       }
@@ -64,12 +121,22 @@ export function metricsRoutes(app: FastifyInstance) {
 
   // Redireccion contada de descarga. La web apunta los botones aca y este
   // endpoint registra el hit y manda al asset real de GitHub Releases.
-  app.get('/metrics/download/go', { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'download' })] }, async (request, reply) => {
-    const query = request.query as { asset?: string };
+  app.get(
+    '/metrics/download/go',
+    { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'download' })] },
+    async (request, reply) => {
+    const query = request.query as { asset?: string; source?: string; src?: string; visitorId?: string };
     const asset = typeof query.asset === 'string' && DOWNLOADS[query.asset] ? query.asset : 'setup';
     const target = DOWNLOADS[asset] as string;
     try {
-      await prisma.downloadHit.create({ data: { asset } });
+      const userAgent = String(request.headers['user-agent'] || '').slice(0, 400) || null;
+      const prefetch = /prefetch/i.test(String(request.headers.purpose || request.headers['sec-purpose'] || ''));
+      const ip = normalizeDownloadIp(request.ip);
+      const referer = refererHost(request.headers.referer || request.headers.referrer);
+      const source = String(query.source || query.src || 'sitio').slice(0, 40) || 'sitio';
+      if (!prefetch && !BOT_USER_AGENT.test(userAgent || '')) {
+        await prisma.downloadHit.create({ data: { asset, source, visitorId: validVisitorId(query.visitorId), ip, userAgent, referer } });
+      }
     } catch {
       /* la descarga no debe fallar porque no se pudo registrar */
     }
@@ -83,47 +150,90 @@ export function metricsRoutes(app: FastifyInstance) {
       const query = request.query as { days?: string };
       const days = Math.min(180, Math.max(7, Number(query.days) || 30));
 
-      const since = new Date(Date.now() - (days - 1) * DAY_MS);
-      since.setHours(0, 0, 0, 0);
-      const purgeBefore = new Date(Date.now() - KEEP_DAYS * DAY_MS);
-
-      const [views, downloads, viewsByDay, downloadsByDay] = await Promise.all([
-        prisma.pageView.count(),
-        prisma.downloadHit.count(),
-        prisma.pageView.findMany({ where: { at: { gte: since } }, select: { at: true } }),
-        prisma.downloadHit.findMany({ where: { at: { gte: since } }, select: { at: true, asset: true } }),
+      const todayStart = argentinaDayStart(new Date());
+      const since = new Date(todayStart.getTime() - (days - 1) * DAY_MS);
+      const [views, downloads, github] = await Promise.all([
+        prisma.pageView.findMany({ where: { at: { gte: since } }, select: { at: true, visitorId: true, source: true } }),
+        prisma.downloadHit.findMany({ where: { at: { gte: since } }, select: { at: true, asset: true, visitorId: true } }),
+        latestGitHubDownloads(),
       ]);
 
-      const [viewsToday, downloadsToday] = await Promise.all([
-        prisma.pageView.count({ where: { at: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
-        prisma.downloadHit.count({ where: { at: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
-      ]);
+      const today = todayStart;
+      const viewsToday = views.filter((v) => v.at >= today).length;
+      const downloadsToday = downloads.filter((d) => d.at >= today).length;
+      const uniqueVisitors = new Set(views.map((v) => v.visitorId).filter((id): id is string => Boolean(id))).size;
+      const uniqueDownloaders = new Set(downloads.map((d) => d.visitorId).filter((id): id is string => Boolean(id))).size;
+      const uniqueVisitorsToday = new Set(views.filter((v) => v.at >= today).map((v) => v.visitorId).filter((id): id is string => Boolean(id))).size;
+      const uniqueDownloadersToday = new Set(downloads.filter((d) => d.at >= today).map((d) => d.visitorId).filter((id): id is string => Boolean(id))).size;
 
       const byAsset = { setup: 0, portable: 0 };
-      for (const hit of downloadsByDay) {
+      for (const hit of downloads) {
         if (hit.asset === 'portable') byAsset.portable += 1;
         else byAsset.setup += 1;
       }
 
-      const sources = await prisma.pageView.groupBy({
-        by: ['source'],
-        _count: { _all: true },
-        where: { at: { gte: since } },
-      });
-
-      // Los conteos totales van por encima de la ventana: lo pedido es "cuanta
-      // gente entra y cuanta descarga" desde el inicio, no solo los ultimos dias.
-      const purge = await prisma.pageView.deleteMany({ where: { at: { lt: purgeBefore } } }).catch(() => ({ count: 0 }));
+      const sourcesMap = new Map<string, number>();
+      for (const view of views) {
+        const source = view.source === 'web' ? 'directo' : view.source;
+        sourcesMap.set(source, (sourcesMap.get(source) ?? 0) + 1);
+      }
+      const byDay = (rows: Array<{ at: Date }>) => {
+        const map = new Map<string, number>();
+        for (const row of rows) {
+          const key = dayKey(row.at);
+          map.set(key, (map.get(key) ?? 0) + 1);
+        }
+        return map;
+      };
+      const viewsPerDay = byDay(views);
+      const downloadsPerDay = byDay(downloads);
+      const visitorsPerDay = new Map<string, Set<string>>();
+      for (const view of views) {
+        if (!view.visitorId) continue;
+        const key = dayKey(view.at);
+        if (!visitorsPerDay.has(key)) visitorsPerDay.set(key, new Set());
+        visitorsPerDay.get(key)!.add(view.visitorId);
+      }
+      const downloadersPerDay = new Map<string, Set<string>>();
+      for (const download of downloads) {
+        if (!download.visitorId) continue;
+        const key = dayKey(download.at);
+        if (!downloadersPerDay.has(key)) downloadersPerDay.set(key, new Set());
+        downloadersPerDay.get(key)!.add(download.visitorId);
+      }
+      const daysSeries = (values: Map<string, number>) => {
+        const series: { date: string; count: number }[] = [];
+        const now = todayStart;
+        for (let i = days - 1; i >= 0; i--) {
+          const key = dayKey(new Date(now.getTime() - i * DAY_MS));
+          series.push({ date: key, count: values.get(key) ?? 0 });
+        }
+        return series;
+      };
 
       return ok(reply, {
         days,
-        totals: { views, downloads, viewsToday, downloadsToday, purgedOldViews: purge.count },
+        totals: {
+          views: views.length,
+          uniqueVisitors,
+          legacyViews: views.filter((v) => !v.visitorId).length,
+          downloads: downloads.length,
+          uniqueDownloaders,
+          viewsToday,
+          uniqueVisitorsToday,
+          downloadsToday,
+          uniqueDownloadersToday,
+        },
         series: {
-          views: buildSeries(viewsByDay.map((v) => v.at), days),
-          downloads: buildSeries(downloadsByDay.map((d) => d.at), days),
+          views: daysSeries(viewsPerDay),
+          visitors: daysSeries(new Map([...visitorsPerDay].map(([key, ids]) => [key, ids.size]))),
+          downloads: daysSeries(downloadsPerDay),
+          downloaders: daysSeries(new Map([...downloadersPerDay].map(([key, ids]) => [key, ids.size]))),
         },
         byAsset,
-        sources: sources.map((s) => ({ source: s.source, count: s._count._all })),
+        sources: [...sourcesMap].map(([source, count]) => ({ source, count })),
+        githubDownloads: github,
+        attribution: { visitorId: 'anonymous-browser-id', legacyViewsWithoutId: views.filter((v) => !v.visitorId).length },
         assets: {
           setup: DOWNLOADS.setup,
           portable: DOWNLOADS.portable,

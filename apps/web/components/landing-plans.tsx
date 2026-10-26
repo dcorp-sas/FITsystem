@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Icon } from '@/components/icon';
 import { SubscribeModal, type SubscribeTarget } from '@/components/landing-subscribe';
+import { TrackedDownloadLink } from '@/components/tracked-download-link';
 
 type PlanTag = 'BASIC' | 'PRO' | 'ENTERPRISE';
 
@@ -84,12 +85,12 @@ export function LandingPlans({
               </li>
             ))}
           </ul>
-          <a
+          <TrackedDownloadLink
             href={setupUrl}
             className="mt-6 inline-flex h-11 items-center justify-center rounded-xl border border-line text-sm font-medium text-text transition-colors hover:bg-surface-alt"
           >
             Descargar gratis
-          </a>
+          </TrackedDownloadLink>
           <p className="mt-3 text-center text-xs leading-5 text-text-muted">¿Necesitás más tiempo para evaluar? <a href="https://wa.me/5492212005382?text=Hola%2C%20necesito%20m%C3%A1s%20tiempo%20para%20probar%20FIT%20system" target="_blank" rel="noreferrer" className="text-primary-light underline">Consultanos por WhatsApp</a>.</p>
         </div>
 

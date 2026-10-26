@@ -32,6 +32,7 @@ import routineRoutes from './routes/routines.js';
 import newsRoutes from './routes/news.js';
 import portalAdminRoutes from './routes/portal-admin.js';
 import providerRoutes from './routes/provider.js';
+import { providerOpsRoutes } from './routes/provider-ops.js';
 import syncRoutes from './routes/sync.js';
 import cloudRoutes from './routes/cloud.js';
 import systemRoutes from './routes/system.js';
@@ -51,6 +52,7 @@ import { startLocalBackupScheduler } from './services/local-backup.js';
 
 export async function buildServer() {
   const app = Fastify({
+    trustProxy: env.TRUST_PROXY ? (_address, hop) => hop === 0 : false,
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'warn',
     },
@@ -171,6 +173,7 @@ export async function buildServer() {
       newsRoutes(api);
       portalAdminRoutes(api);
       providerRoutes(api);
+      providerOpsRoutes(api);
       syncRoutes(api);
       cloudRoutes(api);
       systemRoutes(api);

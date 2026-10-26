@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { API_URL } from '@/lib/api';
+import { getAnalyticsVisitorId } from '@/lib/analytics-identity';
 
 /*
  * Registra una visita a la landing (una por carga de pagina). Es anonimo: no
@@ -10,17 +11,18 @@ import { API_URL } from '@/lib/api';
  */
 export function TrackVisit() {
   useEffect(() => {
-    const controller = new AbortController();
     fetch(`${API_URL}/metrics/visit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: window.location.pathname, referer: document.referrer || '' }),
+      body: JSON.stringify({
+        path: window.location.pathname,
+        referer: document.referrer || '',
+        visitorId: getAnalyticsVisitorId(),
+      }),
       keepalive: true,
-      signal: controller.signal,
     }).catch(() => {
       /* si falla el conteo, la landing sigue igual */
     });
-    return () => controller.abort();
   }, []);
   return null;
 }

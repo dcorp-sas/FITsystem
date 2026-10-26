@@ -1,6 +1,6 @@
 {
-  "version": "0.3.35",
+  "version": "0.3.37",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Completa los pendientes legales 1.1, 1.2 y 1.3: agrega Política de privacidad, Términos y condiciones, datos del responsable Matias Dario Duranovich, CUIT, domicilio, enlaces legales y aceptación de privacidad en el formulario.",
+  "notes": "- Se completan las pantallas de clientes, sistemas activos, errores, descargas e IPs del proveedor.\n- Se agrega configuración y automatización de facturas de suscripciones con ARCA.\n- Las métricas distinguen navegadores únicos, vistas, solicitudes de descarga y transferencias reportadas por GitHub.\n- Se guarda la IP real de las solicitudes de descarga detrás del proxy de Render.",
   "mandatory": false
 }

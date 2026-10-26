@@ -1240,23 +1240,78 @@ model Lead {
 // interno consulta el resumen con el token de proveedor.
 // ---------------------------------------------------------------------------
 model PageView {
-  id     String   @id @default(cuid())
-  path   String   @default("/")
-  source String   @default("web") // web | directo
-  referer String?
-  at     DateTime @default(now())
+  id        String   @id @default(cuid())
+  path      String   @default("/")
+  source    String   @default("web") // directo | referido | interno
+  referer   String?
+  visitorId String?
+  at        DateTime @default(now())
 
   @@index([at])
+  @@index([visitorId, at])
   @@map("page_views")
 }
 
 model DownloadHit {
-  id     String   @id @default(cuid())
-  asset  String   // setup | portable
-  source String   @default("sitio")
-  at     DateTime @default(now())
+  id        String   @id @default(cuid())
+  asset     String   // setup | portable
+  source    String   @default("sitio")
+  visitorId String?
+  ip        String?
+  userAgent String?
+  referer   String?
+  country   String?
+  region    String?
+  city      String?
+  isp       String?
+  enriched  Boolean  @default(false)
+  at        DateTime @default(now())
 
   @@index([at])
   @@index([asset])
+  @@index([ip])
+  @@index([visitorId, at])
   @@map("download_hits")
+}
+
+/// Configuracion del proveedor (no pertenece a ningun gimnasio): ARCA, etc.
+model ProviderSetting {
+  key       String   @id
+  value     String?
+  updatedAt DateTime @updatedAt
+
+  @@map("provider_settings")
+}
+
+/// Comprobantes emitidos por el proveedor por las suscripciones del producto.
+model ProviderInvoice {
+  id             String    @id @default(cuid())
+  subscriptionRef String
+  paymentId      String?
+  buyerName      String
+  buyerEmail     String?
+  buyerDocType   Int       @default(99)
+  buyerDocNro    String?
+  invoiceType    String    @default("B") // A | B | C
+  cbteTipo       Int
+  ptoVta         Int
+  cbteNro        Int
+  concept        Int       @default(1)
+  amount         Float
+  currency       String    @default("ARS")
+  cae            String
+  caeVto         DateTime?
+  status         String    @default("ISSUED") // ISSUED | ERROR
+  qrUrl          String?
+  pdfUrl         String?
+  error          String?
+  issuedAt       DateTime  @default(now())
+  emailedAt      DateTime?
+  emailError     String?
+  meta           String? // JSON con el detalle enviado a ARCA
+
+  @@index([subscriptionRef])
+  @@index([paymentId])
+  @@index([issuedAt])
+  @@map("provider_invoices")
 }
