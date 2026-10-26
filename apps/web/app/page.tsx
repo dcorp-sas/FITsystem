@@ -279,6 +279,11 @@ export default async function LandingPage() {
               </a>
             </div>
 
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
+              <a href="/arrepentimiento" className="underline decoration-current underline-offset-4 hover:text-text">Botón de arrepentimiento</a>
+              <a href="/arrepentimiento" className="underline decoration-current underline-offset-4 hover:text-text">Botón de baja de servicio</a>
+            </div>
+
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-text-muted">
               {hero.chips.map((item) => (
                 <span key={item} className="inline-flex items-center gap-2">
