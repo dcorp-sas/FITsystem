@@ -1,6 +1,6 @@
 {
-  "version": "0.3.39",
+  "version": "0.3.40",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Se corrige el guardado de la configuracion ARCA y se explican los requisitos pendientes.",
+  "notes": "Sincroniza con la nube el estado de la licencia activa del equipo y corrige la advertencia de prueba gratuita.",
   "mandatory": false
 }
