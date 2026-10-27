@@ -1,6 +1,6 @@
 {
-  "version": "0.3.43",
+  "version": "0.3.44",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Integra Fitora como PWA de entrenamiento en fitora.fitsystem.com.ar, servida desde la VPS con Caddy y Docker Compose.",
+  "notes": "Restaura el stack de producción previo a la integración de Fitora y limpia contenedores huérfanos durante el despliegue.",
   "mandatory": false
 }

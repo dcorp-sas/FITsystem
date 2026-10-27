@@ -1,1 +1,0 @@
-Integra Fitora como PWA de entrenamiento en fitora.fitsystem.com.ar, servida desde la VPS con Caddy y Docker Compose.

@@ -9,16 +9,14 @@ automático de Let's Encrypt) y sirviendo por subdominio. **Reemplaza a Render.*
 | `www.fitsystem.com.ar` | 301 → dominio principal | — |
 | `api.fitsystem.com.ar` | API (Fastify + Prisma) | `api:3001` |
 | `socios.fitsystem.com.ar` | App del socio (PWA) | `socios:80` |
-| `fitora.fitsystem.com.ar` | Fitora (PWA de entrenamiento) | `fitora:80` |
 | `profes.fitsystem.com.ar` | Portal de profesores (misma web/API y sesión del gimnasio) | `web:3000` |
 | `licensador.fitsystem.com.ar` | Licensador del proveedor | `licensador:3000` |
 
 Archivos del paquete:
 
-- `docker-compose.prod.yml` — stack de producción (Caddy, Postgres, API, web, socios, Fitora, licensador).
+- `docker-compose.prod.yml` — stack de producción (Caddy, Postgres, API, web, socios, licensador).
 - `Caddyfile` — enrutado por subdominio + HTTPS.
 - `apps/mobile/Dockerfile` — build de la PWA y servida con nginx.
-- `apps/fitora` — submódulo del repositorio FITORA, servido como sitio estático con nginx.
 - `.env.vps.example` — plantilla de variables.
 - `scripts/backup-db.sh` — copia de seguridad de Postgres.
 
@@ -45,7 +43,6 @@ a una IP no existen).
 | `CNAME` | `www.fitsystem.com.ar` | `fitsystem.com.ar` |
 | `A` | `api.fitsystem.com.ar` | IP del VPS |
 | `A` | `socios.fitsystem.com.ar` | IP del VPS |
-| `A` | `fitora.fitsystem.com.ar` | IP del VPS |
 | `A` | `profes.fitsystem.com.ar` | IP del VPS |
 | `A` | `licensador.fitsystem.com.ar` | IP del VPS |
 
@@ -60,7 +57,6 @@ curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker "$USER"     # cerrar y volver a entrar
 
 git clone <repo> fitsystem && cd fitsystem
-git submodule update --init --recursive
 ```
 
 ## 4. Variables de entorno
@@ -110,7 +106,6 @@ subdominio.
 curl -sI https://fitsystem.com.ar/
 curl -s  https://api.fitsystem.com.ar/health          # {"status":"ok",...}
 curl -sI https://socios.fitsystem.com.ar/
-curl -sI https://fitora.fitsystem.com.ar/
 curl -s  https://licensador.fitsystem.com.ar/api/health
 ```
 
