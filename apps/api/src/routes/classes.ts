@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { instructorSchema, gymClassSchema, classSessionSchema, reservationSchema, instructorPaymentSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
-import { assertUserInOrg, assertInstructorInOrg, primaryBranch } from '../lib/scope.js';
+import { assertBranchInOrg, assertUserInOrg, assertInstructorInOrg, primaryBranch } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 
