@@ -69,7 +69,7 @@ socios.{$SITE_DOMAIN} {
 # --- Fitora (PWA de entrenamiento) ---
 fitora.{$SITE_DOMAIN} {
 	import security
-	reverse_proxy fitora:80
+	reverse_proxy 172.17.0.1:8088
 }
 
 # --- Licensador (proveedor). Su autenticacion es ADMIN_USER/ADMIN_PASS propia. ---
