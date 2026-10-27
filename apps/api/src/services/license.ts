@@ -60,10 +60,10 @@ export interface ParsedLicense {
   client: string | null;
 }
 
-function parseOrThrow(key: string): ParsedLicense & { exp: number } {
+function parseOrThrow(key: string, allowExpired = false): ParsedLicense & { exp: number } {
   const result = verifyKey(key, verifiers());
   if (!result.ok) throw new HttpError(400, result.error);
-  if (result.exp < Date.now()) throw new HttpError(400, 'La licencia está vencida');
+  if (!allowExpired && result.exp < Date.now()) throw new HttpError(400, 'La licencia está vencida');
   const payload = result.payload as { c?: unknown; p?: unknown; s?: unknown };
   const plan = String(payload.p ?? '').toUpperCase();
   if (!(plan in LICENSE_PLANS)) throw new HttpError(400, 'Plan de licencia desconocido');
@@ -76,6 +76,11 @@ function parseOrThrow(key: string): ParsedLicense & { exp: number } {
     client: payload.c ? String(payload.c) : null,
     exp: result.exp,
   };
+}
+
+/** Verifica firma y límites de una licencia para replicar su estado a la nube. */
+export function parseSyncedLicenseKey(key: string): ParsedLicense & { exp: number } {
+  return parseOrThrow(key, true);
 }
 
 export function generateLicenseKey(
@@ -324,6 +329,86 @@ export async function ensureOrgLicense(organizationId: string) {
   });
 }
 
+/**
+ * Replica a la nube la licencia firmada de la instalación de escritorio.
+ * El sync key autentica el gimnasio y el ID debe coincidir con el que ese mismo
+ * canal vinculó; el plan, los asientos y el vencimiento se derivan de la clave
+ * firmada, nunca de valores declarados por el cliente.
+ */
+export async function syncInstallationLicense(
+  organizationId: string,
+  installationId: string,
+  licenseKey: string,
+  reportedStatus: string,
+  machineName?: string | null,
+): Promise<{ synced: boolean; plan: string; expiresAt: Date }> {
+  const linkedInstallation = await prisma.setting.findUnique({
+    where: { organizationId_category_key: { organizationId, category: 'SYNC', key: 'INSTALLATION_ID' } },
+    select: { value: true },
+  });
+  if (!linkedInstallation || linkedInstallation.value !== installationId) {
+    throw new HttpError(403, 'La licencia no coincide con la instalación vinculada al gimnasio');
+  }
+
+  const parsed = parseSyncedLicenseKey(licenseKey);
+  const status = reportedStatus === 'SUSPENDED'
+    ? 'SUSPENDED'
+    : reportedStatus === 'EXPIRED' || parsed.exp < Date.now()
+      ? 'EXPIRED'
+      : 'ACTIVE';
+  const now = new Date();
+  const byInstallation = await prisma.license.findUnique({ where: { installationId } });
+  const byOrganization = await prisma.license.findUnique({ where: { organizationId } });
+  if (byInstallation?.organizationId && byInstallation.organizationId !== organizationId) {
+    throw new HttpError(409, 'La instalación ya está vinculada a otro gimnasio');
+  }
+  if (byInstallation && byOrganization && byInstallation.id !== byOrganization.id) {
+    throw new HttpError(409, 'Hay dos registros de licencia para el gimnasio; requiere revisión');
+  }
+  if (
+    byOrganization &&
+    byOrganization.installationId !== installationId &&
+    byOrganization.licenseKey &&
+    byOrganization.licenseKey !== licenseKey &&
+    byOrganization.source !== 'desktop-sync' &&
+    isUsable(byOrganization.status, byOrganization.expiresAt)
+  ) {
+    throw new HttpError(409, 'El gimnasio ya tiene otra licencia activa; requiere revisión antes de reemplazarla');
+  }
+
+  const existing = byInstallation ?? byOrganization;
+  const keyFingerprint = crypto.createHash('sha256').update(licenseKey).digest('hex');
+  const data = {
+    installationId,
+    organizationId,
+    // No se persiste en la nube la clave reutilizable; el servidor verifica su
+    // firma en cada push y conserva solo una huella para auditoría/idempotencia.
+    licenseKey: null,
+    signature: keyFingerprint,
+    plan: parsed.plan,
+    seats: parsed.seats,
+    status,
+    client: parsed.client,
+    machineName: machineName ?? existing?.machineName ?? null,
+    activatedAt: existing?.activatedAt ?? now,
+    expiresAt: parsed.expiresAt,
+    lastCheckAt: now,
+    source: 'desktop-sync',
+  };
+  const saved = existing
+    ? await prisma.license.update({ where: { id: existing.id }, data })
+    : await prisma.license.create({ data });
+
+  const changed = !existing || existing.signature !== keyFingerprint || existing.status !== status;
+  if (changed) {
+    await prisma.licenseEvent.create({
+      data: { licenseId: saved.id, type: 'SYNCED', seats: parsed.seats, detail: `Licencia ${status} recibida de la instalación ${installationId}` },
+    });
+  }
+  invalidateLicenseGuard(organizationId);
+  return { synced: true, plan: parsed.plan, expiresAt: parsed.expiresAt };
+}
+
 interface GuardCacheEntry {
   usable: boolean;
   message?: string;
@@ -409,6 +494,7 @@ export function licenseInfo(license: {
   expiresAt: Date | null;
   licenseKey: string | null;
   client?: string | null;
+  source?: string | null;
 }) {
   const now = Date.now();
   const daysLeft = license.expiresAt ? Math.ceil((license.expiresAt.getTime() - now) / 86400000) : null;
@@ -420,6 +506,6 @@ export function licenseInfo(license: {
     expiresAt: license.expiresAt,
     daysLeft,
     isUsable: isUsable(license.status, license.expiresAt),
-    hasKey: Boolean(license.licenseKey),
+    hasKey: Boolean(license.licenseKey) || license.source === 'desktop-sync',
   };
 }

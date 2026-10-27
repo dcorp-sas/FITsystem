@@ -6,6 +6,7 @@ import { rateLimit } from '../lib/ratelimit.js';
 import { logActivity } from '../lib/activity.js';
 import { env } from '../env.js';
 import { prisma } from '../db.js';
+import { scheduleCloudSync } from '../services/cloud-sync.js';
 import {
   activateLicense,
   generateLicenseKey,
@@ -95,6 +96,7 @@ export function licenseRoutes(app: FastifyInstance) {
       const input = validate(licenseActivateSchema, request.body);
       const license = await activateLicense(resolveInstallationId(input.installationId), input.licenseKey, input.machineName ?? null);
       invalidateLicenseGuard(license.installationId);
+      if (env.LICENSE_INSTALLATION_ID) scheduleCloudSync();
       return ok(reply, { activated: true, info: licenseInfo(license) });
     } catch (error) {
       return fail(reply, error);
@@ -264,6 +266,7 @@ export function licenseRoutes(app: FastifyInstance) {
         const license = await activateLicense(installationId, input.licenseKey, input.machineName ?? null);
         await logActivity(req, 'ACTIVATE', 'LICENSE', license.id, undefined, { plan: license.plan });
         invalidateLicenseGuard(installationId);
+        scheduleCloudSync();
         return ok(reply, { activated: true, info: licenseInfo(license) });
       }
       const parsed = parseLicenseKey(input.licenseKey);

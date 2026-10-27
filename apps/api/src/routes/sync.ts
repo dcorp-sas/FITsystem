@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../db.js';
 import { validate, ok, fail, HttpError } from '../lib/http.js';
 import { rateLimit } from '../lib/ratelimit.js';
-import { ensureOrgLicense } from '../services/license.js';
+import { ensureOrgLicense, syncInstallationLicense } from '../services/license.js';
 import { bindInstallation, ensureGenericAdmin, recordSyncResult } from '../services/installation.js';
 
 /*
@@ -47,6 +47,12 @@ const pushSchema = z.object({
       currency: z.string().min(3).max(3).optional(),
     })
     .optional(),
+  license: z.object({
+    installationId: z.string().min(1).max(120),
+    licenseKey: z.string().min(1).max(2000),
+    status: z.string().max(30),
+    machineName: z.string().max(160).nullish(),
+  }).optional(),
   branches: z.array(row).max(200).optional(),
   plans: z.array(row).max(500).optional(),
   members: z.array(row).max(20000).optional(),
@@ -151,10 +157,35 @@ export function syncRoutes(app: FastifyInstance) {
 
       // El escritorio manda su ID de instalacion para quedar vinculado al
       // gimnasio en la nube (asi el login del panel remoto resuelve el gimnasio).
-      await bindInstallation(
-        organizationId,
-        String((request.headers as Record<string, unknown>)['x-installation-id'] ?? ''),
-      ).catch(() => undefined);
+      const headerInstallationId = String((request.headers as Record<string, unknown>)['x-installation-id'] ?? '').trim();
+      if (headerInstallationId) {
+        const existingBinding = await prisma.setting.findUnique({
+          where: { organizationId_category_key: { organizationId, category: 'SYNC', key: 'INSTALLATION_ID' } },
+          select: { value: true },
+        });
+        if (existingBinding?.value && existingBinding.value !== headerInstallationId) {
+          throw new HttpError(409, 'Este gimnasio ya está vinculado a otra instalación');
+        }
+      }
+      await bindInstallation(organizationId, headerInstallationId).catch(() => undefined);
+
+      let licenseSync: { synced: boolean; plan?: string; expiresAt?: Date; error?: string } | undefined;
+      if (input.license) {
+        try {
+          if (headerInstallationId !== input.license.installationId) {
+            throw new HttpError(403, 'El ID de licencia no coincide con la instalación que sincroniza');
+          }
+          licenseSync = await syncInstallationLicense(
+            organizationId,
+            input.license.installationId,
+            input.license.licenseKey,
+            input.license.status,
+            input.license.machineName,
+          );
+        } catch (error) {
+          licenseSync = { synced: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      }
 
       if (input.organization) {
         const { name, taxId, email, phone, address, logoUrl, currency } = input.organization;
@@ -364,7 +395,7 @@ export function syncRoutes(app: FastifyInstance) {
       }
 
       await recordSyncResult(organizationId).catch(() => undefined);
-      return ok(reply, { ok: true, syncedAt: new Date().toISOString(), counts });
+      return ok(reply, { ok: true, syncedAt: new Date().toISOString(), counts, ...(licenseSync ? { licenseSync } : {}) });
     } catch (error) {
       if (failedOrgId) {
         const message = error instanceof Error ? error.message : String(error);

@@ -107,7 +107,7 @@ export async function ensureCloudConnected(): Promise<boolean> {
 async function buildPayload(orgId: string, memberIds?: string[]) {
   const orgWhere = { organizationId: orgId };
   const recent = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [organization, branches, plans, instructors, gymClasses, classSessions] = await Promise.all([
+  const [organization, branches, plans, instructors, gymClasses, classSessions, license] = await Promise.all([
     prisma.organization.findUnique({ where: { id: orgId } }),
     prisma.branch.findMany({ where: orgWhere }),
     prisma.plan.findMany({ where: orgWhere }),
@@ -118,6 +118,9 @@ async function buildPayload(orgId: string, memberIds?: string[]) {
       orderBy: { startAt: 'asc' },
       take: 2000,
     }),
+    env.LICENSE_INSTALLATION_ID
+      ? prisma.license.findUnique({ where: { installationId: env.LICENSE_INSTALLATION_ID } })
+      : Promise.resolve(null),
   ]);
 
   const scopedMembers = memberIds && memberIds.length > 0;
@@ -152,6 +155,16 @@ async function buildPayload(orgId: string, memberIds?: string[]) {
           currency: organization.currency,
         }
       : undefined,
+    ...(license?.licenseKey
+      ? {
+          license: {
+            installationId: license.installationId,
+            licenseKey: license.licenseKey,
+            status: license.status,
+            machineName: license.machineName,
+          },
+        }
+      : {}),
     branches,
     plans,
     members,
@@ -186,10 +199,18 @@ export async function runCloudSync(opts?: { memberIds?: string[] }) {
     },
     body: JSON.stringify(payload),
   });
-  const json = (await response.json().catch(() => null)) as { data?: unknown; message?: string } | null;
+  const json = (await response.json().catch(() => null)) as
+    | { data?: { licenseSync?: { synced: boolean; error?: string } }; message?: string }
+    | null;
 
   if (!response.ok) {
     const message = json?.message || `Error HTTP ${response.status}`;
+    await upsertSettings(cfg.orgId, CLOUD, { LAST_ERROR: message.slice(0, 500) });
+    throw new Error(message);
+  }
+
+  if (json?.data?.licenseSync && !json.data.licenseSync.synced) {
+    const message = `No se pudo sincronizar la licencia: ${json.data.licenseSync.error || 'error de validación'}`;
     await upsertSettings(cfg.orgId, CLOUD, { LAST_ERROR: message.slice(0, 500) });
     throw new Error(message);
   }
