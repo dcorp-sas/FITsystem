@@ -1016,6 +1016,10 @@ function startApi(bindHost: string, lanMode: boolean): ChildProcess {
     JWT_SECRET: getApiSecret(),
     LICENSE_INSTALLATION_ID: getInstallationId(),
     LICENSE_PUBLIC_KEY: LICENSE_PUBLIC_KEY,
+    // El Licensador valida la firma con su clave vigente y devuelve el estado
+    // autorizado de la licencia. Esto permite migrar claves HMAC heredadas sin
+    // distribuir el secreto compartido dentro del instalador.
+    LICENSE_SERVER: process.env.LICENSE_SERVER || 'https://licensador.fitsystem.com.ar',
   };
 
   log('Iniciando API en', `${bindHost}:${API_PORT}`, 'lan=', lanMode);

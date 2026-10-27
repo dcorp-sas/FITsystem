@@ -1,6 +1,6 @@
 {
-  "version": "0.3.40",
+  "version": "0.3.41",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Sincroniza con la nube el estado de la licencia activa del equipo y corrige la advertencia de prueba gratuita.",
+  "notes": "Corrige la activación de licencias heredadas y evita que el trial siga figurando cuando el Licensador confirma la licencia.",
   "mandatory": false
 }

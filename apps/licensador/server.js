@@ -417,7 +417,7 @@ function activate({ key, installId, sede }) {
   }
   const cert = core.makeCert({ client: row.client, plan: row.plan, exp: v.exp, installId }, SIGNER);
   writeLatestBackup();
-  return { status: 200, ok: true, cert, client: row.client, plan: row.plan, exp: v.exp };
+  return { status: 200, ok: true, cert, client: row.client, plan: row.plan, seats, exp: v.exp };
 }
 function revalidate({ key, installId }) {
   key = String(key || '').trim();
@@ -491,7 +491,7 @@ const server = http.createServer(async (req, res) => {
     if (!adm) {
       if (method === 'POST' && url === '/api/license/activate') {
         const r = activate(body || {});
-        return send(res, r.status, { ok: r.ok, error: r.error, cert: r.cert, client: r.client, plan: r.plan, exp: r.exp });
+        return send(res, r.status, { ok: r.ok, error: r.error, cert: r.cert, client: r.client, plan: r.plan, seats: r.seats, exp: r.exp });
       }
       if (method === 'POST' && url === '/api/license/revalidate') {
         const r = revalidate(body || {});

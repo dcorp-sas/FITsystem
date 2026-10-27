@@ -166,7 +166,10 @@ async function remoteActivate(
   key: string,
   installationId: string,
   client?: string | null,
-): Promise<{ ok: true; cert: string; source: 'online' } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; cert: string; license: ParsedLicense }
+  | { ok: false; error: string; status: number | null }
+> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
@@ -176,32 +179,68 @@ async function remoteActivate(
       body: JSON.stringify({ key, installId: installationId, sede: client ?? '' }),
       signal: controller.signal,
     });
-    const data = (await res.json().catch(() => ({}))) as { cert?: string; error?: string };
-    if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
-    if (!data.cert) return { ok: false, error: 'El servicio no devolvió certificado' };
-    const check = verifyCert(data.cert, verifiers());
-    if (!check.ok) return { ok: false, error: 'Certificado inválido del servicio' };
-    return { ok: true, cert: data.cert, source: 'online' };
+    const data = (await res.json().catch(() => ({}))) as {
+      cert?: string;
+      error?: string;
+      client?: string;
+      plan?: string;
+      seats?: number;
+      exp?: number;
+    };
+    if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}`, status: res.status };
+    const plan = String(data.plan ?? '').toUpperCase();
+    const seats = Number(data.seats);
+    const expiresAt = new Date(Number(data.exp));
+    if (!data.cert || !(plan in LICENSE_PLANS) || !Number.isInteger(seats) || seats < 1 || !Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      return { ok: false, error: 'El servicio devolvió una autorización incompleta', status: res.status };
+    }
+    // El Licensador es la autoridad que valida la firma de la clave. Su respuesta
+    // llega por HTTPS y contiene los atributos que acaba de autorizar. No se
+    // vuelve a verificar el certificado con una clave local posiblemente vieja
+    // (o una clave HMAC que deliberadamente no se distribuye en el instalador).
+    return {
+      ok: true,
+      cert: data.cert,
+      license: { plan: plan as LicensePlanName, seats, expiresAt, client: data.client ?? client ?? null },
+    };
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    return { ok: false, error: (err as Error).message, status: null };
   } finally {
     clearTimeout(timer);
   }
 }
 
 export async function activateLicense(installationId: string, licenseKey: string, machineName?: string | null) {
-  const parsed = parseOrThrow(licenseKey);
-
+  let parsed: ParsedLicense | null = null;
+  let localVerificationError: unknown;
+  try {
+    parsed = parseOrThrow(licenseKey);
+  } catch (error) {
+    localVerificationError = error;
+  }
   let cert: string | null = null;
   let source = 'local';
   if (env.LICENSE_SERVER) {
-    const remote = await remoteActivate(licenseKey, installationId, parsed.client);
+    const remote = await remoteActivate(licenseKey, installationId, parsed?.client);
     if (remote.ok) {
+      parsed = remote.license;
       cert = remote.cert;
-      source = remote.source;
+      source = 'online';
+    } else if (remote.status === 403 || remote.status === 409 || remote.status === 410) {
+      // Un rechazo explícito por revocación o límite de activaciones no se puede
+      // convertir en una licencia local ignorando la respuesta de la autoridad.
+      throw new HttpError(remote.status, remote.error);
+    } else if (!parsed) {
+      const reason = remote.status
+        ? `El Licensador rechazó la clave (HTTP ${remote.status}): ${remote.error}`
+        : `No se pudo contactar al Licensador para verificar la clave: ${remote.error}`;
+      throw new HttpError(remote.status && remote.status < 500 ? 400 : 503, reason);
     }
-    /* si el servicio no responde, se activa localmente (modo offline) */
+    // Si el Licensador no está disponible, una firma local válida conserva el
+    // funcionamiento offline. Una clave no verificable localmente nunca se
+    // activa sin confirmación en línea.
   }
+  if (!parsed) throw localVerificationError;
 
   const license = await prisma.license.upsert({
     where: { installationId },
