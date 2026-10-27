@@ -3,11 +3,12 @@
 #   cp .env.vps.example .env      # y edita los valores (ver docs/VPS.md)
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Solo Caddy publica puertos (80/443). Postgres, API, web, socios y licensador
+# Solo Caddy publica puertos (80/443). Postgres, API, web, socios, Fitora y licensador
 # quedan en la red interna del compose y se llega a ellos por subdominio:
 #   fitsystem.com.ar    -> web:3000      (landing + panel)
 #   api.<dominio>       -> api:3001
 #   socios.<dominio>    -> socios:80     (PWA del socio)
+#   fitora.<dominio>    -> fitora:80     (PWA de entrenamiento)
 #   licensador.<dominio>-> licensador:3000
 #
 # Guia completa: docs/VPS.md
@@ -30,6 +31,7 @@ services:
       - web
       - api
       - socios
+      - fitora
       - licensador
 
   # Solo loopback (127.0.0.1): el backup sale por ahi y el puerto NO se expone
@@ -127,6 +129,13 @@ services:
       args:
         # Se incrusta en el bundle de Expo en tiempo de build.
         EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:?defini EXPO_PUBLIC_API_URL https://api.<dominio>}
+    restart: unless-stopped
+
+  # Sitio estático independiente; el código se incluye como submódulo FITORA.
+  fitora:
+    build:
+      context: ./apps/fitora
+      dockerfile: Dockerfile
     restart: unless-stopped
 
   licensador:

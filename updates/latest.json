@@ -1,6 +1,6 @@
 {
-  "version": "0.3.44",
+  "version": "0.3.45",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Restaura el stack de producción previo a la integración de Fitora y limpia contenedores huérfanos durante el despliegue.",
+  "notes": "Publica Fitora en su subdominio usando el despliegue existente de la VPS.",
   "mandatory": false
 }
