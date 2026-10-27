@@ -1,6 +1,6 @@
 {
-  "version": "0.3.41",
+  "version": "0.3.43",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Corrige la activación de licencias heredadas y evita que el trial siga figurando cuando el Licensador confirma la licencia.",
+  "notes": "Integra Fitora como PWA de entrenamiento en fitora.fitsystem.com.ar, servida desde la VPS con Caddy y Docker Compose.",
   "mandatory": false
 }

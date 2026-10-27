@@ -6,6 +6,8 @@ cd /opt/fitsystem
 # Actualizar explícitamente la referencia remota: sin el refspec, origin/main puede quedar viejo.
 git fetch --prune origin +refs/heads/main:refs/remotes/origin/main
 git reset --hard origin/main
+git submodule sync --recursive
+git submodule update --init --recursive
 
 # Primera ejecución: última versión que completó un deploy correctamente.
 BASE_SHA="$(cat /opt/fitsystem/.deployed_sha 2>/dev/null || echo d15eb22510ec919b02e2f8108bba764bb8a61500)"
@@ -19,23 +21,24 @@ printf '%s\n' "$CHANGED"
 
 # Un cambio de dependencias o paquetes compartidos obliga a reconstruir todo.
 if printf '%s\n' "$CHANGED" | grep -Eq '^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|packages/)'; then
-  NEED_API=1; NEED_WEB=1; NEED_SOCIOS=1; NEED_LICENSADOR=1
+  NEED_API=1; NEED_WEB=1; NEED_SOCIOS=1; NEED_FITORA=1; NEED_LICENSADOR=1
 else
-  NEED_API=0; NEED_WEB=0; NEED_SOCIOS=0; NEED_LICENSADOR=0
+  NEED_API=0; NEED_WEB=0; NEED_SOCIOS=0; NEED_FITORA=0; NEED_LICENSADOR=0
   printf '%s\n' "$CHANGED" | grep -Eq '^(apps/api/)' && NEED_API=1 || true
   printf '%s\n' "$CHANGED" | grep -Eq '^(apps/web/|content/)' && NEED_WEB=1 || true
   printf '%s\n' "$CHANGED" | grep -Eq '^(apps/mobile/)' && NEED_SOCIOS=1 || true
+  printf '%s\n' "$CHANGED" | grep -Eq '^apps/fitora($|/)' && NEED_FITORA=1 || true
   printf '%s\n' "$CHANGED" | grep -Eq '^(apps/licensador/)' && NEED_LICENSADOR=1 || true
 fi
 
 STAMP="$(date +%s)"
-SERVICES=(api web socios licensador)
+SERVICES=(api web socios fitora licensador)
 
 # Limpiar etiquetas de rollback abandonadas por despliegues fallidos anteriores.
 # No se tocan volúmenes: PostgreSQL y los datos del licenciador quedan intactos.
 while IFS= read -r image; do
   [ -n "$image" ] && docker image rm "$image" >/dev/null 2>&1 || true
-done < <(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^fitsystem-(api|web|socios|licensador):rollback-' || true)
+done < <(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^fitsystem-(api|web|socios|fitora|licensador):rollback-' || true)
 
 # Liberar capas no utilizadas ANTES de guardar las imágenes de rollback.
 docker builder prune -af >/dev/null 2>&1 || true
@@ -65,11 +68,11 @@ restore_on_failure() {
       fi
     done
     docker compose -f docker-compose.prod.yml up -d db || true
-    for svc in api web socios licensador; do
+    for svc in api web socios fitora licensador; do
       docker compose -f docker-compose.prod.yml up -d --no-deps "$svc" || true
     done
     docker compose -f docker-compose.prod.yml ps || true
-    docker compose -f docker-compose.prod.yml logs --tail=80 api web socios licensador >&2 || true
+    docker compose -f docker-compose.prod.yml logs --tail=80 api web socios fitora licensador >&2 || true
   fi
   exit "$status"
 }
@@ -82,7 +85,7 @@ docker image prune -f >/dev/null 2>&1 || true
 df -h /
 docker system df || true
 
-if [ "$NEED_API" -eq 0 ] && [ "$NEED_WEB" -eq 0 ] && [ "$NEED_SOCIOS" -eq 0 ] && [ "$NEED_LICENSADOR" -eq 0 ]; then
+if [ "$NEED_API" -eq 0 ] && [ "$NEED_WEB" -eq 0 ] && [ "$NEED_SOCIOS" -eq 0 ] && [ "$NEED_FITORA" -eq 0 ] && [ "$NEED_LICENSADOR" -eq 0 ]; then
   echo "=== no hay imágenes modificadas; se mantienen los servicios activos ==="
 else
   # No detener la versión que está atendiendo tráfico durante la compilación.
@@ -109,6 +112,12 @@ if [ "$NEED_SOCIOS" -eq 1 ]; then
 else
   echo "=== socios sin cambios; se reutiliza la imagen existente ==="
 fi
+if [ "$NEED_FITORA" -eq 1 ]; then
+  echo "=== build fitora ==="
+  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build fitora
+else
+  echo "=== fitora sin cambios; se reutiliza la imagen existente ==="
+fi
 if [ "$NEED_LICENSADOR" -eq 1 ]; then
   echo "=== build licensador ==="
   COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.prod.yml build licensador
@@ -124,7 +133,7 @@ docker system df || true
 
 docker compose -f docker-compose.prod.yml up -d db
 docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate caddy
-for svc in api web socios licensador; do
+for svc in api web socios fitora licensador; do
   echo "=== start $svc ==="
   if ! docker compose -f docker-compose.prod.yml up -d --no-deps "$svc"; then
     docker compose -f docker-compose.prod.yml logs --tail=120 "$svc" >&2 || true
@@ -133,7 +142,7 @@ for svc in api web socios licensador; do
 done
 
 docker compose -f docker-compose.prod.yml ps
-for svc in api web socios licensador; do
+for svc in api web socios fitora licensador; do
   if [ -z "$(docker compose -f docker-compose.prod.yml ps --status running -q "$svc")" ]; then
     echo "=== error: $svc no quedó ejecutándose ===" >&2
     docker compose -f docker-compose.prod.yml logs --tail=120 "$svc" >&2 || true

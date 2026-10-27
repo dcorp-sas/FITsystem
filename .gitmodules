@@ -1,0 +1,3 @@
+[submodule "apps/fitora"]
+	path = apps/fitora
+	url = https://github.com/dcorp-sas/FITORA.git
