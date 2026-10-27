@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       setOrganization(data.organization);
       setBranches(data.branches || []);
-      setActiveBranchIdState(data.user.branchId || data.branches?.[0]?.id || null);
+      setActiveBranchIdState(data.branches?.[0]?.id || null);
     },
     [],
   );
@@ -98,9 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setOrganization(data.organization);
           setBranches(data.branches);
           if (typeof window !== 'undefined') {
-            const saved = window.localStorage.getItem('fit_branch');
-            if (saved && data.branches.some((b) => b.id === saved)) setActiveBranchIdState(saved);
-            else setActiveBranchIdState(data.user.branchId || data.branches[0]?.id || null);
+            setActiveBranchIdState(data.branches[0]?.id || null);
           }
           if (!cancelled) setReady(true);
           return;

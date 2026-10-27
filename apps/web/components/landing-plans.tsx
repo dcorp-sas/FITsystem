@@ -31,14 +31,14 @@ const PLANS: PlanDef[] = [
     seats: 'Hasta 300 socios con app',
     monthly: 64900,
     popular: true,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes por sede', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes del gimnasio', 'Soporte prioritario'],
   },
   {
     tag: 'ENTERPRISE',
     name: 'Empresa',
     seats: 'Hasta 500 socios con app',
     monthly: 109900,
-    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+    features: ['Todos los módulos', 'App del socio incluida', 'Cobros con MercadoPago y registro de pagos', 'Reportes avanzados', 'Soporte prioritario'],
   },
 ];
 

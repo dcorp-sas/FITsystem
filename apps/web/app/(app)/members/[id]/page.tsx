@@ -186,7 +186,6 @@ export default function MemberDetailPage() {
               <Row label="Email" value={member.email || '-'} />
               <Row label="Nacimiento" value={formatDate(member.birthDate)} />
               <Row label="Dirección" value={[member.address, member.city].filter(Boolean).join(', ') || '-'} />
-              <Row label="Sede" value={member.branch?.name || '-'} />
               <Row label="Emergencia" value={[member.emergencyName, member.emergencyPhone].filter(Boolean).join(' · ') || '-'} />
               <Row label="Visitas" value={String(member.totalVisits)} />
               <Row label="Última visita" value={formatDate(member.lastVisitAt)} />

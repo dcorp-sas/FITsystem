@@ -36,7 +36,7 @@
     <text x="1180" y="52" text-anchor="end" font-size="13" fill="#e2e8f0">Matías</text>
   </g>
   <text x="262" y="118" font-size="24" font-weight="700" fill="#e2e8f0">Panel general</text>
-  <text x="262" y="142" font-size="13" fill="#94a3b8">Resumen de hoy · Sucursal Centro</text>
+  <text x="262" y="142" font-size="13" fill="#94a3b8">Resumen de hoy</text>
   <g>
     <rect x="262" y="164" width="232" height="104" rx="14" fill="#111827" stroke="#1e293b"/>
     <text x="286" y="196" font-size="13" fill="#94a3b8">Socios activos</text>

@@ -27,9 +27,8 @@ export function cashRoutes(app: FastifyInstance) {
   app.get('/cash/sessions/current', { onRequest: [auth] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
-      const branchId = (request.query as { branchId?: string }).branchId || req.user.branchId || undefined;
       const session = await prisma.cashSession.findFirst({
-        where: { organizationId: req.user.organizationId, status: 'OPEN', ...(branchId ? { branchId } : {}) },
+        where: { organizationId: req.user.organizationId, status: 'OPEN' },
         include: { movements: true },
       });
       if (!session) return ok(reply, null);
@@ -52,7 +51,7 @@ export function cashRoutes(app: FastifyInstance) {
       const open = await prisma.cashSession.findFirst({
         where: { organizationId: req.user.organizationId, branchId: input.branchId, status: 'OPEN' },
       });
-      if (open) throw new HttpError(409, 'Ya hay una caja abierta en esta sede');
+      if (open) throw new HttpError(409, 'Ya hay una caja abierta en este gimnasio');
       const session = await prisma.cashSession.create({
         data: {
           organizationId: req.user.organizationId,
@@ -107,7 +106,6 @@ export function cashRoutes(app: FastifyInstance) {
       const where: Record<string, unknown> = { organizationId: req.user.organizationId };
       if (query.type) where.type = query.type;
       if (query.category) where.category = query.category;
-      if (query.branchId) where.branchId = query.branchId;
       if (query.from || query.to) {
         where.createdAt = {
           gte: query.from ? startOfDay(new Date(query.from)) : undefined,

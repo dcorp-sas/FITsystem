@@ -16,10 +16,15 @@ export async function registerAuth(app: FastifyInstance) {
       if (!user || !user.isActive) {
         throw new HttpError(401, 'Sesion invalida o usuario inactivo');
       }
+      const primaryBranch = await prisma.branch.findFirst({
+        where: { organizationId: user.organizationId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
       req.user = {
         id: user.id,
         organizationId: user.organizationId,
-        branchId: user.branchId,
+        branchId: primaryBranch?.id ?? user.branchId,
         name: user.name,
         email: user.email,
         role: user.role,

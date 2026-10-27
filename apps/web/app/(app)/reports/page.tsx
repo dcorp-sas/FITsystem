@@ -27,7 +27,6 @@ interface IncomeData {
   byDate: Record<string, number>;
   byMethod: Record<string, number>;
   byConcept: Record<string, number>;
-  byBranch: Record<string, number>;
   expenses: { total: number; count: number; byCategory: Record<string, number> };
   net: number;
 }
@@ -50,15 +49,6 @@ interface PlanReport {
   color: string;
 }
 
-interface BranchReport {
-  id: string;
-  name: string;
-  members: number;
-  income: number;
-  entries: number;
-  shopSales: number;
-}
-
 interface ChurnRow {
   id: string;
   name: string;
@@ -69,13 +59,12 @@ interface ChurnRow {
   plan?: string | null;
 }
 
-type Tab = 'income' | 'retention' | 'plans' | 'branches' | 'churn';
+type Tab = 'income' | 'retention' | 'plans' | 'churn';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'income', label: 'Ingresos' },
   { key: 'retention', label: 'Retención' },
   { key: 'plans', label: 'Planes' },
-  { key: 'branches', label: 'Sedes' },
   { key: 'churn', label: 'Riesgo de abandono' },
 ];
 
@@ -89,24 +78,21 @@ export default function ReportsPage() {
   const [income, setIncome] = useState<IncomeData | null>(null);
   const [retention, setRetention] = useState<RetentionRow[]>([]);
   const [plans, setPlans] = useState<PlanReport[]>([]);
-  const [branches, setBranches] = useState<BranchReport[]>([]);
   const [churn, setChurn] = useState<ChurnRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [inc, ret, pl, br, ch] = await Promise.all([
+      const [inc, ret, pl, ch] = await Promise.all([
         http.get<IncomeData>('/reports/income', { from, to }),
         http.get<RetentionRow[]>('/reports/retention'),
         http.get<PlanReport[]>('/reports/plans'),
-        http.get<{ items: BranchReport[] }>('/reports/branches', { from, to }),
         http.get<{ items: ChurnRow[] }>('/reports/churn'),
       ]);
       setIncome(inc);
       setRetention(ret);
       setPlans(pl);
-      setBranches(br.items);
       setChurn(ch.items);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al cargar reportes');
@@ -140,7 +126,7 @@ export default function ReportsPage() {
             </button>
           ))}
         </div>
-        {(tab === 'income' || tab === 'branches') && (
+        {tab === 'income' && (
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-8 w-36 py-0 text-xs" />
             <span>a</span>
@@ -166,7 +152,7 @@ export default function ReportsPage() {
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <Card title="Ingresos por día" className="lg:col-span-2">
-                  {Object.entries(income.byDate).length === 0 && income.byBranch && Object.keys(income.byDate).length === 0 ? (
+                  {Object.entries(income.byDate).length === 0 ? (
                     <EmptyLine text="Sin movimientos en el período" />
                   ) : (
                     <div className="space-y-2">
@@ -238,20 +224,6 @@ export default function ReportsPage() {
                   <td className="px-4 py-3 text-text-muted">{formatMoney(p.price, currency)}</td>
                   <td className="px-4 py-3 text-text">{p.active}</td>
                   <td className="px-4 py-3 font-medium text-success">{formatMoney(p.monthlyPotential, currency)}</td>
-                </tr>
-              ))}
-            </Table>
-          )}
-
-          {tab === 'branches' && (
-            <Table head={['Sede', 'Socios', 'Ingresos', 'Accesos', 'Ventas shop']} empty="Sin sedes">
-              {branches.map((b) => (
-                <tr key={b.id}>
-                  <td className="px-4 py-3 font-medium text-text">{b.name}</td>
-                  <td className="px-4 py-3 text-text-muted">{b.members}</td>
-                  <td className="px-4 py-3 font-medium text-success">{formatMoney(b.income, currency)}</td>
-                  <td className="px-4 py-3 text-text-muted">{b.entries}</td>
-                  <td className="px-4 py-3 text-text-muted">{formatMoney(b.shopSales, currency)}</td>
                 </tr>
               ))}
             </Table>

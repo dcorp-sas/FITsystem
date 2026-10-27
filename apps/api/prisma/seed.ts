@@ -28,12 +28,6 @@ async function main() {
     create: { organizationId: org.id, name: 'Sede Central', code: 'SC', address: 'Av. Corrientes 1234' },
   });
 
-  const norte = await prisma.branch.upsert({
-    where: { organizationId_name: { organizationId: org.id, name: 'Sede Norte' } },
-    update: {},
-    create: { organizationId: org.id, name: 'Sede Norte', code: 'SN', address: 'Av. Cabildo 3000' },
-  });
-
   const passwordHash = await bcrypt.hash('admin123', 10);
   const owner = await prisma.user.upsert({
     where: { email: 'admin@fitsystem.local' },
@@ -124,7 +118,7 @@ async function main() {
     const member = await prisma.member.create({
       data: {
         organizationId: org.id,
-        branchId: seq % 3 === 0 ? norte.id : central.id,
+        branchId: central.id,
         memberCode: `000${seq}`,
         firstName: m.firstName,
         lastName: m.lastName,

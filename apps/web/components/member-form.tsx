@@ -306,16 +306,6 @@ export function MemberFormModal({ open, onClose, member, onSaved }: Props) {
       }
     >
       <form id="member-form" onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Sede *">
-          <Select required value={form.branchId} onChange={(e) => set('branchId', e.target.value)}>
-            <option value="">Seleccionar...</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
         <Field label="Estado">
           <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
             <option value="ACTIVE">Activo</option>

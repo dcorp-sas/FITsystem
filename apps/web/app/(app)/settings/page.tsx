@@ -207,7 +207,7 @@ export default function SettingsPage() {
                 { key: 'QR_PUBLIC_KEY', label: 'QR: Public Key' },
                 { key: 'QR_ACCESS_TOKEN', label: 'QR: Access Token (secreto)', type: 'password', secret: true },
                 { key: 'QR_POS_ID', label: 'QR: ID de la caja (POS)' },
-                { key: 'QR_POS_EXTERNAL_ID', label: 'QR: External ID de la caja (sucursal)' },
+                { key: 'QR_POS_EXTERNAL_ID', label: 'QR: External ID de la caja' },
                 {
                   key: 'QR_FIXED_ENABLED',
                   label: 'QR fijo con confirmación automática',
@@ -309,7 +309,6 @@ export default function SettingsPage() {
               extra={
                 <div className="space-y-5">
                   <ArcaCard status={status} />
-                  <ArcaPointsOfSaleCard />
                 </div>
               }
             />
@@ -388,7 +387,7 @@ export default function SettingsPage() {
                   ],
                   help: 'Depende de la impresora. Si el ticket sale mal, probá Desactivado.',
                 },
-                { key: 'TICKET_HEADER', label: 'Encabezado del ticket (opcional)', placeholder: 'Ej: Gimnasio Central · Sucursal Centro' },
+                { key: 'TICKET_HEADER', label: 'Encabezado del ticket (opcional)', placeholder: 'Ej: Gimnasio Central' },
                 { key: 'TICKET_FOOTER', label: 'Pie del ticket (opcional)', placeholder: 'Ej: ¡Gracias por entrenar con nosotros!' },
                 { key: 'DEST_URL', label: 'Servidor de impresión', placeholder: 'http://127.0.0.1:3999', advanced: true },
                 { key: 'POINT_DEVICE_ID', label: 'Terminal Point (opcional)', placeholder: 'NEWLAND_N950__...', advanced: true },
@@ -1185,94 +1184,6 @@ function ArcaCard({ status }: { status: IntegrationStatus | null }) {
   );
 }
 
-interface ArcaPointOfSale {
-  branchId: string;
-  branchName: string;
-  pointOfSale: number;
-  inherited: boolean;
-}
-
-function ArcaPointsOfSaleCard() {
-  const toast = useToast();
-  const [data, setData] = useState<{ globalPointOfSale: number; pointsOfSale: ArcaPointOfSale[] } | null>(null);
-  const [edits, setEdits] = useState<Record<string, string>>({});
-  const [savingId, setSavingId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await http.get<{ globalPointOfSale: number; pointsOfSale: ArcaPointOfSale[] }>('/integrations/arca/points-of-sale');
-      setData(res);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Error al cargar puntos de venta');
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function save(branchId: string) {
-    const raw = edits[branchId];
-    const pointOfSale = raw === '' || raw == null ? 0 : Number(raw);
-    if (Number.isNaN(pointOfSale) || pointOfSale < 0) {
-      toast.error('Punto de venta inválido');
-      return;
-    }
-    setSavingId(branchId);
-    try {
-      await http.put('/integrations/arca/points-of-sale', { branchId, pointOfSale });
-      toast.success('Punto de venta actualizado');
-      setEdits((e) => {
-        const next = { ...e };
-        delete next[branchId];
-        return next;
-      });
-      await load();
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Error al guardar');
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  return (
-    <Card title="Puntos de venta por sucursal">
-      <p className="text-sm text-text-muted">
-        Asigná el punto de venta AFIP de cada sucursal. Dejalo vacío o en 0 para usar el global
-        {data ? ` (${data.globalPointOfSale})` : ''}.
-      </p>
-      {!data ? (
-        <p className="mt-3 text-sm text-text-muted">Cargando...</p>
-      ) : data.pointsOfSale.length === 0 ? (
-        <p className="mt-3 text-sm text-text-muted">No hay sucursales cargadas.</p>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {data.pointsOfSale.map((p) => (
-            <div key={p.branchId} className="flex items-center gap-2">
-              <span className="flex-1 text-sm text-text">{p.branchName}</span>
-              <Input
-                type="number"
-                className="w-24"
-                value={edits[p.branchId] ?? String(p.pointOfSale)}
-                onChange={(e) => setEdits((prev) => ({ ...prev, [p.branchId]: e.target.value }))}
-              />
-              <Badge color={p.inherited ? 'gray' : 'blue'}>{p.inherited ? 'global' : 'propio'}</Badge>
-              <Button
-                variant="secondary"
-                disabled={edits[p.branchId] == null}
-                loading={savingId === p.branchId}
-                onClick={() => save(p.branchId)}
-              >
-                Guardar
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
 interface MpTerminal {
   id?: string;
   pos_id?: number | string;
@@ -1622,12 +1533,12 @@ function FaceInfoCard() {
           </div>
           <div className="rounded-lg bg-surface-alt/60 p-3">
             <div className="mb-1 font-semibold text-text">Check-in</div>
-            Desde "Acceso y asistencia" → "Check-in por rostro", o desde el kiosco de la sucursal.
+            Desde "Acceso y asistencia" → "Check-in por rostro", o desde el kiosco de recepción.
           </div>
         </div>
         <p>
           Umbral de coincidencia: menor valor = más estricto (0.30–0.40), mayor valor = más permisivo (0.60–0.70).
-          0.55 es el valor recomendado. El código de acceso/sede habitual sigue funcionando igual.
+          0.55 es el valor recomendado. El código de acceso habitual sigue funcionando igual.
         </p>
       </div>
     </Card>

@@ -69,7 +69,6 @@ const GROUPS: NavGroup[] = [
     title: 'Sistema',
     items: [
       { href: '/users', label: 'Usuarios', icon: 'users', adminOnly: true },
-      { href: '/branches', label: 'Sedes', icon: 'branches', adminOnly: true },
       { href: '/settings', label: 'Configuración', icon: 'settings', adminOnly: true },
       { href: '/activity', label: 'Auditoría', icon: 'activity', adminOnly: true },
     ],
@@ -78,7 +77,7 @@ const GROUPS: NavGroup[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, organization, branches, activeBranchId, setActiveBranchId } = useAuth();
+  const { user, organization } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const isAdmin = user ? user.role === 'OWNER' || user.role === 'ADMIN' : false;
@@ -104,23 +103,6 @@ export function Sidebar() {
           <div className="truncate text-[11px] text-text-muted">FIT system™</div>
         </div>
       </div>
-
-      {branches.length > 1 && (
-        <div className="border-b border-line px-4 py-3">
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-text-muted">Sede activa</label>
-          <select
-            value={activeBranchId ?? ''}
-            onChange={(e) => setActiveBranchId(e.target.value || null)}
-            className="w-full rounded-lg border border-line bg-surface-alt px-2 py-1.5 text-xs text-text outline-none focus:border-primary"
-          >
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {navGroups.map((group) => {

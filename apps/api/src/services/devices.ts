@@ -3,7 +3,7 @@ import { getRawSetting, upsertSettings } from './settings.js';
 /**
  * Abstraccion de hardware de control de acceso. El equipo donde se instala el
  * sistema detecta (del lado del cliente) que dispositivos tiene disponibles y
- * los reporta; aca se guardan por sede para mostrarlos y usarlos en el ingreso.
+ * los reporta; se guarda una única configuración por gimnasio para usarla en el ingreso.
  *
  * Kinds previstos (listos para conectar hardware real):
  *  - FINGERPRINT: lector de huellas / Windows Hello (WebAuthn)
@@ -60,7 +60,7 @@ export async function saveDeviceProfile(
   return stored;
 }
 
-/** Metodos de ingreso habilitados segun el hardware detectado en la sede. */
+/** Metodos de ingreso habilitados según el hardware detectado en el gimnasio. */
 export function enabledMethods(profile: DeviceProfile | null): string[] {
   const methods = new Set(['MANUAL', 'QR']);
   if (profile) {

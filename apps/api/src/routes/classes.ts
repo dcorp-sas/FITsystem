@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { instructorSchema, gymClassSchema, classSessionSchema, reservationSchema, instructorPaymentSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
-import { assertBranchInOrg, assertUserInOrg, assertInstructorInOrg } from '../lib/scope.js';
+import { assertUserInOrg, assertInstructorInOrg, primaryBranch } from '../lib/scope.js';
 import { logActivity } from '../lib/activity.js';
 import { startOfDay, endOfDay, fullName } from '@fitsystem/utils';
 
@@ -16,7 +16,7 @@ async function requireInstructor(organizationId: string, userId: string) {
     const candidates = await prisma.instructor.findMany({ where: { organizationId, isActive: true, userId: null, email: { not: null } } });
     instructor = candidates.find((candidate) => candidate.email?.trim().toLowerCase() === user.email?.trim().toLowerCase()) ?? null;
   }
-  if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Creá el profesor con el mismo email y asignale una sede a tu usuario.');
+  if (!instructor) throw new HttpError(403, 'Tu usuario no está vinculado a un profesor activo. Creá el profesor con el mismo email y asignale clases.');
   return instructor;
 
 }
@@ -110,9 +110,8 @@ export function classRoutes(app: FastifyInstance) {
       const instructor = req.user.role === 'INSTRUCTOR'
         ? await requireInstructor(req.user.organizationId, req.user.id)
         : null;
-      // El portal docente comparte el catálogo de clases de su sede con el sistema principal.
       const classScope = instructor
-        ? (instructor.branchId ? { branchId: instructor.branchId } : { instructorId: instructor.id })
+        ? { instructorId: instructor.id }
         : {};
       const classes = await prisma.gymClass.findMany({
         where: { organizationId: req.user.organizationId, ...classScope },
@@ -132,16 +131,8 @@ export function classRoutes(app: FastifyInstance) {
       const instructor = req.user.role === 'INSTRUCTOR'
         ? await requireInstructor(req.user.organizationId, req.user.id)
         : null;
-      // Un profesor solo puede dar de alta clases en su propia sede y a su nombre.
-      // No se aceptan branchId ni instructorId enviados por el cliente para ampliar permisos.
-      const branchId = instructor ? instructor.branchId : input.branchId;
+      const branchId = (await primaryBranch(req.user.organizationId)).id;
       const instructorId = instructor ? instructor.id : (input.instructorId || null);
-      if (!branchId) {
-        throw new HttpError(instructor ? 403 : 400, instructor
-          ? 'Tu usuario de profesor debe tener una sede asignada para crear clases.'
-          : 'Seleccioná una sede para la clase.');
-      }
-      await assertBranchInOrg(req.user.organizationId, branchId);
       if (instructorId) await assertInstructorInOrg(req.user.organizationId, instructorId);
       const cls = await prisma.gymClass.create({
         data: {
@@ -171,12 +162,12 @@ export function classRoutes(app: FastifyInstance) {
       const input = validate(gymClassSchema, request.body);
       const existing = await prisma.gymClass.findFirst({ where: { id, organizationId: req.user.organizationId } });
       if (!existing) throw new HttpError(404, 'Clase no encontrada');
-      await assertBranchInOrg(req.user.organizationId, input.branchId);
       if (input.instructorId) await assertInstructorInOrg(req.user.organizationId, input.instructorId);
+      const branchId = (await primaryBranch(req.user.organizationId)).id;
       const cls = await prisma.gymClass.update({
         where: { id },
         data: {
-          branchId: input.branchId,
+          branchId,
           instructorId: input.instructorId || null,
           name: input.name,
           description: input.description || null,
@@ -207,9 +198,8 @@ export function classRoutes(app: FastifyInstance) {
       const sessions = await prisma.classSession.findMany({
         where: {
           branch: { organizationId: req.user.organizationId },
-          ...(instructor?.branchId ? { branchId: instructor.branchId } : {}),
           startAt: { gte: from, lte: to },
-          ...(!instructor?.branchId && instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
+          ...(instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
         },
         orderBy: { startAt: 'asc' },
         include: {
@@ -235,16 +225,16 @@ export function classRoutes(app: FastifyInstance) {
         where: {
           id: input.classId,
           organizationId: req.user.organizationId,
-          ...(instructor ? (instructor.branchId ? { branchId: instructor.branchId } : { instructorId: instructor.id }) : {}),
+          ...(instructor ? { instructorId: instructor.id } : {}),
         },
       });
-      if (!cls) throw new HttpError(404, 'Clase no encontrada o fuera de tu sede');
+      if (!cls) throw new HttpError(404, 'Clase no encontrada o no asignada a tu usuario');
       const startAt = new Date(input.startAt);
       const endAt = input.endAt ? new Date(input.endAt) : new Date(startAt.getTime() + cls.durationMin * 60000);
       const session = await prisma.classSession.create({
         data: {
           classId: cls.id,
-          branchId: cls.branchId,
+          branchId: (await primaryBranch(req.user.organizationId)).id,
           instructorId: instructor?.id ?? input.instructorId ?? cls.instructorId ?? null,
           startAt,
           endAt,
@@ -270,11 +260,10 @@ export function classRoutes(app: FastifyInstance) {
         where: {
           id,
           branch: { organizationId: req.user.organizationId },
-          ...(instructor?.branchId ? { branchId: instructor.branchId } : {}),
-          ...(!instructor?.branchId && instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
+          ...(instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
         },
       });
-      if (!session) throw new HttpError(404, 'Sesión no encontrada o fuera de tu sede');
+      if (!session) throw new HttpError(404, 'Sesión no encontrada o no asignada a tu usuario');
       await prisma.classSession.delete({ where: { id } });
       await logActivity(req, 'DELETE', 'CLASS_SESSION', id);
       return ok(reply, { deleted: true });
@@ -295,8 +284,7 @@ export function classRoutes(app: FastifyInstance) {
         where: {
           id,
           branch: { organizationId: req.user.organizationId },
-          ...(instructor?.branchId ? { branchId: instructor.branchId } : {}),
-          ...(!instructor?.branchId && instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
+          ...(instructor ? { OR: [{ instructorId: instructor.id }, { instructorId: null, gymClass: { instructorId: instructor.id } }] } : {}),
         },
       });
       if (!session) throw new HttpError(404, 'Sesion no encontrada o no asignada a tu usuario');

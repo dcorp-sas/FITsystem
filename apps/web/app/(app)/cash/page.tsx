@@ -113,7 +113,7 @@ export default function CashPage() {
 
       {!session ? (
         <Card title="Abrir caja" className="max-w-md">
-          <p className="mb-4 text-sm text-text-muted">No hay una caja abierta en esta sede.</p>
+          <p className="mb-4 text-sm text-text-muted">No hay una caja abierta en este gimnasio.</p>
           <div className="flex items-end gap-3">
             <Field label="Monto inicial" className="flex-1">
               <Input type="number" step="0.01" min="0" value={openingAmount} onChange={(e) => setOpeningAmount(e.target.value)} placeholder="0.00" />

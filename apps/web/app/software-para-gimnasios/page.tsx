@@ -26,7 +26,7 @@ export default function Page() {
       'La app del socio puede mostrar información de la membresía, rutinas y novedades y permitir determinados flujos de pago según la configuración. La información personal debe tratarse con cuidado y el gimnasio debe definir quién puede acceder a cada dato.'
     ]},
     {title:'Cómo evaluar si FIT system te sirve',paragraphs:[
-      'Antes de instalar, confirmá los requisitos de tu PC, la cantidad de socios que usarán la app, las necesidades de varias sedes, el flujo de MercadoPago y el procedimiento de respaldo y restauración. Si migrás desde Excel u otro software, enviá una muestra sin datos personales para evaluar el formato y el alcance del trabajo.',
+      'Antes de instalar, confirmá los requisitos de tu PC, la cantidad de socios que usarán la app, el flujo de MercadoPago y el procedimiento de respaldo y restauración. Si migrás desde Excel u otro software, enviá una muestra sin datos personales para evaluar el formato y el alcance del trabajo.',
       'Podés descargar la prueba gratuita de 7 días sin ingresar una tarjeta. Si necesitás más tiempo para evaluarla, escribinos por WhatsApp desde el sitio. Revisá también la política de privacidad, los términos y las condiciones de cancelación antes de contratar.'
     ]}
   ]} />;

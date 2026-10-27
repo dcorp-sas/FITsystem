@@ -116,7 +116,6 @@ const EMPTY = {
   commissionPct: '0',
   color: '#0ea5e9',
   isActive: true,
-  branchId: '',
   createPortalAccess: true,
   password: '',
 };
@@ -150,7 +149,6 @@ function InstructorModal({
         commissionPct: String(instructor.commissionPct),
         color: instructor.color,
         isActive: instructor.isActive,
-        branchId: instructor.branchId || '',
         createPortalAccess: Boolean((instructor as Instructor & { userId?: string | null }).userId),
         password: '',
       });
@@ -172,30 +170,29 @@ function InstructorModal({
       commissionPct: Number(form.commissionPct || 0),
       color: form.color,
       isActive: form.isActive,
-      branchId: form.branchId || null,
+      branchId: branches[0]?.id || null,
     };
     try {
       let userId = (instructor as (Instructor & { userId?: string | null }) | null)?.userId || null;
       if (form.createPortalAccess) {
         if (!form.email.trim()) throw new Error('Ingresá un email para el acceso al portal.');
-        if (!form.branchId) throw new Error('Seleccioná la sede del profesor.');
         if (!instructor && form.password.trim().length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
         if (!instructor) {
           const account = await http.post<{ id: string }>('/users', {
             name: form.name.trim(), email: form.email.trim(), password: form.password,
-            role: 'INSTRUCTOR', branchId: form.branchId, phone: form.phone || null, isActive: form.isActive,
+            role: 'INSTRUCTOR', phone: form.phone || null, isActive: form.isActive,
           });
           userId = account.id;
         } else if (userId && form.password.trim()) {
           await http.put(`/users/${userId}`, {
             name: form.name.trim(), email: form.email.trim(), password: form.password,
-            role: 'INSTRUCTOR', branchId: form.branchId, phone: form.phone || null, isActive: form.isActive,
+            role: 'INSTRUCTOR', phone: form.phone || null, isActive: form.isActive,
           });
         } else if (!userId) {
           if (form.password.trim().length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
           const account = await http.post<{ id: string }>('/users', {
             name: form.name.trim(), email: form.email.trim(), password: form.password,
-            role: 'INSTRUCTOR', branchId: form.branchId, phone: form.phone || null, isActive: form.isActive,
+            role: 'INSTRUCTOR', phone: form.phone || null, isActive: form.isActive,
           });
           userId = account.id;
         }
@@ -239,12 +236,6 @@ function InstructorModal({
         <Field label="Teléfono">
           <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
         </Field>
-        <Field label="Sede del profesor" className="sm:col-span-2">
-          <select required={form.createPortalAccess} value={form.branchId} onChange={(e) => setForm((f) => ({ ...f, branchId: e.target.value }))} className="w-full rounded-lg border border-line bg-base px-3 py-2 text-text">
-            <option value="">Seleccionar sede</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </Field>
         <Field label="Especialidad" className="sm:col-span-2">
           <Input value={form.specialty} onChange={(e) => setForm((f) => ({ ...f, specialty: e.target.value }))} />
         </Field>
@@ -272,7 +263,7 @@ function InstructorModal({
             <Field label={instructor && (instructor as Instructor & { userId?: string | null }).userId ? 'Nueva contraseña (opcional)' : 'Contraseña inicial *'}>
               <Input type="password" autoComplete="new-password" required={!(instructor && (instructor as Instructor & { userId?: string | null }).userId)} minLength={6} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={instructor ? 'Dejar vacía para mantenerla' : 'Mínimo 6 caracteres'} />
             </Field>
-            <p className="text-xs text-text-muted sm:col-span-2">El profesor ingresará en profes.fitsystem.com.ar con este email y contraseña. El usuario queda vinculado al profesor y a la sede seleccionada.</p>
+            <p className="text-xs text-text-muted sm:col-span-2">El profesor ingresará en profes.fitsystem.com.ar con este email y contraseña. El usuario queda vinculado al profesor y al gimnasio.</p>
           </div> : null}
         </div>
         <label className="flex items-center gap-2 text-sm text-text sm:col-span-2">

@@ -219,7 +219,7 @@ export function attendanceRoutes(app: FastifyInstance) {
       const orgId = req.user.organizationId;
 
       const branchId = req.user.branchId ?? input.branchId;
-      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+      if (!branchId) throw new HttpError(400, 'No hay un gimnasio configurado');
 
       let memberId = input.memberId ?? null;
       // El metodo no se confia al cliente: se deriva de la fuente real.
@@ -275,19 +275,15 @@ export function attendanceRoutes(app: FastifyInstance) {
       const orgId = req.user.organizationId;
 
       const branchId = req.user.branchId ?? input.branchId;
-      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+      if (!branchId) throw new HttpError(400, 'No hay un gimnasio configurado');
 
       const threshold = parseThreshold(await getRawSetting(orgId, 'FACE', 'MATCH_THRESHOLD'));
 
-      // Descriptores enrolados en la organizacion (filtrados por sede cuando corresponde)
+      // Descriptores enrolados en toda la organización.
       const faces = await prisma.memberFace.findMany({
         where: { organizationId: orgId },
-        include: { member: { select: { id: true, branchId: true } } },
       });
-      const scoped = branchId
-        ? faces.filter((f) => !branchId || f.member.branchId === branchId)
-        : faces;
-      const candidates = scoped.length ? scoped : faces;
+      const candidates = faces;
 
       if (!candidates.length) {
         return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'SIN_FACE_ENROLADO', member: null }), 200);
@@ -330,11 +326,10 @@ export function attendanceRoutes(app: FastifyInstance) {
       const orgId = req.user.organizationId;
 
       const branchId = req.user.branchId ?? input.branchId;
-      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+      if (!branchId) throw new HttpError(400, 'No hay un gimnasio configurado');
 
       const credential = await prisma.memberCredential.findFirst({
         where: { credentialId: input.credentialId, organizationId: orgId },
-        include: { member: { select: { id: true, branchId: true } } },
       });
       if (!credential) {
         return ok(reply, buildCheckinReply({ kind: 'reject', reason: 'SIN_HUELLA_ENROLADA', member: null }), 200);
@@ -365,7 +360,7 @@ export function attendanceRoutes(app: FastifyInstance) {
     }
   });
 
-  // QR fijo de ingreso: un único QR (por sede) que se imprime y se pega en la
+  // QR fijo de ingreso: un único QR que se imprime y se coloca en el
   // puerta. El socio lo escanea con la app y su ingreso se registra solo.
   app.get('/attendance/access-qr', { onRequest: [auth] }, async (request, reply) => {
     try {
@@ -373,7 +368,7 @@ export function attendanceRoutes(app: FastifyInstance) {
       const query = request.query as { branchId?: string };
       const orgId = req.user.organizationId;
       const branchId = query.branchId || req.user.branchId;
-      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+      if (!branchId) throw new HttpError(400, 'No hay un gimnasio configurado');
 
       const config = await loadAccessQrConfig(orgId, branchId);
       const payload = signAccessQr(orgId, branchId, config.rotation);
@@ -487,13 +482,13 @@ export function attendanceRoutes(app: FastifyInstance) {
     }
   });
 
-  // Hardware de control de acceso detectado en la sede (lectores, camara, etc.)
+  // Hardware de control de acceso del gimnasio (lectores, camara, etc.)
   app.get('/attendance/devices', { onRequest: [auth] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
       const query = request.query as { branchId?: string };
       const branchId = query.branchId || req.user.branchId;
-      if (!branchId) throw new HttpError(400, 'No hay sede seleccionada');
+      if (!branchId) throw new HttpError(400, 'No hay un gimnasio configurado');
       const profile = await getDeviceProfile(req.user.organizationId, branchId);
       return ok(reply, { profile, methods: enabledMethods(profile) });
     } catch (error) {

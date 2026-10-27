@@ -79,15 +79,15 @@ export function authRoutes(app: FastifyInstance) {
     role: string;
   }) {
     const org = await prisma.organization.findUnique({ where: { id: user.organizationId } });
-    const branches = await prisma.branch.findMany({
+    const branch = await prisma.branch.findFirst({
       where: { organizationId: user.organizationId },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
     return {
       token: app.jwt.sign({ sub: user.id }),
       user,
       organization: { id: org?.id, name: org?.name, slug: org?.slug, currency: org?.currency },
-      branches,
+      branches: branch ? [branch] : [],
     };
   }
 
@@ -526,11 +526,11 @@ export function authRoutes(app: FastifyInstance) {
       const req = request as AuthedRequest;
       const user = await prisma.user.findUnique({ where: { id: req.user.id } });
       const organization = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
-      const branches = await prisma.branch.findMany({
+      const branch = await prisma.branch.findFirst({
         where: { organizationId: req.user.organizationId },
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'asc' },
       });
-      return ok(reply, { user, organization, branches, twoFactorEnabled: user?.twoFactorEnabled ?? false });
+      return ok(reply, { user, organization, branches: branch ? [branch] : [], twoFactorEnabled: user?.twoFactorEnabled ?? false });
     } catch (error) {
       return fail(reply, error);
     }

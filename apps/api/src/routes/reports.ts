@@ -135,7 +135,7 @@ export function reportRoutes(app: FastifyInstance) {
     }
   });
 
-  // Facturacion por periodo / medio / sede
+  // Facturación consolidada del gimnasio.
   app.get('/reports/income', { onRequest: [auth] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
@@ -145,13 +145,11 @@ export function reportRoutes(app: FastifyInstance) {
       const to = query.to ? endOfDay(new Date(query.to)) : endOfMonth();
       const payments = await prisma.payment.findMany({
         where: { organizationId: orgId, status: 'COMPLETED', paidAt: { gte: from, lte: to } },
-        include: { branch: { select: { name: true } } },
       });
 
       const byDate: Record<string, number> = {};
       const byMethod: Record<string, number> = {};
       const byConcept: Record<string, number> = {};
-      const byBranch: Record<string, number> = {};
       let total = 0;
       for (const p of payments) {
         total += p.amount;
@@ -159,7 +157,6 @@ export function reportRoutes(app: FastifyInstance) {
         byDate[key] = (byDate[key] ?? 0) + p.amount;
         byMethod[p.method] = (byMethod[p.method] ?? 0) + p.amount;
         byConcept[p.concept] = (byConcept[p.concept] ?? 0) + p.amount;
-        byBranch[p.branch.name] = (byBranch[p.branch.name] ?? 0) + p.amount;
       }
 
       // Egresos del periodo
@@ -178,7 +175,6 @@ export function reportRoutes(app: FastifyInstance) {
         byDate,
         byMethod,
         byConcept,
-        byBranch,
         expenses: { total: expenseTotal, count: expenses.length, byCategory: byExpenseCategory },
         net: total - expenseTotal,
       });
@@ -244,41 +240,6 @@ export function reportRoutes(app: FastifyInstance) {
         };
       });
       return ok(reply, rows);
-    } catch (error) {
-      return fail(reply, error);
-    }
-  });
-
-  // Comparacion por sede
-  app.get('/reports/branches', { onRequest: [auth] }, async (request, reply) => {
-    try {
-      const req = request as AuthedRequest;
-      const orgId = req.user.organizationId;
-      const query = request.query as { from?: string; to?: string };
-      const from = query.from ? startOfDay(new Date(query.from)) : startOfMonth();
-      const to = query.to ? endOfDay(new Date(query.to)) : endOfMonth();
-      const branches = await prisma.branch.findMany({
-        where: { organizationId: orgId },
-        include: { _count: { select: { members: true } } },
-      });
-      const rows = await Promise.all(
-        branches.map(async (b) => {
-          const [payments, entries, salesAgr] = await Promise.all([
-            prisma.payment.aggregate({ _sum: { amount: true }, where: { branchId: b.id, status: 'COMPLETED', paidAt: { gte: from, lte: to } } }),
-            prisma.attendance.count({ where: { branchId: b.id, checkedInAt: { gte: from, lte: to } } }),
-            prisma.sale.aggregate({ _sum: { total: true }, where: { branchId: b.id, status: 'COMPLETED', createdAt: { gte: from, lte: to } } }),
-          ]);
-          return {
-            id: b.id,
-            name: b.name,
-            members: b._count.members,
-            income: payments._sum.amount ?? 0,
-            entries,
-            shopSales: salesAgr._sum.total ?? 0,
-          };
-        }),
-      );
-      return ok(reply, { from, to, items: rows });
     } catch (error) {
       return fail(reply, error);
     }

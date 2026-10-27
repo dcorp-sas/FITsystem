@@ -14,7 +14,6 @@ export function equipmentRoutes(app: FastifyInstance) {
       const query = request.query as { status?: string; branchId?: string; search?: string };
       const where: Record<string, unknown> = { organizationId: req.user.organizationId };
       if (query.status) where.status = query.status;
-      if (query.branchId) where.branchId = query.branchId;
       if (query.search) where.name = { contains: query.search };
       const equipment = await prisma.equipment.findMany({
         where,

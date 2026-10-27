@@ -140,8 +140,8 @@ Si tenés un único archivo **`.p12`**, convertilo a base64 y pegalo en
 > Para usar el sistema con facturación real se necesita, además, la variable
 > `SETTINGS_ENC_KEY` definida (ver [Variables de servidor](#12-variables-de-servidor-avanzado)).
 
-**Puntos de venta por sucursal:** en la tarjeta *Puntos de venta* podés darle a
-cada sede su propio punto de venta; si lo dejás en 0, usa el global.
+**Punto de venta:** configurá el punto de venta fiscal único del gimnasio en
+la configuración de ARCA.
 
 ---
 

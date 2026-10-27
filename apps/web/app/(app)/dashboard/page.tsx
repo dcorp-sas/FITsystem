@@ -20,7 +20,7 @@ import {
 import { Icon } from '@/components/icon';
 
 export default function DashboardPage() {
-  const { user, organization, branches, activeBranchId } = useAuth();
+  const { user, organization } = useAuth();
   const toast = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function DashboardPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBranchId]);
+  }, []);
 
   if (loading && !data) return <SpinnerPage />;
   if (!data) return null;
@@ -52,11 +52,7 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         title={`Hola, ${user?.name?.split(' ')[0]} 👋`}
-        subtitle={
-          organization
-            ? `${organization.name}${branches.length > 1 ? ' · ' + (branches.find((b) => b.id === activeBranchId)?.name ?? 'Todas las sedes') : ''}`
-            : undefined
-        }
+        subtitle={organization?.name}
         action={
           <div className="flex gap-2">
             <Link href="/attendance">

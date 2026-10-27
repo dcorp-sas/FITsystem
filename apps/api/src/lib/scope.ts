@@ -9,6 +9,14 @@ export async function assertBranchInOrg(organizationId: string, branchId: string
   if (!branchId) throw new HttpError(400, 'Sede requerida');
   const branch = await prisma.branch.findFirst({ where: { id: branchId, organizationId } });
   if (!branch) throw new HttpError(400, 'Sede invalida');
+  const primary = await prisma.branch.findFirst({ where: { organizationId }, orderBy: { createdAt: 'asc' } });
+  if (!primary || branch.id !== primary.id) throw new HttpError(400, 'FIT System admite una sola sede por gimnasio');
+  return primary;
+}
+
+export async function primaryBranch(organizationId: string) {
+  const branch = await prisma.branch.findFirst({ where: { organizationId }, orderBy: { createdAt: 'asc' } });
+  if (!branch) throw new HttpError(400, 'No hay una sede principal configurada');
   return branch;
 }
 

@@ -140,15 +140,6 @@ export function MembershipFormModal({ open, onClose, onSaved, memberId }: Props)
               ))}
           </Select>
         </Field>
-        <Field label="Sede *">
-          <Select required value={form.branchId} onChange={(e) => setForm((f) => ({ ...f, branchId: e.target.value }))}>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
         <Field label="Inicio *">
           <Input type="date" required value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
         </Field>

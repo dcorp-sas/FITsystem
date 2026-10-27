@@ -223,13 +223,8 @@ function certMetadata(certPem: string): { subject: string; notAfter: string } {
   }
 }
 
-export async function getArcaConfig(orgId: string, branchId?: string | null): Promise<ArcaConfig> {
-  const cfg = await loadArcaConfig(orgId);
-  if (branchId) {
-    const branchPto = await getRawSetting(orgId, 'ARCA', `PTO_VENTA_${branchId}`);
-    if (branchPto && Number(branchPto) > 0) cfg.ptoVta = Number(branchPto);
-  }
-  return cfg;
+export async function getArcaConfig(orgId: string, _legacyBranchId?: string | null): Promise<ArcaConfig> {
+  return loadArcaConfig(orgId);
 }
 
 async function loadArcaConfig(orgId: string): Promise<ArcaConfig> {

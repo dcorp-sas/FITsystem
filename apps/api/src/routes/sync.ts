@@ -193,44 +193,27 @@ export function syncRoutes(app: FastifyInstance) {
         products: 0,
       };
 
-      // Las sedes en la nube pueden tener otro id que en el escritorio (la nube
-      // crea "Sede Central" al registrar el gimnasio). Se emparejan por nombre
-      // para no romper la restricción (organizationId, name) y se remapea su id
-      // en el resto del lote.
-      const branchIdMap = new Map<string, string>();
+      // El sistema admite un solo local. Las filas de versiones anteriores que
+      // traigan varias sedes se consolidan en la sede primaria durante el push.
+      let primaryBranch = await prisma.branch.findFirst({ where: { organizationId }, orderBy: { createdAt: 'asc' } });
+      if (!primaryBranch) {
+        primaryBranch = await prisma.branch.create({ data: { organizationId, name: 'Sede Central', code: 'SC' } });
+      }
+      const primaryBranchId = primaryBranch.id;
+      const branchIdMap = new Map<string, string>(
+        (input.branches ?? []).map((branch) => [String(branch.id), primaryBranchId] as [string, string]),
+      );
       const remapBranch = (data: Record<string, unknown>) => {
         const branchId = data.branchId;
         if (typeof branchId === 'string') {
-          const mapped = branchIdMap.get(branchId);
-          if (mapped) data.branchId = mapped;
+          data.branchId = branchIdMap.get(branchId) ?? primaryBranchId;
         }
         return data;
       };
 
       await prisma.$transaction(
         async (tx) => {
-          for (const b of input.branches ?? []) {
-            const localId = String(b.id);
-            const { id: _id, ...rest } = b as Record<string, unknown>;
-            const data = { ...rest, organizationId };
-            const name = typeof b.name === 'string' ? b.name : null;
-            const byId = await tx.branch.findUnique({ where: { id: localId }, select: { id: true } });
-            if (byId) {
-              await tx.branch.update({ where: { id: localId }, data: data as never });
-              branchIdMap.set(localId, localId);
-            } else {
-              const byName = name
-                ? await tx.branch.findFirst({ where: { organizationId, name }, select: { id: true } })
-                : null;
-              if (byName) {
-                await tx.branch.update({ where: { id: byName.id }, data: data as never });
-                branchIdMap.set(localId, byName.id);
-              } else {
-                await tx.branch.create({ data: { ...(b as Record<string, unknown>), organizationId } as never });
-              }
-            }
-            counts.branches++;
-          }
+          counts.branches = input.branches?.length ? 1 : 0;
           for (const p of input.plans ?? []) {
             const data = { ...(p as Record<string, unknown>), organizationId };
             await tx.plan.upsert({ where: { id: String(p.id) }, create: data as never, update: data as never });

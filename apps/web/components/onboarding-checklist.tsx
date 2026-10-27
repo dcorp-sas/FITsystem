@@ -18,7 +18,6 @@ const LOOKUP: Record<string, string> = {
   arcaCert: '/settings',
   whatsapp: '/settings',
   printer: '/settings',
-  branch: '/branches',
   plan: '/plans',
   member: '/members',
   payment: '/payments',

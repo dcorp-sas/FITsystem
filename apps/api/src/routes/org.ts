@@ -11,9 +11,9 @@ export function orgRoutes(app: FastifyInstance) {
     try {
       const req = request as AuthedRequest;
       const org = await prisma.organization.findUnique({ where: { id: req.user.organizationId } });
-      const branches = await prisma.branch.findMany({
+      const branch = await prisma.branch.findFirst({
         where: { organizationId: req.user.organizationId },
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'asc' },
       });
       const canSeeUsers = ['OWNER', 'ADMIN', 'MANAGER'].includes(req.user.role);
       const users = canSeeUsers
@@ -23,7 +23,7 @@ export function orgRoutes(app: FastifyInstance) {
             orderBy: { name: 'asc' },
           })
         : [];
-      return ok(reply, { organization: org, branches, users });
+      return ok(reply, { organization: org, branches: branch ? [branch] : [], users });
     } catch (error) {
       return fail(reply, error);
     }

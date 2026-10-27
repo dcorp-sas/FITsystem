@@ -74,7 +74,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       seats: 300,
       monthly: 64900,
       popular: true,
-      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Reportes por sede', 'Soporte prioritario'],
+      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Reportes del gimnasio', 'Soporte prioritario'],
     },
     {
       tag: 'ENTERPRISE',
@@ -82,7 +82,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       seats: 500,
       monthly: 109900,
       popular: false,
-      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Sedes y reportes avanzados', 'Soporte prioritario'],
+      features: ['Módulos de gestión incluidos', 'App del socio (cupo según plan)', 'Registro de cobros; funciones online según configuración', 'Reportes avanzados', 'Soporte prioritario'],
     },
   ],
 };

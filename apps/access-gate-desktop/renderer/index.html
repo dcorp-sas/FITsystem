@@ -108,9 +108,7 @@
     <header>
       <div class="brand">FIT system™ · Control de acceso</div>
       <div class="meta">
-        <span id="branchLabel"></span>
         <span class="clock" id="clock"></span>
-        <button id="changeBtn" style="display:none">Cambiar sede</button>
         <button id="logoutBtn" style="display:none">Salir</button>
       </div>
     </header>
@@ -126,14 +124,6 @@
         <input id="password" type="password" />
         <div class="error" id="loginError"></div>
         <button class="primary" id="loginBtn">Ingresar</button>
-      </div>
-    </div>
-
-    <div id="branch" class="center" style="display:none">
-      <div class="card">
-        <h1>Elegí la sede</h1>
-        <div class="branch-list" id="branchList"></div>
-        <div class="error" id="branchError"></div>
       </div>
     </div>
 
@@ -160,16 +150,14 @@
     <script>
       const $ = (id) => document.getElementById(id);
       const setupEl = $('setup');
-      const branchEl = $('branch');
       const gateEl = $('gate');
       let state = { branchId: '', branchName: '' };
 
       function show(el) {
         setupEl.style.display = 'none';
-        branchEl.style.display = 'none';
         gateEl.style.display = 'none';
         el.style.display = 'flex';
-        if (el === setupEl || el === branchEl) el.style.display = 'flex';
+        if (el === setupEl) el.style.display = 'flex';
       }
 
       function parseCode(raw) {
@@ -192,39 +180,24 @@
         const cfg = await window.gate.config();
         $('apiUrl').value = cfg.apiUrl;
         $('email').value = cfg.email;
-        $('branchLabel').textContent = cfg.branchName ? `Sede: ${cfg.branchName}` : '';
         $('logoutBtn').style.display = cfg.loggedIn ? 'inline-block' : 'none';
-        $('changeBtn').style.display = cfg.loggedIn ? 'inline-block' : 'none';
         if (!cfg.loggedIn) {
           show(setupEl);
         } else if (!cfg.branchId) {
-          await loadBranches();
-          show(branchEl);
+          try {
+            const branches = await window.gate.branches();
+            const primary = branches[0];
+            if (!primary) throw new Error('No hay una sede principal configurada. Contactá a soporte.');
+            await window.gate.saveBranch({ branchId: primary.id, branchName: primary.name });
+            await refresh();
+          } catch (e) {
+            show(gateEl);
+            $('gateError').textContent = e.message;
+          }
         } else {
           state = { branchId: cfg.branchId, branchName: cfg.branchName };
           show(gateEl);
           setTimeout(() => $('reader').focus(), 100);
-        }
-      }
-
-      async function loadBranches() {
-        $('branchError').textContent = '';
-        try {
-          const branches = await window.gate.branches();
-          const list = $('branchList');
-          list.innerHTML = '';
-          for (const b of branches) {
-            const btn = document.createElement('button');
-            btn.textContent = b.name;
-            btn.onclick = async () => {
-              await window.gate.saveBranch({ branchId: b.id, branchName: b.name });
-              await refresh();
-            };
-            list.appendChild(btn);
-          }
-          if (!branches.length) $('branchError').textContent = 'No hay sedes activas.';
-        } catch (e) {
-          $('branchError').textContent = e.message;
         }
       }
 
@@ -249,11 +222,6 @@
         await window.gate.logout();
         await refresh();
       };
-      $('changeBtn').onclick = async () => {
-        await window.gate.saveBranch({ branchId: '', branchName: '' });
-        await refresh();
-      };
-
       let hideTimer = null;
       function renderResult(data) {
         const result = $('result');

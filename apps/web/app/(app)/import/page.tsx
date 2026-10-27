@@ -27,11 +27,11 @@ const TEMPLATE = 'Nombre,Apellido,Documento,Email,Telefono\nJuan,Pérez,30123456
 
 export default function ImportPage() {
   const toast = useToast();
-  const { branches, activeBranchId } = useAuth();
+  const { branches } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [csv, setCsv] = useState('');
   const [planId, setPlanId] = useState('');
-  const [branchId, setBranchId] = useState(activeBranchId || branches[0]?.id || '');
+  const branchId = branches[0]?.id || '';
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
 
@@ -108,15 +108,6 @@ export default function ImportPage() {
         <div>
           <Card title="Opciones">
             <div className="space-y-4">
-              <Field label="Sede destino">
-                <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
               <Field label="Plan por defecto (opcional)">
                 <Select value={planId} onChange={(e) => setPlanId(e.target.value)}>
                   <option value="">No asignar plan</option>

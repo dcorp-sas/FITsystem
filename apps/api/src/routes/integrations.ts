@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 import { prisma } from '../db.js';
-import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, arcaCreditNoteSchema, arcaPointOfSaleSchema, mpPointPollSchema, turnstileConfigSchema } from '@fitsystem/validators';
+import { mpQrCreateSchema, mpPointCreateSchema, arcaInvoiceSchema, arcaCreditNoteSchema, mpPointPollSchema, turnstileConfigSchema } from '@fitsystem/validators';
 import { validate, ok, fail, HttpError, type AuthedRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { getRawSetting, getSettings } from '../services/settings.js';
@@ -261,7 +261,7 @@ export function integrationRoutes(app: FastifyInstance) {
     }
   });
 
-  // Control de molinete / barrera: configuracion por organizacion (o sede).
+  // Control de molinete / barrera: configuración única por organización.
   app.get('/integrations/turnstile/config', { onRequest: [auth] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;
@@ -503,7 +503,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const input = validate(mpQrCreateSchema, request.body);
       const orgId = req.user.organizationId;
       const branchId = req.user.branchId;
-      if (!branchId) throw new HttpError(400, 'Se necesita una sede');
+      if (!branchId) throw new HttpError(400, 'Se necesita un gimnasio configurado');
 
       const orderId = `QR-${Date.now().toString(36).toUpperCase()}`;
       let payload = `fitsystem://pay?order=${orderId}&org=${orgId}&amount=${input.amount.toFixed(2)}&desc=${encodeURIComponent(input.description)}`;
@@ -576,7 +576,7 @@ export function integrationRoutes(app: FastifyInstance) {
       const input = validate(mpPointCreateSchema, request.body);
       const orgId = req.user.organizationId;
       const branchId = req.user.branchId;
-      if (!branchId) throw new HttpError(400, 'Se necesita una sede');
+      if (!branchId) throw new HttpError(400, 'Se necesita un gimnasio configurado');
 
       const mpCfg = await getMpConfig(orgId);
       const deviceId = input.deviceId || mpCfg.point.deviceId || '';
@@ -953,51 +953,6 @@ export function integrationRoutes(app: FastifyInstance) {
         },
         201,
       );
-    } catch (error) {
-      return fail(reply, error);
-    }
-  });
-
-  // ---------- ARCA: puntos de venta por sucursal ----------
-  app.get('/integrations/arca/points-of-sale', { onRequest: [auth] }, async (request, reply) => {
-    try {
-      const req = request as AuthedRequest;
-      const orgId = req.user.organizationId;
-      const globalCfg = await getArcaConfig(orgId);
-      const branches = await prisma.branch.findMany({ where: { organizationId: orgId }, orderBy: { name: 'asc' } });
-      const pointsOfSale = await Promise.all(
-        branches.map(async (branch) => {
-          const own = await getRawSetting(orgId, 'ARCA', `PTO_VENTA_${branch.id}`);
-          const ownNum = Number(own || '') || 0;
-          const pointOfSale = ownNum > 0 ? ownNum : globalCfg.ptoVta;
-          return { branchId: branch.id, branchName: branch.name, pointOfSale, inherited: !(ownNum > 0) };
-        }),
-      );
-      return ok(reply, { globalPointOfSale: globalCfg.ptoVta, pointsOfSale });
-    } catch (error) {
-      return fail(reply, error);
-    }
-  });
-
-  // Asigna un punto de venta AFIP a una sucursal (0 = usar el global).
-  app.put('/integrations/arca/points-of-sale', { onRequest: [auth, app.requireRoles(['OWNER', 'ADMIN', 'ACCOUNTANT'])] }, async (request, reply) => {
-    try {
-      const req = request as AuthedRequest;
-      const input = validate(arcaPointOfSaleSchema, request.body);
-      const orgId = req.user.organizationId;
-      const branch = await prisma.branch.findFirst({ where: { id: input.branchId, organizationId: orgId } });
-      if (!branch) throw new HttpError(404, 'Sucursal no encontrada');
-      if (input.pointOfSale > 0) {
-        await prisma.setting.upsert({
-          where: { organizationId_category_key: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}` } },
-          create: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}`, value: String(input.pointOfSale) },
-          update: { value: String(input.pointOfSale) },
-        });
-      } else {
-        await prisma.setting.deleteMany({ where: { organizationId: orgId, category: 'ARCA', key: `PTO_VENTA_${branch.id}` } });
-      }
-      await logActivity(req, 'UPDATE', 'ARCA_POS', branch.id, undefined, { pointOfSale: input.pointOfSale });
-      return ok(reply, { branchId: branch.id, pointOfSale: input.pointOfSale });
     } catch (error) {
       return fail(reply, error);
     }

@@ -34,11 +34,10 @@ export function onboardingRoutes(app: FastifyInstance) {
         getRawSetting(orgId, 'PRINT', 'DESTINATION'),
       ]);
 
-      const [members, plans, payments, branches] = await prisma.$transaction([
+      const [members, plans, payments] = await prisma.$transaction([
         prisma.member.count({ where: { organizationId: orgId } }),
         prisma.plan.count({ where: { organizationId: orgId } }),
         prisma.payment.count({ where: { organizationId: orgId } }),
-        prisma.branch.count({ where: { organizationId: orgId } }),
       ]);
 
       const item = (key: string, title: string, description: string, done: boolean, hint?: string): ChecklistItem => ({
@@ -55,7 +54,6 @@ export function onboardingRoutes(app: FastifyInstance) {
         item('arcaCert', 'Cargar certificado fiscal', 'Subi el certificado (.p12 o PEM) para emitir comprobantes reales.', Boolean(arcaCert), 'Ajustes > ARCA'),
         item('whatsapp', 'Conectar WhatsApp', 'Carga el token de WhatsApp Cloud o un alias de transferencia.', Boolean(waToken || waAlias), 'Ajustes > WhatsApp'),
         item('printer', 'Configurar impresora', 'Elegi destino de impresion: red, terminal Point o ambas.', Boolean((printDest || printPrinter) && printPoint), 'Ajustes > Impresion'),
-        item('branch', 'Sede lista', 'Crea tus sucursales.', branches >= 1, 'Sucursales'),
         item('plan', 'Crear un plan', 'Carga al menos un plan de cuota.', plans >= 1, 'Planes'),
         item('member', 'Dar de alta un socio', 'Importa o crea tu primer socio.', members >= 1, 'Socios'),
         item('payment', 'Registrar un cobro', 'Cobra una cuota para probar el flujo completo.', payments >= 1, 'Pagos'),

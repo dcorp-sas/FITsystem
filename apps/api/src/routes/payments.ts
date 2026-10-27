@@ -34,9 +34,6 @@ export function paymentRoutes(app: FastifyInstance) {
         pageSize?: string;
       };
       const where: Record<string, unknown> = { organizationId: req.user.organizationId };
-      if (req.user.branchId && !['OWNER', 'ADMIN', 'MANAGER'].includes(req.user.role)) {
-        where.branchId = req.user.branchId;
-      }
       if (query.memberId) where.memberId = query.memberId;
       if (query.method) where.method = query.method;
       if (query.status) where.status = query.status;

@@ -57,8 +57,7 @@ const MODULES: { icon: IconName; title: string; text: string; wide?: boolean }[]
   { icon: 'attendance', title: 'Asistencia y check-in', text: 'Ingresos por DNI o QR, control de acceso y estadísticas de concurrencia.' },
   { icon: 'classes', title: 'Clases y turnos', text: 'Grilla de clases, cupos, reservas, listas de espera e instructores asignados.' },
   { icon: 'shop', title: 'Tienda y productos', text: 'Venta de productos y suplementos con stock, precios y control de inventario.' },
-  { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento por sucursal, según las funciones del plan contratado.', wide: true },
-  { icon: 'branches', title: 'Sedes y cajas', text: 'Operación por sede o caja, con reportes comparativos.' },
+  { icon: 'reports', title: 'Reportes', text: 'Ingresos, altas, bajas, deudores y rendimiento del gimnasio.', wide: true },
   { icon: 'routines', title: 'Rutinas y seguimiento', text: 'Creá y asigná rutinas desde el sistema, seguí los ejercicios y pesos registrados en la app y consultá el historial para comparar ciclos de entrenamiento de 4 semanas.' },
   { icon: 'classes', title: 'Portal de profesores', text: 'Cada profesor entra con su propio usuario al portal conectado al sistema principal: consulta su agenda, revisa inscriptos, gestiona sesiones y accede a rutinas e historial según sus permisos.' },
   { icon: 'news', title: 'Novedades', text: 'Publicá promos y avisos que tus socios ven en la app.' },
@@ -92,10 +91,6 @@ const faqs = (trialDays: number) => [
   {
     q: '¿Cómo funciona la licencia?',
     a: 'La licencia se activa una sola vez con una clave que comienza con FIT y contiene tres bloques de caracteres separados por guiones (formato de ejemplo: FIT-AB12-CD34-EF56). Define la cantidad de socios con acceso a la app y la duración. Podés activarla o renovarla desde el propio sistema.',
-  },
-  {
-    q: '¿Puedo separar la operación por sede o caja?',
-    a: 'Sí. Podés organizar la operación por sede o caja dentro del sistema, con datos separados. Los reportes comparativos por sede dependen del plan contratado.',
   },
   {
     q: '¿Qué medios de pago acepta?',
@@ -511,7 +506,6 @@ export default async function LandingPage() {
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">Módulos de escritorio</th><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Incluidos</td></tr>
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">App del socio</th><td className="px-4 py-3">Hasta 10</td><td className="px-4 py-3">Incluida</td><td className="px-4 py-3">Incluida</td><td className="px-4 py-3">Incluida</td></tr>
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">Registro de cobros</th><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
-                <tr><th scope="row" className="px-5 py-3 font-medium text-text">Reportes por sede</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluidos</td><td className="px-4 py-3">Avanzados</td></tr>
                 <tr><th scope="row" className="px-5 py-3 font-medium text-text">Soporte prioritario</th><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">Incluido</td><td className="px-4 py-3">Incluido</td></tr>
               </tbody>
             </table>

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { http, ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
-import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@fitsystem/utils';
 import { ROLE_LABELS } from '@/lib/labels';
 import {
@@ -32,7 +31,6 @@ interface UserInfo {
 
 export default function UsersPage() {
   const toast = useToast();
-  const { branches } = useAuth();
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -70,16 +68,13 @@ export default function UsersPage() {
           <Spinner className="h-6 w-6" />
         </div>
       ) : (
-        <Table head={['Usuario', 'Email', 'Rol', 'Sede', 'Último acceso', 'Estado', '']} empty="Sin usuarios">
+        <Table head={['Usuario', 'Email', 'Rol', 'Último acceso', 'Estado', '']} empty="Sin usuarios">
           {users.map((u) => (
             <tr key={u.id} className="hover:bg-surface-alt/40">
               <td className="px-4 py-3 font-medium text-text">{u.name}</td>
               <td className="px-4 py-3 text-text-muted">{u.email}</td>
               <td className="px-4 py-3">
                 <Badge color="blue">{ROLE_LABELS[u.role] ?? u.role}</Badge>
-              </td>
-              <td className="px-4 py-3 text-text-muted">
-                {branches.find((b) => b.id === u.branchId)?.name || 'Todas'}
               </td>
               <td className="px-4 py-3 text-xs text-text-muted">
                 {u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'Nunca'}
@@ -107,7 +102,6 @@ const EMPTY = {
   email: '',
   password: '',
   role: 'RECEPTIONIST',
-  branchId: '',
   phone: '',
   isActive: true,
 };
@@ -124,7 +118,6 @@ function UserModal({
   onSaved: () => void;
 }) {
   const toast = useToast();
-  const { branches } = useAuth();
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
 
@@ -136,7 +129,6 @@ function UserModal({
         email: user.email,
         password: '',
         role: user.role,
-        branchId: user.branchId || '',
         phone: user.phone || '',
         isActive: user.isActive,
       });
@@ -153,7 +145,6 @@ function UserModal({
       email: form.email.trim(),
       password: form.password || undefined,
       role: form.role,
-      branchId: form.branchId || null,
       phone: form.phone || null,
       isActive: form.isActive,
     };
@@ -201,16 +192,6 @@ function UserModal({
             {Object.entries(ROLE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Sede">
-          <Select value={form.branchId} onChange={(e) => setForm((f) => ({ ...f, branchId: e.target.value }))}>
-            <option value="">Todas las sedes</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
               </option>
             ))}
           </Select>

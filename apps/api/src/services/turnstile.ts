@@ -12,8 +12,8 @@ import { getRawSetting, upsertSettings } from './settings.js';
  *  - 'tcp': abre un socket TCP, envía un texto (p. ej. "OPEN\r\n") y lo cierra.
  *    Sirve para controladores por puerto serie→TCP o que escuchan comandos.
  *
- * La config se guarda por organización y, opcionalmente, por sede (una config de
- * sede pisa a la general). Todo falla en silencio: un molinete desconectado
+ * La configuración se guarda por organización. Una configuración
+ * única aplica a todos los accesos. Todo falla en silencio: un molinete desconectado
  * nunca debe romper ni demorar el registro del ingreso.
  */
 export type TurnstileProtocol = 'http' | 'tcp';
@@ -120,7 +120,7 @@ function openTcp(config: TurnstileConfig, timeoutMs: number): Promise<TurnstileO
 }
 
 /**
- * Dispara la apertura del molinete para una organización/sede. Nunca lanza:
+ * Dispara la apertura del molinete para una organización. Nunca lanza:
  * devuelve el resultado de la operación (o `skipped` si no hay config activa).
  */
 export async function openTurnstile(
