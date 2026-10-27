@@ -138,13 +138,32 @@ export default function LicensePage() {
   async function activate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const activatesDesktopAndCloud = isDesktop && data?.mode === 'organization';
+    let activatedOnDesktop = false;
     try {
+      // En modo nube, esta página actualiza la licencia de la organización,
+      // mientras que Electron valida al iniciar la licencia local del equipo.
+      // Activar primero localmente evita que siga apareciendo el aviso de trial.
+      if (activatesDesktopAndCloud) {
+        const local = await window.fitsystem?.activate?.(key.trim());
+        if (!local?.ok) {
+          throw new Error(local?.message || 'No se pudo activar la licencia en este equipo');
+        }
+        activatedOnDesktop = true;
+      }
       await http.post('/license/current', { licenseKey: key.trim() });
-      toast.success('Licencia activada');
+      toast.success(activatesDesktopAndCloud
+        ? 'Licencia activada en este equipo y en la cuenta'
+        : 'Licencia activada');
       setKey('');
       load();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'No se pudo activar la licencia');
+      const message = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'No se pudo activar la licencia';
+      toast.error(activatedOnDesktop
+        ? `El equipo quedó activado, pero no se pudo actualizar la cuenta en la nube: ${message}`
+        : message);
     } finally {
       setSaving(false);
     }
@@ -165,7 +184,10 @@ export default function LicensePage() {
 
   return (
     <div>
-      <PageHeader title="Licencia" subtitle="Plan del sistema y asientos de la app móvil" />
+      <PageHeader
+        title="Licencia"
+        subtitle={`Plan del sistema y asientos de la app móvil${isDesktop && window.fitsystem?.version ? ` · Escritorio v${window.fitsystem.version}` : ''}`}
+      />
 
       <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard

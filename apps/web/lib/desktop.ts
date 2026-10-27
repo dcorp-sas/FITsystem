@@ -17,6 +17,7 @@ export interface NetworkInfo {
 
 export interface DesktopBridge {
   version?: string;
+  activate?: (key: string) => Promise<{ ok: boolean; message?: string }>;
   checkUpdates?: () => Promise<unknown>;
   getUpdateState?: () => Promise<UpdateEvent | null>;
   downloadUpdate?: () => Promise<{ ok: boolean; error?: string }>;
