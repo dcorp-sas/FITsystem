@@ -693,6 +693,16 @@ export default async function LandingPage() {
                 <li><a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-text">{CONTACT_EMAIL}</a></li>
                 <li><a href={`mailto:${SUPPORT_EMAIL}`} className="transition-colors hover:text-text">{SUPPORT_EMAIL}</a></li>
               </ul>
+              <div className="mt-5 rounded-xl border border-line/70 bg-surface/60 p-4">
+                <p className="text-sm font-semibold text-text">¿Estás fuera de Argentina?</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
+                  Para contratar FIT System desde otro país, contactanos directamente en{" "}
+                  <a href="mailto:ventas@fitsystem.com.ar" className="font-medium text-primary-light transition-colors hover:text-text">
+                    ventas@fitsystem.com.ar
+                  </a>{" "}
+                  para consultar modalidades de contratación y pago.
+                </p>
+              </div>
               <a
                 href="https://www.instagram.com/fitsystemgym/"
                 target="_blank"
