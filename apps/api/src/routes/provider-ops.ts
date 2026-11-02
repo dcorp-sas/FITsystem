@@ -30,6 +30,17 @@ import { providerOrgId } from '../services/provider-account.js';
 
 const DAY_MS = 86_400_000;
 
+async function probeHttpService(url: string): Promise<{ status: 'online' | 'offline' | 'sin configurar'; detail: string }> {
+  if (!url) return { status: 'sin configurar', detail: 'Falta la dirección del servicio' };
+  const started = Date.now();
+  try {
+    const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(7_000) });
+    return { status: response.ok ? 'online' : 'offline', detail: `HTTP ${response.status} · ${Date.now() - started} ms` };
+  } catch (error) {
+    return { status: 'offline', detail: (error as Error).message.slice(0, 180) };
+  }
+}
+
 export function normalizeDownloadIp(raw: string | undefined | null): string | null {
   const ip = String(raw || '').split(',')[0]?.trim().replace(/^::ffff:/i, '') ?? '';
   const version = isIP(ip);
@@ -60,11 +71,8 @@ interface GeoEntry {
   query?: string;
 }
 
-/** Geolocaliza hasta 100 IPs en una sola llamada (endpoint batch de ip-api). */
+/** Geolocaliza las IPs pendientes; prefiere IP-API Pro y tiene un fallback gratuito con atribución. */
 async function enrichPendingDownloads(limit = 100): Promise<{ ips: number; updated: number; error?: string }> {
-  if (!env.IP_API_KEY) {
-    return { ips: 0, updated: 0, error: 'Geolocalización deshabilitada: configurá IP_API_KEY con una clave comercial de IP-API.' };
-  }
   const rows = await prisma.downloadHit.findMany({
     where: { enriched: false, ip: { not: null } },
     orderBy: { at: 'desc' },
@@ -74,20 +82,36 @@ async function enrichPendingDownloads(limit = 100): Promise<{ ips: number; updat
   const ips = [...new Set(rows.map((r) => r.ip).filter((ip): ip is string => Boolean(ip)))].slice(0, Math.min(100, limit));
   if (!ips.length) return { ips: 0, updated: 0 };
   try {
-    const url = new URL('https://pro.ip-api.com/batch');
-    url.searchParams.set('fields', 'status,message,country,regionName,city,isp,org,as,query');
-    url.searchParams.set('key', env.IP_API_KEY);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(ips),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!res.ok) return { ips: ips.length, updated: 0, error: `ip-api HTTP ${res.status}` };
-    const data = (await res.json()) as GeoEntry[];
     const byIp = new Map<string, GeoEntry>();
-    for (const entry of data) {
-      if (entry?.query) byIp.set(entry.query, entry);
+    const failures: string[] = [];
+    if (env.IP_API_KEY) {
+      const url = new URL('https://pro.ip-api.com/batch');
+      url.searchParams.set('fields', 'status,message,country,regionName,city,isp,org,as,query');
+      url.searchParams.set('key', env.IP_API_KEY);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(ips),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) return { ips: ips.length, updated: 0, error: `IP-API Pro HTTP ${res.status}` };
+      for (const entry of (await res.json()) as GeoEntry[]) if (entry?.query && entry.status === 'success') byIp.set(entry.query, entry);
+    } else {
+      // IPData permite uso comercial con atribución, sin clave, y limita
+      // la precisión ciudad a 1.000 búsquedas por día por IP de salida.
+      for (let i = 0; i < ips.length; i += 8) {
+        await Promise.all(ips.slice(i, i + 8).map(async (ip) => {
+          try {
+            const res = await fetch(`https://ipdata.free/${encodeURIComponent(ip)}`, { signal: AbortSignal.timeout(8_000) });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const geo = (await res.json()) as { ip?: string; country?: string; region?: string; city?: string; org?: string; asn?: string };
+            if (geo.ip !== ip) throw new Error('respuesta sin coincidencia de IP');
+            byIp.set(ip, { query: ip, status: 'success', country: geo.country, regionName: geo.region, city: geo.city, org: geo.org, as: geo.asn });
+          } catch (error) {
+            failures.push(`${ip}: ${(error as Error).message}`);
+          }
+        }));
+      }
     }
     let updated = 0;
     for (const row of rows) {
@@ -106,7 +130,7 @@ async function enrichPendingDownloads(limit = 100): Promise<{ ips: number; updat
       });
       updated++;
     }
-    return { ips: ips.length, updated };
+    return { ips: ips.length, updated, ...(failures.length ? { error: `${failures.length} IP(s) no se pudieron consultar: ${failures.slice(0, 3).join('; ')}` } : {}) };
   } catch (error) {
     return { ips: ips.length, updated: 0, error: (error as Error).message };
   }
@@ -258,7 +282,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
       return ok(reply, {
         days,
         total,
-        geolocation: { configured: Boolean(env.IP_API_KEY), provider: 'IP-API Pro' },
+        geolocation: { configured: true, provider: env.IP_API_KEY ? 'IP-API Pro' : 'ipdata.co', attributionRequired: !env.IP_API_KEY },
         summary: buildDownloadSummary(allForSummary),
         rows: rows.map((row) => ({
           id: row.id,
@@ -297,6 +321,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
 
   app.get('/provider/systems', async (request, reply) => {
     try {
+      const requestStarted = Date.now();
       requireProviderToken(request);
       const providerId = await providerOrgId();
       const orgs = await prisma.organization.findMany({
@@ -511,17 +536,24 @@ export function providerOpsRoutes(app: FastifyInstance) {
         };
       });
 
+      const [websiteProbe, licenseProbe] = await Promise.all([
+        probeHttpService(env.SITE_URL),
+        env.LICENSE_SERVER
+          ? probeHttpService(new URL('/api/health', env.LICENSE_SERVER).toString())
+          : Promise.resolve({ status: 'sin configurar' as const, detail: 'LICENSE_SERVER no definido' }),
+      ]);
+
       return ok(reply, {
         generatedAt: new Date().toISOString(),
         platform: [
-          { id: 'api', name: 'API de la nube', status: 'no medido', detail: env.PUBLIC_URL || 'api.fitsystem.com.ar' },
-          { id: 'web', name: 'Sitio web / tienda', status: 'no medido', detail: env.SITE_URL },
-          { id: 'panel', name: 'Panel de control FS', status: 'no medido', detail: 'Aplicación de escritorio; la API no recibe una señal de disponibilidad' },
+          { id: 'api', name: 'API de la nube', status: 'online', detail: `Atendiendo esta consulta · ${Date.now() - requestStarted} ms` },
+          { id: 'web', name: 'Sitio web / tienda', ...websiteProbe, detail: `${websiteProbe.detail} · ${env.SITE_URL}` },
+          { id: 'panel', name: 'Panel de control FS', status: 'local', detail: 'Este módulo del panel está abierto en este equipo' },
           {
             id: 'licensador',
             name: 'Licensador',
-            status: env.LICENSE_SERVER ? 'configurado' : 'sin configurar',
-            detail: env.LICENSE_SERVER || 'Definí LICENSE_SERVER',
+            ...licenseProbe,
+            detail: `${licenseProbe.detail} · ${env.LICENSE_SERVER || ''}`,
           },
           {
             id: 'whatsapp',
