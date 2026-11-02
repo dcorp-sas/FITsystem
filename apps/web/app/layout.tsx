@@ -4,6 +4,7 @@ import { Providers } from '@/components/providers';
 import { FititoChat } from '@/components/fitito-chat';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://fitsystem.com.ar'),
   title: 'FIT system™ · Gestión de gimnasios',
   description: 'Sistema integral de gestión para gimnasios: socios, cuotas, caja, clases y más.',
   icons: { icon: '/logo.png', apple: '/logo.png' },
