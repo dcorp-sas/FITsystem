@@ -1,6 +1,6 @@
 {
-  "version": "0.3.59",
+  "version": "0.3.60",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Mejora del diagnostico de sistemas: detalle individual de cuentas y accesos de la app de socios, errores y dispositivos de notificacion; deteccion visible de instalaciones sin datos de socios vinculados.",
+  "notes": "El escritorio informa su actividad cada 10 minutos al centro de diagnostico y registra en su log local si no logra enviar la senal. Esto mejora la deteccion de instalaciones activas.",
   "mandatory": false
 }

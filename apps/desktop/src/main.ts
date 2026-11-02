@@ -22,6 +22,8 @@ const UPDATE_FEED_URL =
   process.env.UPDATE_FEED_URL ||
   'https://raw.githubusercontent.com/dcorp-sas/FITsystem/main/updates/latest.json';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Mantiene visible en el centro de diagnóstico una instalación que sigue abierta.
+const DESKTOP_HEARTBEAT_INTERVAL_MS = 10 * 60 * 1000;
 // Revalidación de licencia en segundo plano. Detecta (sin reiniciar) que la
 // licencia fue revocada por falta de pago de la suscripción y bloquea el panel.
 const LICENSE_RECHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
@@ -379,7 +381,7 @@ async function checkLicense(): Promise<LicenseInfo | null> {
 async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
   if (!app.isPackaged) return;
   try {
-    await fetch(`${CLOUD_API_URL}/api/provider/desktop/heartbeat`, {
+    const response = await fetch(`${CLOUD_API_URL}/api/provider/desktop/heartbeat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -393,8 +395,11 @@ async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
       }),
       signal: AbortSignal.timeout(5000),
     });
-  } catch {
-    // Diagnóstico auxiliar: no debe demorar ni bloquear el inicio del sistema.
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  } catch (error) {
+    // No bloquea la aplicación. El motivo queda en el log local para investigar
+    // instalaciones activas que no aparecen en el centro de diagnóstico.
+    log('No se pudo informar la señal de escritorio:', (error as Error).message);
   }
 }
 
@@ -1489,6 +1494,7 @@ app.whenReady().then(async () => {
       log('No se pudo validar la licencia:', (err as Error).message);
     }
     void reportDesktopHeartbeat(heartbeatLicense);
+    setInterval(() => void reportDesktopHeartbeat(licenseInfo), DESKTOP_HEARTBEAT_INTERVAL_MS);
 
     // Revalidación periódica: si la licencia se revoca en el servidor (p. ej. por
     // falta de pago de la suscripción), el panel se bloquea sin esperar reinicio.
