@@ -1,6 +1,6 @@
 {
-  "version": "0.3.58",
+  "version": "0.3.59",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Diagnostico detallado de la app de socios por cliente: estado de cuentas, ultimo acceso, dispositivos de notificaciones y errores recientes.",
+  "notes": "Mejora del diagnostico de sistemas: detalle individual de cuentas y accesos de la app de socios, errores y dispositivos de notificacion; deteccion visible de instalaciones sin datos de socios vinculados.",
   "mandatory": false
 }

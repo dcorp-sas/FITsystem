@@ -717,11 +717,11 @@ export function providerOpsRoutes(app: FastifyInstance) {
       });
       if (!organization) return reply.code(404).send({ ok: false, error: 'Cliente no encontrado' });
 
-      const [accounts, errors] = await Promise.all([
+      const [accounts, totalAccounts, activeAccounts, neverLoggedIn, pushDevices, webPushDevices, errors] = await Promise.all([
         prisma.portalAccount.findMany({
           where: { organizationId },
           orderBy: [{ lastLoginAt: 'desc' }, { updatedAt: 'desc' }],
-          take: 500,
+          take: 501,
           select: {
             id: true, email: true, isActive: true, activationCode: true,
             lastLoginAt: true, createdAt: true, updatedAt: true,
@@ -729,20 +729,25 @@ export function providerOpsRoutes(app: FastifyInstance) {
             _count: { select: { pushTokens: true, webPushSubscriptions: true } },
           },
         }),
+        prisma.portalAccount.count({ where: { organizationId } }),
+        prisma.portalAccount.count({ where: { organizationId, isActive: true } }),
+        prisma.portalAccount.count({ where: { organizationId, lastLoginAt: null } }),
+        prisma.pushToken.count({ where: { portalAccount: { organizationId } } }),
+        prisma.webPushSubscription.count({ where: { portalAccount: { organizationId } } }),
         prisma.errorLog.findMany({
           where: { organizationId, createdAt: { gte: new Date(Date.now() - 30 * DAY_MS) } },
           orderBy: { createdAt: 'desc' }, take: 30,
           select: { id: true, level: true, message: true, path: true, method: true, statusCode: true, createdAt: true },
         }),
       ]);
-      const activeAccounts = accounts.filter((account) => account.isActive).length;
+      const truncated = accounts.length > 500;
+      const visibleAccounts = accounts.slice(0, 500);
       return ok(reply, {
         generatedAt: new Date().toISOString(), organization,
-        summary: { total: accounts.length, active: activeAccounts, inactive: accounts.length - activeAccounts,
-          neverLoggedIn: accounts.filter((account) => !account.lastLoginAt).length,
-          pushDevices: accounts.reduce((sum, account) => sum + account._count.pushTokens + account._count.webPushSubscriptions, 0),
-          errors30d: errors.length, truncated: accounts.length === 500 },
-        accounts: accounts.map(({ activationCode, ...account }) => ({ ...account, activationPending: Boolean(activationCode) })),
+        summary: { total: totalAccounts, active: activeAccounts, inactive: totalAccounts - activeAccounts,
+          neverLoggedIn, pushDevices: pushDevices + webPushDevices,
+          errors30d: errors.length, truncated },
+        accounts: visibleAccounts.map(({ activationCode, ...account }) => ({ ...account, activationPending: Boolean(activationCode) })),
         errors,
       });
     } catch (error) {
