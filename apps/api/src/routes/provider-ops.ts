@@ -16,6 +16,7 @@ import {
   saveInvoiceSettings,
 } from '../services/provider-invoicing.js';
 import { providerOrgId } from '../services/provider-account.js';
+import { getWhatsAppRuntimeStatus } from '../services/whatsapp-client.js';
 
 /*
  * Operaciones del Panel de control FS sobre la nube:
@@ -422,7 +423,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
         args: unknown,
       ): Promise<T[]> => (prisma[model] as unknown as { groupBy: (a: unknown) => Promise<T[]> }).groupBy(args);
 
-      const [users, members, activeMembers, branches, payments, attendance, classes, products, portal, portalActive, whatsapp, licenses, errors, settingsRows, subs] =
+      const [users, members, activeMembers, branches, payments, attendance, classes, products, portal, portalActive, portalLogin, whatsapp, licenses, errors, settingsRows, subs] =
         await Promise.all([
           group<{ organizationId: string; _count: { _all: number } }>('user', {
             by: ['organizationId'],
@@ -469,8 +470,14 @@ export function providerOpsRoutes(app: FastifyInstance) {
             where: { isActive: true },
             _count: { _all: true },
           }),
+          group<{ organizationId: string; _max: { lastLoginAt: Date | null } }>('portalAccount', {
+            by: ['organizationId'],
+            where: { isActive: true },
+            _max: { lastLoginAt: true },
+          }),
           group<{ organizationId: string; _count: { _all: number } }>('whatsAppAuth', {
             by: ['organizationId'],
+            where: { key: 'creds' },
             _count: { _all: true },
           }),
           prisma.license.groupBy({
@@ -517,6 +524,10 @@ export function providerOpsRoutes(app: FastifyInstance) {
           errors.map((e) => ({ organizationId: e.organizationId, _count: e._count })) as never,
         ),
       };
+      const lastPortalLogin = new Map<string, Date | null>();
+      for (const row of portalLogin as never as Array<{ organizationId: string; _max: { lastLoginAt: Date | null } }>) {
+        lastPortalLogin.set(row.organizationId, row._max.lastLoginAt);
+      }
       const lastPayment = new Map<string, Date | null>();
       for (const row of payments as never as Array<{ organizationId: string; _max: { paidAt: Date | null } }>) {
         lastPayment.set(row.organizationId, row._max.paidAt);
@@ -544,6 +555,12 @@ export function providerOpsRoutes(app: FastifyInstance) {
         const syncError = s.get('SYNC.LAST_ERROR') || null;
         const orgSubs = subsByOrg.get(org.id) ?? [];
         const activeSub = orgSubs.find((sub) => sub.status === 'ACTIVE');
+        const whatsappAuthSaved = (counts.whatsapp.get(org.id) ?? 0) > 0;
+        const whatsappRuntime = getWhatsAppRuntimeStatus(org.id);
+        const arcaEnabled = s.get('ARCA.ENABLED') === 'true';
+        const arcaHasCertificate = Boolean(s.get('ARCA.CERT_P12') || s.get('ARCA.CERT'));
+        const arcaHasPrivateKey = Boolean(s.get('ARCA.PRIVATE_KEY') || s.get('ARCA.CERT_P12'));
+        const arcaReady = arcaEnabled && Boolean(s.get('ARCA.CUIT')) && Boolean(s.get('ARCA.PUNTO_VENTA')) && arcaHasCertificate && arcaHasPrivateKey;
         const modules: SystemModule[] = [
           {
             id: 'desktop',
@@ -555,19 +572,32 @@ export function providerOpsRoutes(app: FastifyInstance) {
             id: 'socios',
             label: 'App de socios (PWA)',
             active: (counts.portalActive.get(org.id) ?? 0) > 0,
-            detail: `${counts.portalActive.get(org.id) ?? 0} activas / ${counts.portal.get(org.id) ?? 0} cuentas`,
+            detail: `${counts.portalActive.get(org.id) ?? 0} cuentas habilitadas / ${counts.portal.get(org.id) ?? 0} · último acceso ${lastPortalLogin.get(org.id)?.toISOString() ?? 'sin accesos registrados'}`,
           },
           {
             id: 'whatsapp',
             label: 'WhatsApp',
-            active: (counts.whatsapp.get(org.id) ?? 0) > 0,
-            detail: (counts.whatsapp.get(org.id) ?? 0) > 0 ? 'Sesión vinculada' : 'Sin vincular',
+            active: whatsappRuntime === 'connected',
+            detail: whatsappRuntime === 'connected'
+              ? 'Conectada ahora'
+              : whatsappAuthSaved
+                ? `Credenciales guardadas · estado actual: ${whatsappRuntime}`
+                : 'Sin sesión vinculada',
           },
           {
             id: 'arca',
             label: 'Facturación ARCA',
-            active: s.get('ARCA.ENABLED') === 'true',
-            detail: s.get('ARCA.ENABLED') === 'true' ? `CUIT ${s.get('ARCA.CUIT') || '—'}` : 'Desactivada',
+            active: arcaReady,
+            detail: !arcaEnabled
+              ? 'Deshabilitada'
+              : arcaReady
+                ? 'Habilitada · certificado, CUIT y punto de venta configurados; requiere prueba de conexión'
+                : `Habilitada, configuración incompleta · ${[
+                    !s.get('ARCA.CUIT') && 'falta CUIT',
+                    !s.get('ARCA.PUNTO_VENTA') && 'falta punto de venta',
+                    !arcaHasCertificate && 'falta certificado',
+                    !arcaHasPrivateKey && 'falta clave privada',
+                  ].filter(Boolean).join(', ')}`,
           },
           {
             id: 'email',
@@ -623,11 +653,13 @@ export function providerOpsRoutes(app: FastifyInstance) {
         };
       });
 
-      const [websiteProbe, licenseProbe] = await Promise.all([
+      const [websiteProbe, sociosProbe, licenseProbe, providerArca] = await Promise.all([
         probeHttpService(env.SITE_URL),
+        probeHttpService(env.SOCIOS_URL),
         env.LICENSE_SERVER
           ? probeHttpService(new URL('/api/health', env.LICENSE_SERVER).toString())
           : Promise.resolve({ status: 'sin configurar' as const, detail: 'LICENSE_SERVER no definido' }),
+        getInvoiceSettingsPublic().catch(() => null),
       ]);
 
       return ok(reply, {
@@ -635,6 +667,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
         platform: [
           { id: 'api', name: 'API de la nube', status: 'online', detail: `Atendiendo esta consulta · ${Date.now() - requestStarted} ms` },
           { id: 'web', name: 'Sitio web / tienda', ...websiteProbe, detail: `${websiteProbe.detail} · ${env.SITE_URL}` },
+          { id: 'socios', name: 'App de socios (PWA)', ...sociosProbe, detail: `${sociosProbe.detail} · ${env.SOCIOS_URL}` },
           { id: 'panel', name: 'Panel de control FS', status: 'local', detail: 'Este módulo del panel está abierto en este equipo' },
           {
             id: 'licensador',
@@ -645,14 +678,18 @@ export function providerOpsRoutes(app: FastifyInstance) {
           {
             id: 'whatsapp',
             name: 'WhatsApp (Baileys)',
-            status: clients.some((c) => c.modules.find((m) => m.id === 'whatsapp')?.active) ? 'con sesiones' : 'sin sesiones',
-            detail: 'Sesiones por gimnasio',
+            status: clients.some((c) => c.modules.find((m) => m.id === 'whatsapp')?.active) ? 'con sesiones' : 'sin sesiones conectadas',
+            detail: `${clients.filter((c) => c.modules.find((m) => m.id === 'whatsapp')?.active).length} conectadas ahora · ${clients.filter((c) => (c.modules.find((m) => m.id === 'whatsapp')?.detail || '').startsWith('Credenciales guardadas')).length} guardadas pero desconectadas`,
           },
           {
             id: 'arca',
             name: 'Facturación ARCA',
-            status: (await getInvoiceSettingsPublic().catch(() => null))?.enabled ? 'habilitada' : 'deshabilitada',
-            detail: 'Comprobantes de suscripciones',
+            status: !providerArca?.enabled ? 'deshabilitada' : providerArca.certError ? 'con error' : 'habilitada',
+            detail: !providerArca?.enabled
+              ? 'Facturación del proveedor deshabilitada'
+              : providerArca.certError
+                ? `Habilitada, pero la comprobación de certificado/WSAA falló: ${providerArca.certError}`
+                : `Habilitada · ${providerArca.environment} · certificado ${providerArca.certNotAfter ? `vence ${providerArca.certNotAfter}` : 'detectado'}; conexión comprobada`,
           },
         ],
         totals: {

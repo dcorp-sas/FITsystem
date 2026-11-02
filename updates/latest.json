@@ -1,6 +1,6 @@
 {
-  "version": "0.3.55",
+  "version": "0.3.56",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El monitor remoto conserva el mensaje seguro del proveedor cuando una prueba HTTP falla, para diagnosticar la causa concreta de Brevo sin mostrar ni modificar las claves.",
+  "notes": "El panel ahora muestra la disponibilidad de la app de socios y su último acceso, diferencia las credenciales guardadas de las sesiones de WhatsApp conectadas y detalla el estado de ARCA. Las activaciones de licencia ya no se presentan como prueba de uso. Alertas y errores explican el impacto y el alcance de los datos recibidos.",
   "mandatory": false
 }

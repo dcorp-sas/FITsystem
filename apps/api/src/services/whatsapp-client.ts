@@ -272,6 +272,11 @@ export function getWhatsAppStatus(orgId: string): WhatsAppSessionInfo {
   };
 }
 
+/** Estado en memoria sin inicializar ni reiniciar sesiones: se usa en el monitor del proveedor. */
+export function getWhatsAppRuntimeStatus(orgId: string): WhatsAppConnectionStatus {
+  return sessions.get(orgId)?.status ?? 'disconnected';
+}
+
 /**
  * Devuelve el estado, arrancando la sesión si ya hay credenciales (para que
  * reconecte sola tras reiniciar el servidor).
