@@ -1,6 +1,6 @@
 {
-  "version": "0.3.51",
+  "version": "0.3.52",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El centro de sistemas ahora comprueba disponibilidad real de API, sitio y Licensador; presenta instalaciones y activaciones aunque no haya cuentas sincronizadas, y habilita geolocalización HTTPS con atribución y sin clave obligatoria.",
+  "notes": "Agrega un historial persistente de salud de 30 días, monitor automático cada cinco minutos con alertas por cambios de estado y soluciones guiadas. Unifica sistemas sincronizados, instalaciones activas y licencias, e incorpora verificaciones de app de socios, WhatsApp, PostgreSQL y servicios externos.",
   "mandatory": false
 }

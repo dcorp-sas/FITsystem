@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { isIP } from 'node:net';
+import { createHash } from 'node:crypto';
 import { fail, ok, HttpError } from '../lib/http.js';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
@@ -161,6 +162,90 @@ interface SystemModule {
 }
 
 export function providerOpsRoutes(app: FastifyInstance) {
+  app.post('/provider/diagnostics/snapshots', { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'provider-health-snapshot' })] }, async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const input = (request.body ?? {}) as { source?: unknown; checks?: unknown; alerts?: unknown };
+      const checks = Array.isArray(input.checks) ? input.checks.slice(0, 40) : [];
+      const alerts = Array.isArray(input.alerts) ? input.alerts.slice(0, 100) : [];
+      if (!checks.length) throw new HttpError(400, 'El diagnóstico no contiene mediciones');
+      const safeChecks = checks.map((item) => {
+        const row = item as Record<string, unknown>;
+        const status = String(row.status ?? 'skip');
+        if (!['ok', 'warn', 'fail', 'skip'].includes(status)) throw new HttpError(400, 'Estado de medición inválido');
+        return { name: String(row.name ?? 'Servicio').slice(0, 100), status, detail: String(row.detail ?? '').slice(0, 500) };
+      });
+      const safeAlerts = alerts.map((item) => {
+        const row = item as Record<string, unknown>;
+        const level = String(row.level ?? 'info');
+        if (!['crit', 'warn', 'info'].includes(level)) throw new HttpError(400, 'Nivel de alerta inválido');
+        return { area: String(row.area ?? 'General').slice(0, 100), title: String(row.title ?? 'Incidencia').slice(0, 180), detail: String(row.detail ?? '').slice(0, 700), level };
+      });
+      const now = new Date();
+      const source = String(input.source ?? 'panel').slice(0, 40);
+      await prisma.providerHealthSnapshot.create({ data: { source, checks: JSON.stringify(safeChecks), alerts: JSON.stringify(safeAlerts), capturedAt: now } });
+
+      const activeAlerts = safeAlerts.filter((alert) => alert.level === 'crit' || alert.level === 'warn');
+      const fingerprints = activeAlerts.map((alert) => createHash('sha256')
+        .update(`${alert.area}|${alert.title.toLocaleLowerCase().replace(/[0-9]+(?:[.,][0-9]+)?%?/g, '#')}`)
+        .digest('hex'));
+      const open = await prisma.providerHealthIncident.findMany({ where: { status: 'OPEN' }, select: { fingerprint: true, title: true } });
+      const activeSet = new Set(fingerprints);
+      const recovered = open.filter((incident) => !activeSet.has(incident.fingerprint));
+      if (recovered.length) await prisma.providerHealthIncident.updateMany({
+        where: { fingerprint: { in: recovered.map((incident) => incident.fingerprint) }, status: 'OPEN' },
+        data: { status: 'RESOLVED', resolvedAt: now, lastSeenAt: now },
+      });
+
+      const prior = new Set(open.map((incident) => incident.fingerprint));
+      for (let i = 0; i < activeAlerts.length; i++) {
+        const alert = activeAlerts[i]!;
+        const fingerprint = fingerprints[i]!;
+        await prisma.providerHealthIncident.upsert({
+          where: { fingerprint },
+          create: { fingerprint, area: alert.area, title: alert.title, detail: alert.detail, level: alert.level, status: 'OPEN', occurrences: 1, firstSeenAt: now, lastSeenAt: now },
+          update: { area: alert.area, title: alert.title, detail: alert.detail, level: alert.level, status: 'OPEN', occurrences: { increment: 1 }, lastSeenAt: now, resolvedAt: null },
+        });
+      }
+      // Retención acotada para que el historial no crezca sin límite.
+      if (now.getUTCMinutes() < 5) {
+        const cutoff = new Date(now.getTime() - 30 * DAY_MS);
+        await prisma.providerHealthSnapshot.deleteMany({ where: { capturedAt: { lt: cutoff } } });
+        await prisma.providerHealthIncident.deleteMany({ where: { status: 'RESOLVED', resolvedAt: { lt: cutoff } } });
+      }
+      return ok(reply, {
+        capturedAt: now.toISOString(),
+        newIncidents: activeAlerts.filter((_, index) => !prior.has(fingerprints[index]!)),
+        recovered: recovered.map((incident) => incident.title),
+        openCount: activeSet.size,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.get('/provider/diagnostics/history', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const query = (request.query ?? {}) as { hours?: string; limit?: string };
+      const hours = Math.min(720, Math.max(1, Number(query.hours) || 168));
+      const limit = Math.min(2500, Math.max(1, Number(query.limit) || 2200));
+      const since = new Date(Date.now() - hours * 60 * 60_000);
+      const [snapshots, incidents] = await Promise.all([
+        prisma.providerHealthSnapshot.findMany({ where: { capturedAt: { gte: since } }, orderBy: { capturedAt: 'desc' }, take: limit }),
+        prisma.providerHealthIncident.findMany({ orderBy: [{ status: 'asc' }, { lastSeenAt: 'desc' }], take: 300 }),
+      ]);
+      return ok(reply, {
+        generatedAt: new Date().toISOString(),
+        hours,
+        snapshots: snapshots.map((row) => ({ id: row.id, source: row.source, capturedAt: row.capturedAt.toISOString(), checks: JSON.parse(row.checks), alerts: JSON.parse(row.alerts) })),
+        incidents: incidents.map((row) => ({ fingerprint: row.fingerprint, area: row.area, title: row.title, detail: row.detail, level: row.level, status: row.status, occurrences: row.occurrences, firstSeenAt: row.firstSeenAt.toISOString(), lastSeenAt: row.lastSeenAt.toISOString(), resolvedAt: row.resolvedAt?.toISOString() ?? null })),
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   app.post('/provider/marketing/brevo', { onRequest: [rateLimit({ max: 180, windowMs: 60_000, keyPrefix: 'provider-brevo-proxy' })] }, async (request, reply) => {
     try {
       requireProviderToken(request);

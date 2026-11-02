@@ -1302,6 +1302,34 @@ model ProviderSetting {
   @@map("provider_settings")
 }
 
+// Historial de salud del producto y deduplicación de incidentes para el panel.
+model ProviderHealthSnapshot {
+  id          String   @id @default(cuid())
+  source      String   @default("panel")
+  checks      String
+  alerts      String
+  capturedAt  DateTime @default(now())
+
+  @@index([capturedAt])
+  @@map("provider_health_snapshots")
+}
+
+model ProviderHealthIncident {
+  fingerprint String   @id
+  area        String
+  title       String
+  level       String
+  detail      String
+  status      String   @default("OPEN")
+  occurrences Int      @default(1)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  resolvedAt  DateTime?
+
+  @@index([status, lastSeenAt])
+  @@map("provider_health_incidents")
+}
+
 /// Comprobantes emitidos por el proveedor por las suscripciones del producto.
 model ProviderInvoice {
   id             String    @id @default(cuid())
