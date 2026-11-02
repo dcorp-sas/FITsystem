@@ -16,7 +16,7 @@ export const metadata: Metadata = {
       'Gestioná socios, cuotas, cobros, caja, asistencia y clases desde FIT system, con aplicación de escritorio y app móvil para socios.',
     images: [
       {
-        url: '/opengraph-image.png',
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'FIT system: software de gestión para gimnasios',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: 'Software para gimnasios: gestión de socios y cuotas | FIT system',
     description:
       'Gestioná socios, cuotas, cobros, caja, asistencia y clases desde FIT system.',
-    images: ['/opengraph-image.png'],
+    images: ['/opengraph-image'],
   },
 };
 
