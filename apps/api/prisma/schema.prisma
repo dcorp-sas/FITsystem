@@ -1104,6 +1104,11 @@ model DesktopHeartbeat {
   licenseKnown   Boolean  @default(false)
   hasLicense     Boolean  @default(false)
   licenseExpiresAt DateTime?
+  cloudSyncConnected Boolean?
+  cloudSyncLastAt DateTime?
+  cloudSyncError String?
+  portalAccounts Int?
+  activePortalAccounts Int?
   firstSeenAt    DateTime @default(now())
   lastSeenAt     DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.60",
+  "version": "0.3.61",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El escritorio informa su actividad cada 10 minutos al centro de diagnostico y registra en su log local si no logra enviar la senal. Esto mejora la deteccion de instalaciones activas.",
+  "notes": "El centro de diagnostico recibe desde cada instalacion su estado de sincronizacion con la nube, ultimo envio, cuentas de socios y errores. La app de escritorio envia actividad cada 10 minutos y registra fallos localmente.",
   "mandatory": false
 }

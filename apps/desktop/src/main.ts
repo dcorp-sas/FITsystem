@@ -376,11 +376,26 @@ async function checkLicense(): Promise<LicenseInfo | null> {
   return licenseInfo;
 }
 
+async function readLocalDesktopDiagnostics(): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${API_PORT}/api/provider/desktop/local-diagnostics`, {
+      headers: { 'x-desktop-diagnostics-token': getApiSecret() },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) return null;
+    const json = (await response.json().catch(() => null)) as { data?: Record<string, unknown> } | null;
+    return json?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Señal mínima de actividad para el centro de diagnóstico del proveedor.
 // No incluye hostname, IP, email, datos del gimnasio ni la clave de licencia.
 async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
   if (!app.isPackaged) return;
   try {
+    const diagnostics = await readLocalDesktopDiagnostics();
     const response = await fetch(`${CLOUD_API_URL}/api/provider/desktop/heartbeat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -392,6 +407,7 @@ async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
         licensePlan: info?.plan ?? null,
         licenseStatus: info?.status ?? 'UNKNOWN',
         licenseExpiresAt: info?.expiresAt ?? null,
+        ...(diagnostics ?? {}),
       }),
       signal: AbortSignal.timeout(5000),
     });

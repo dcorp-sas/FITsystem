@@ -17,6 +17,7 @@ import {
 } from '../services/provider-invoicing.js';
 import { providerOrgId } from '../services/provider-account.js';
 import { getWhatsAppRuntimeStatus } from '../services/whatsapp-client.js';
+import { getCloudConfig } from '../services/cloud-sync.js';
 
 /*
  * Operaciones del Panel de control FS sobre la nube:
@@ -310,11 +311,18 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const hasLicense = Boolean(input.hasLicense);
       const parsedExpiry = input.licenseExpiresAt == null ? null : new Date(String(input.licenseExpiresAt));
       if (parsedExpiry && Number.isNaN(parsedExpiry.getTime())) throw new HttpError(400, 'Vencimiento de licencia inválido');
+      const parsedSyncAt = input.cloudSyncLastAt == null ? null : new Date(String(input.cloudSyncLastAt));
+      if (parsedSyncAt && Number.isNaN(parsedSyncAt.getTime())) throw new HttpError(400, 'Fecha de sincronización inválida');
+      const countOrNull = (value: unknown) => Number.isInteger(value) && Number(value) >= 0 ? Number(value) : null;
+      const cloudSyncConnected = typeof input.cloudSyncConnected === 'boolean' ? input.cloudSyncConnected : null;
+      const cloudSyncError = input.cloudSyncError == null ? null : String(input.cloudSyncError).slice(0, 500);
+      const portalAccounts = countOrNull(input.portalAccounts);
+      const activePortalAccounts = countOrNull(input.activePortalAccounts);
       const now = new Date();
       await prisma.desktopHeartbeat.upsert({
         where: { installationId },
-        create: { installationId, appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, lastSeenAt: now },
-        update: { appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, lastSeenAt: now },
+        create: { installationId, appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, cloudSyncConnected, cloudSyncLastAt: parsedSyncAt, cloudSyncError, portalAccounts, activePortalAccounts, lastSeenAt: now },
+        update: { appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, cloudSyncConnected, cloudSyncLastAt: parsedSyncAt, cloudSyncError, portalAccounts, activePortalAccounts, lastSeenAt: now },
       });
       return ok(reply, { received: true, at: now.toISOString() });
     } catch (error) {
@@ -338,12 +346,42 @@ export function providerOpsRoutes(app: FastifyInstance) {
         firstSeenAt: row.firstSeenAt.toISOString(),
         lastSeenAt: row.lastSeenAt.toISOString(),
         active: row.lastSeenAt.getTime() >= cutoff,
+        cloudSyncConnected: row.cloudSyncConnected,
+        cloudSyncLastAt: row.cloudSyncLastAt?.toISOString() ?? null,
+        cloudSyncError: row.cloudSyncError,
+        portalAccounts: row.portalAccounts,
+        activePortalAccounts: row.activePortalAccounts,
       }));
       return ok(reply, {
         generatedAt: new Date().toISOString(),
         total: installations.length,
         active: installations.filter((row) => row.active).length,
         installations,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Diagnóstico local solicitado por el escritorio. Solo responde en una API
+  // instalada y exige su secreto local, que nunca sale de ese equipo.
+  app.get('/provider/desktop/local-diagnostics', async (request, reply) => {
+    try {
+      const token = String(request.headers['x-desktop-diagnostics-token'] ?? '');
+      if (!env.LICENSE_INSTALLATION_ID || !env.JWT_SECRET || token !== env.JWT_SECRET) {
+        throw new HttpError(403, 'No autorizado');
+      }
+      const cloud = await getCloudConfig();
+      const [portalAccounts, activePortalAccounts] = await Promise.all([
+        prisma.portalAccount.count({ where: { organizationId: cloud.orgId } }),
+        prisma.portalAccount.count({ where: { organizationId: cloud.orgId, isActive: true } }),
+      ]);
+      return ok(reply, {
+        cloudSyncConnected: cloud.connected,
+        cloudSyncLastAt: cloud.lastSyncAt,
+        cloudSyncError: cloud.lastError,
+        portalAccounts,
+        activePortalAccounts,
       });
     } catch (error) {
       return fail(reply, error);
