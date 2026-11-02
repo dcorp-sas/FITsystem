@@ -1,6 +1,6 @@
 {
-  "version": "0.3.46",
+  "version": "0.3.47",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Se mejoran las alertas operativas y el diagnóstico de infraestructura. La geolocalización de descargas requiere ahora una clave IP-API Pro y usa HTTPS; sin clave permanece deshabilitada.",
+  "notes": "El centro de diagnostico ahora muestra por gimnasio las cuentas activas de la app de socios.",
   "mandatory": false
 }

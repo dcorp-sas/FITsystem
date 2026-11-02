@@ -208,7 +208,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
         args: unknown,
       ): Promise<T[]> => (prisma[model] as unknown as { groupBy: (a: unknown) => Promise<T[]> }).groupBy(args);
 
-      const [users, members, activeMembers, branches, payments, attendance, classes, products, portal, whatsapp, licenses, errors, settingsRows, subs] =
+      const [users, members, activeMembers, branches, payments, attendance, classes, products, portal, portalActive, whatsapp, licenses, errors, settingsRows, subs] =
         await Promise.all([
           group<{ organizationId: string; _count: { _all: number } }>('user', {
             by: ['organizationId'],
@@ -250,6 +250,11 @@ export function providerOpsRoutes(app: FastifyInstance) {
             by: ['organizationId'],
             _count: { _all: true },
           }),
+          group<{ organizationId: string; _count: { _all: number } }>('portalAccount', {
+            by: ['organizationId'],
+            where: { isActive: true },
+            _count: { _all: true },
+          }),
           group<{ organizationId: string; _count: { _all: number } }>('whatsAppAuth', {
             by: ['organizationId'],
             _count: { _all: true },
@@ -289,6 +294,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
         classes: mapCount(classes as never),
         products: mapCount(products as never),
         portal: mapCount(portal as never),
+        portalActive: mapCount(portalActive as never),
         whatsapp: mapCount(whatsapp as never),
         licenses: mapCount(
           licenses.map((l) => ({ organizationId: l.organizationId, _count: l._count })) as never,
@@ -334,8 +340,8 @@ export function providerOpsRoutes(app: FastifyInstance) {
           {
             id: 'socios',
             label: 'App de socios (PWA)',
-            active: (counts.portal.get(org.id) ?? 0) > 0,
-            detail: `${counts.portal.get(org.id) ?? 0} cuentas`,
+            active: (counts.portalActive.get(org.id) ?? 0) > 0,
+            detail: `${counts.portalActive.get(org.id) ?? 0} activas / ${counts.portal.get(org.id) ?? 0} cuentas`,
           },
           {
             id: 'whatsapp',
@@ -396,6 +402,8 @@ export function providerOpsRoutes(app: FastifyInstance) {
             classes: counts.classes.get(org.id) ?? 0,
             products: counts.products.get(org.id) ?? 0,
             errors7d: counts.errors.get(org.id) ?? 0,
+            portalAccounts: counts.portal.get(org.id) ?? 0,
+            activePortalAccounts: counts.portalActive.get(org.id) ?? 0,
           },
           modules,
         };
