@@ -70,11 +70,26 @@ async function collectChecks(): Promise<{ checks: Check[]; alerts: Alert[] }> {
 
   try {
     const customerFilter = { NOT: { slug: { startsWith: '__' } } };
-    const [organizations, activePortalAccounts, errors7d] = await Promise.all([
+    const heartbeatCutoff = new Date(Date.now() - 24 * 60 * 60_000);
+    const [organizations, activePortalAccounts, errors7d, heartbeatTotal, heartbeatRecent, latestHeartbeat] = await Promise.all([
       prisma.organization.count({ where: customerFilter }),
       prisma.portalAccount.count({ where: { isActive: true, organization: customerFilter } }),
       prisma.errorLog.count({ where: { level: 'error', createdAt: { gte: new Date(Date.now() - 7 * 86_400_000) } } }),
+      prisma.desktopHeartbeat.count(),
+      prisma.desktopHeartbeat.count({ where: { lastSeenAt: { gte: heartbeatCutoff } } }),
+      prisma.desktopHeartbeat.findFirst({ orderBy: { lastSeenAt: 'desc' }, select: { lastSeenAt: true, appVersion: true } }),
     ]);
+    if (!heartbeatTotal) {
+      const detail = 'No se recibió ninguna señal de escritorio todavía; el panel no puede confirmar qué instalaciones siguen en uso. Actualizá y abrí las instalaciones para iniciar los reportes periódicos.';
+      checks.push({ name: 'Actividad de instalaciones de escritorio', status: 'warn', detail });
+      alerts.push({ level: 'warn', area: 'Instalaciones de clientes', title: 'Sin señales de actividad del escritorio', detail });
+    } else {
+      const stale = heartbeatTotal - heartbeatRecent;
+      const lastSeen = latestHeartbeat?.lastSeenAt.toISOString() ?? 'desconocida';
+      const detail = `${heartbeatRecent} activas en 24 h · ${stale} sin señal reciente de ${heartbeatTotal} conocidas · última señal ${lastSeen}${latestHeartbeat?.appVersion ? ` · versión ${latestHeartbeat.appVersion}` : ''}`;
+      checks.push({ name: 'Actividad de instalaciones de escritorio', status: stale ? 'warn' : 'ok', detail });
+      if (stale) alerts.push({ level: 'warn', area: 'Instalaciones de clientes', title: `${stale} instalación(es) sin señal en las últimas 24 h`, detail });
+    }
     if (!organizations) checks.push({ name: 'Sistemas por cliente', status: 'skip', detail: 'No hay organizaciones de clientes registradas en la nube' });
     else checks.push({ name: 'Sistemas por cliente', status: 'ok', detail: `${organizations} organizaciones registradas` });
     if (!organizations) checks.push({ name: 'App de socios (cuentas)', status: 'skip', detail: 'Sin clientes registrados para medir' });

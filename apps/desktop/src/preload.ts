@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('fitsystem', {
-  version: '0.3.56',
+  version: '0.3.57',
   getLicense: () => ipcRenderer.invoke('license:get'),
   activate: (key: string) => ipcRenderer.invoke('license:activate', key),
   requestCode: () => ipcRenderer.invoke('license:request'),
