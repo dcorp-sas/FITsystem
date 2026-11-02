@@ -14,7 +14,15 @@ async function httpCheck(name: string, url: string, alerts: Alert[], area: strin
   const started = Date.now();
   try {
     const response = await fetch(url, { headers, redirect: 'follow', signal: AbortSignal.timeout(10_000) });
-    const detail = `HTTP ${response.status} · ${Date.now() - started} ms`;
+    let upstreamDetail = '';
+    if (!response.ok && /application\/json/i.test(response.headers.get('content-type') || '')) {
+      try {
+        const body = await response.clone().json() as { message?: unknown; error?: unknown };
+        const message = typeof body.message === 'string' ? body.message : typeof body.error === 'string' ? body.error : '';
+        if (message) upstreamDetail = ` · ${message.replace(/[\r\n\t]+/g, ' ').slice(0, 240)}`;
+      } catch { /* un mensaje HTTP no debe interrumpir el resto del diagnóstico */ }
+    }
+    const detail = `HTTP ${response.status} · ${Date.now() - started} ms${upstreamDetail}`;
     if (!response.ok) {
       alerts.push({ level: response.status === 401 || response.status === 403 ? 'warn' : 'crit', area, title: `${name} respondió HTTP ${response.status}`, detail });
       return { name, status: 'fail', detail };

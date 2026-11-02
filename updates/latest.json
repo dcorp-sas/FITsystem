@@ -1,6 +1,6 @@
 {
-  "version": "0.3.54",
+  "version": "0.3.55",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Preserva los incidentes originados por el monitor VPS para que las mediciones del escritorio no los cierren cuando el servicio remoto sigue fallando; el historial distingue el origen de cada medición.",
+  "notes": "El monitor remoto conserva el mensaje seguro del proveedor cuando una prueba HTTP falla, para diagnosticar la causa concreta de Brevo sin mostrar ni modificar las claves.",
   "mandatory": false
 }
