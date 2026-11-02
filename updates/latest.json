@@ -1,6 +1,6 @@
 {
-  "version": "0.3.61",
+  "version": "0.3.62",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El centro de diagnostico recibe desde cada instalacion su estado de sincronizacion con la nube, ultimo envio, cuentas de socios y errores. La app de escritorio envia actividad cada 10 minutos y registra fallos localmente.",
+  "notes": "El panel ahora monitorea Socios, Profes y servicios de la empresa; agrega detalle de cuentas y docentes por cliente y corrige estados engañosos.",
   "mandatory": false
 }

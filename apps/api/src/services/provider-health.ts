@@ -60,6 +60,8 @@ async function collectChecks(): Promise<{ checks: Check[]; alerts: Alert[] }> {
 
   checks.push(await httpCheck('Sitio web / tienda', env.SITE_URL, alerts, 'Sitio'));
   checks.push(await httpCheck('App de socios', env.SOCIOS_URL, alerts, 'App de socios'));
+  checks.push(await httpCheck('Portal de Profes', env.PROFES_URL, alerts, 'Portal de Profes'));
+  checks.push(await httpCheck('Fitora', env.FITORA_URL, alerts, 'Fitora'));
   checks.push(await httpCheck('Licensador', env.LICENSE_SERVER ? new URL('/api/health', env.LICENSE_SERVER).toString() : '', alerts, 'Licensador'));
 
   if (env.PLATFORM_BREVO_API_KEY) {

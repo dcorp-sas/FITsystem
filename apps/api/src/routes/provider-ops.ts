@@ -461,9 +461,28 @@ export function providerOpsRoutes(app: FastifyInstance) {
         args: unknown,
       ): Promise<T[]> => (prisma[model] as unknown as { groupBy: (a: unknown) => Promise<T[]> }).groupBy(args);
 
-      const [users, members, activeMembers, branches, payments, attendance, classes, products, portal, portalActive, portalLogin, whatsapp, licenses, errors, settingsRows, subs] =
+      const [users, teacherUsers, teacherLogin, instructors, activeInstructors, members, activeMembers, branches, payments, attendance, classes, products, portal, portalActive, portalLogin, whatsapp, licenses, errors, settingsRows, subs] =
         await Promise.all([
           group<{ organizationId: string; _count: { _all: number } }>('user', {
+            by: ['organizationId'],
+            where: { isActive: true },
+            _count: { _all: true },
+          }),
+          group<{ organizationId: string; _count: { _all: number } }>('user', {
+            by: ['organizationId'],
+            where: { isActive: true, role: 'INSTRUCTOR' },
+            _count: { _all: true },
+          }),
+          group<{ organizationId: string; _max: { lastLoginAt: Date | null } }>('user', {
+            by: ['organizationId'],
+            where: { isActive: true, role: 'INSTRUCTOR' },
+            _max: { lastLoginAt: true },
+          }),
+          group<{ organizationId: string; _count: { _all: number } }>('instructor', {
+            by: ['organizationId'],
+            _count: { _all: true },
+          }),
+          group<{ organizationId: string; _count: { _all: number } }>('instructor', {
             by: ['organizationId'],
             where: { isActive: true },
             _count: { _all: true },
@@ -545,6 +564,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
       };
       const counts = {
         users: mapCount(users as never),
+        teacherUsers: mapCount(teacherUsers as never),
+        instructors: mapCount(instructors as never),
+        activeInstructors: mapCount(activeInstructors as never),
         members: mapCount(members as never),
         activeMembers: mapCount(activeMembers as never),
         branches: mapCount(branches as never),
@@ -565,6 +587,10 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const lastPortalLogin = new Map<string, Date | null>();
       for (const row of portalLogin as never as Array<{ organizationId: string; _max: { lastLoginAt: Date | null } }>) {
         lastPortalLogin.set(row.organizationId, row._max.lastLoginAt);
+      }
+      const lastTeacherLogin = new Map<string, Date | null>();
+      for (const row of teacherLogin as never as Array<{ organizationId: string; _max: { lastLoginAt: Date | null } }>) {
+        lastTeacherLogin.set(row.organizationId, row._max.lastLoginAt);
       }
       const lastPayment = new Map<string, Date | null>();
       for (const row of payments as never as Array<{ organizationId: string; _max: { paidAt: Date | null } }>) {
@@ -611,6 +637,12 @@ export function providerOpsRoutes(app: FastifyInstance) {
             label: 'App de socios (PWA)',
             active: (counts.portalActive.get(org.id) ?? 0) > 0,
             detail: `${counts.portalActive.get(org.id) ?? 0} cuentas habilitadas / ${counts.portal.get(org.id) ?? 0} · último acceso ${lastPortalLogin.get(org.id)?.toISOString() ?? 'sin accesos registrados'}`,
+          },
+          {
+            id: 'profes',
+            label: 'Portal de profesores',
+            active: (counts.teacherUsers.get(org.id) ?? 0) > 0 && (counts.activeInstructors.get(org.id) ?? 0) > 0,
+            detail: `${counts.teacherUsers.get(org.id) ?? 0} usuarios activos · ${counts.activeInstructors.get(org.id) ?? 0} profesores activos de ${counts.instructors.get(org.id) ?? 0} · último acceso ${lastTeacherLogin.get(org.id)?.toISOString() ?? 'sin accesos registrados'}`,
           },
           {
             id: 'whatsapp',
@@ -676,6 +708,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
           sync: { lastPushAt, lastError: syncError },
           counts: {
             users: counts.users.get(org.id) ?? 0,
+            teacherUsers: counts.teacherUsers.get(org.id) ?? 0,
+            instructors: counts.instructors.get(org.id) ?? 0,
+            activeInstructors: counts.activeInstructors.get(org.id) ?? 0,
             members: counts.members.get(org.id) ?? 0,
             activeMembers: counts.activeMembers.get(org.id) ?? 0,
             branches: counts.branches.get(org.id) ?? 0,
@@ -691,9 +726,11 @@ export function providerOpsRoutes(app: FastifyInstance) {
         };
       });
 
-      const [websiteProbe, sociosProbe, licenseProbe, providerArca] = await Promise.all([
+      const [websiteProbe, sociosProbe, profesProbe, fitoraProbe, licenseProbe, providerArca] = await Promise.all([
         probeHttpService(env.SITE_URL),
         probeHttpService(env.SOCIOS_URL),
+        probeHttpService(env.PROFES_URL),
+        probeHttpService(env.FITORA_URL),
         env.LICENSE_SERVER
           ? probeHttpService(new URL('/api/health', env.LICENSE_SERVER).toString())
           : Promise.resolve({ status: 'sin configurar' as const, detail: 'LICENSE_SERVER no definido' }),
@@ -706,6 +743,8 @@ export function providerOpsRoutes(app: FastifyInstance) {
           { id: 'api', name: 'API de la nube', status: 'online', detail: `Atendiendo esta consulta · ${Date.now() - requestStarted} ms` },
           { id: 'web', name: 'Sitio web / tienda', ...websiteProbe, detail: `${websiteProbe.detail} · ${env.SITE_URL}` },
           { id: 'socios', name: 'App de socios (PWA)', ...sociosProbe, detail: `${sociosProbe.detail} · ${env.SOCIOS_URL}` },
+          { id: 'profes', name: 'Portal de Profes', ...profesProbe, detail: `${profesProbe.detail} · ${env.PROFES_URL} · ruta web compartida` },
+          { id: 'fitora', name: 'Fitora', ...fitoraProbe, detail: `${fitoraProbe.detail} · ${env.FITORA_URL}` },
           { id: 'panel', name: 'Panel de control FS', status: 'local', detail: 'Este módulo del panel está abierto en este equipo' },
           {
             id: 'licensador',
@@ -755,7 +794,8 @@ export function providerOpsRoutes(app: FastifyInstance) {
       });
       if (!organization) return reply.code(404).send({ ok: false, error: 'Cliente no encontrado' });
 
-      const [accounts, totalAccounts, activeAccounts, neverLoggedIn, pushDevices, webPushDevices, errors] = await Promise.all([
+      const [accounts, totalAccounts, activeAccounts, neverLoggedIn, pushDevices, webPushDevices,
+        instructorUsers, totalInstructorUsers, activeInstructorUsers, instructors, totalInstructors, activeInstructors, activeClasses, lastTeacherLogin, errors] = await Promise.all([
         prisma.portalAccount.findMany({
           where: { organizationId },
           orderBy: [{ lastLoginAt: 'desc' }, { updatedAt: 'desc' }],
@@ -772,6 +812,24 @@ export function providerOpsRoutes(app: FastifyInstance) {
         prisma.portalAccount.count({ where: { organizationId, lastLoginAt: null } }),
         prisma.pushToken.count({ where: { portalAccount: { organizationId } } }),
         prisma.webPushSubscription.count({ where: { portalAccount: { organizationId } } }),
+        prisma.user.findMany({
+          where: { organizationId, role: 'INSTRUCTOR' },
+          orderBy: [{ lastLoginAt: 'desc' }, { name: 'asc' }], take: 300,
+          select: { id: true, name: true, email: true, isActive: true, lastLoginAt: true,
+            instructor: { select: { id: true, name: true, isActive: true, _count: { select: { classes: true } } } } },
+        }),
+        prisma.user.count({ where: { organizationId, role: 'INSTRUCTOR' } }),
+        prisma.user.count({ where: { organizationId, role: 'INSTRUCTOR', isActive: true } }),
+        prisma.instructor.findMany({
+          where: { organizationId }, orderBy: { name: 'asc' }, take: 300,
+          select: { id: true, name: true, email: true, isActive: true, createdAt: true,
+            user: { select: { id: true, name: true, email: true, isActive: true, lastLoginAt: true } },
+            _count: { select: { classes: true } } },
+        }),
+        prisma.instructor.count({ where: { organizationId } }),
+        prisma.instructor.count({ where: { organizationId, isActive: true } }),
+        prisma.gymClass.count({ where: { organizationId, isActive: true } }),
+        prisma.user.findFirst({ where: { organizationId, role: 'INSTRUCTOR', isActive: true, lastLoginAt: { not: null } }, orderBy: { lastLoginAt: 'desc' }, select: { lastLoginAt: true } }),
         prisma.errorLog.findMany({
           where: { organizationId, createdAt: { gte: new Date(Date.now() - 30 * DAY_MS) } },
           orderBy: { createdAt: 'desc' }, take: 30,
@@ -786,6 +844,13 @@ export function providerOpsRoutes(app: FastifyInstance) {
           neverLoggedIn, pushDevices: pushDevices + webPushDevices,
           errors30d: errors.length, truncated },
         accounts: visibleAccounts.map(({ activationCode, ...account }) => ({ ...account, activationPending: Boolean(activationCode) })),
+        profes: {
+          summary: { users: totalInstructorUsers, activeUsers: activeInstructorUsers, instructors: totalInstructors,
+            activeInstructors, activeClasses, lastLoginAt: lastTeacherLogin?.lastLoginAt?.toISOString() ?? null,
+            usersTruncated: totalInstructorUsers > 300, instructorsTruncated: totalInstructors > 300 },
+          users: instructorUsers,
+          instructors,
+        },
         errors,
       });
     } catch (error) {

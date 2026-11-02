@@ -68,6 +68,8 @@ export const env = {
   // URL publica de la app de socios (PWA). Se usa como back_urls de MercadoPago
   // para volver a la app despues de pagar. Si esta vacia se omite el retorno.
   SOCIOS_URL: (process.env.SOCIOS_URL || 'https://socios.fitsystem.com.ar').replace(/\/+$/, ''),
+  PROFES_URL: (process.env.PROFES_URL || 'https://profes.fitsystem.com.ar').replace(/\/+$/, ''),
+  FITORA_URL: (process.env.FITORA_URL || 'https://fitora.fitsystem.com.ar').replace(/\/+$/, ''),
   // URL publica del sitio (landing/tienda). Se usa como back_url de las
   // suscripciones de MercadoPago para volver tras autorizar el pago recurrente.
   SITE_URL: ((process.env.SITE_URL || process.env.WEB_ORIGIN || 'https://fitsystem.com.ar').split(',')[0] || '')
