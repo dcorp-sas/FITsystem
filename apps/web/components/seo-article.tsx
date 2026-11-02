@@ -5,7 +5,7 @@ export interface SeoSection {
   paragraphs: string[];
 }
 
-export function SeoArticle({ title, intro, sections }: { title: string; intro: string; sections: SeoSection[] }) {
+export function SeoArticle({ title, intro, sections, internationalContact = false }: { title: string; intro: string; sections: SeoSection[]; internationalContact?: boolean }) {
   return (
     <main id="contenido" className="min-h-screen bg-base px-4 py-12 text-text sm:px-6 lg:px-8">
       <article className="mx-auto max-w-4xl">
@@ -38,6 +38,7 @@ export function SeoArticle({ title, intro, sections }: { title: string; intro: s
             <Link className="text-primary-light hover:underline" href="/gimnasio-sin-internet">Gimnasio sin internet</Link>
           </div>
           <p className="mt-5 text-xs leading-6 text-text-muted">Las funciones disponibles dependen de la versión, configuración y plan contratado. Consultá antes de adquirir hardware o migrar datos. <Link className="text-primary-light hover:underline" href="/privacidad">Privacidad</Link> · <Link className="text-primary-light hover:underline" href="/terminos">Términos y condiciones</Link>.</p>
+          {internationalContact && <p className="mt-3 text-sm leading-6 text-text-muted">¿Tu gimnasio está fuera de Argentina? Para consultar disponibilidad, condiciones comerciales y contratación internacional, escribinos a <a className="text-primary-light hover:underline" href="mailto:ventas@fitsystem.com.ar">ventas@fitsystem.com.ar</a>.</p>}
         </section>
       </article>
     </main>
