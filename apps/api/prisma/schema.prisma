@@ -1093,6 +1093,25 @@ model LicenseEvent {
   @@map("license_events")
 }
 
+// Señal periódica de la aplicación de escritorio para que el proveedor pueda
+// distinguir una descarga web de una instalación que realmente sigue activa.
+// installationId es seudónimo; no se guarda hostname ni IP del equipo.
+model DesktopHeartbeat {
+  installationId String   @id
+  appVersion     String
+  licensePlan    String?
+  licenseStatus  String?
+  licenseKnown   Boolean  @default(false)
+  hasLicense     Boolean  @default(false)
+  licenseExpiresAt DateTime?
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([lastSeenAt])
+  @@map("desktop_heartbeats")
+}
+
 // Respaldo del Licensador (servicio del proveedor). Su disco es efímero en el
 // plan free de Render, así que el estado (licencias, asientos y revocaciones) se
 // respalda aquí, en Postgres (durable), y se restaura al reiniciarse.

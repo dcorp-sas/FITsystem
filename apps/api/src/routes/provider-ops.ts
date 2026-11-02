@@ -4,6 +4,7 @@ import { fail, ok, HttpError } from '../lib/http.js';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
 import { requireProviderToken } from './provider.js';
+import { rateLimit } from '../lib/ratelimit.js';
 import {
   emailProviderInvoice,
   getInvoiceSettingsPublic,
@@ -136,6 +137,61 @@ interface SystemModule {
 }
 
 export function providerOpsRoutes(app: FastifyInstance) {
+  /* ----------------------- Latidos de escritorio ----------------------- */
+
+  app.post('/provider/desktop/heartbeat', { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'desktop-heartbeat' })] }, async (request, reply) => {
+    try {
+      const input = (request.body ?? {}) as Record<string, unknown>;
+      const installationId = String(input.installationId ?? '').trim();
+      const appVersion = String(input.appVersion ?? '').trim();
+      if (!/^inst_[a-f0-9]{32}$/i.test(installationId)) throw new HttpError(400, 'ID de instalación inválido');
+      if (!appVersion || appVersion.length > 32) throw new HttpError(400, 'Versión de aplicación inválida');
+      const licensePlan = input.licensePlan == null ? null : String(input.licensePlan).slice(0, 32);
+      const licenseStatus = input.licenseStatus == null ? null : String(input.licenseStatus).slice(0, 32);
+      const licenseKnown = Boolean(input.licenseKnown);
+      const hasLicense = Boolean(input.hasLicense);
+      const parsedExpiry = input.licenseExpiresAt == null ? null : new Date(String(input.licenseExpiresAt));
+      if (parsedExpiry && Number.isNaN(parsedExpiry.getTime())) throw new HttpError(400, 'Vencimiento de licencia inválido');
+      const now = new Date();
+      await prisma.desktopHeartbeat.upsert({
+        where: { installationId },
+        create: { installationId, appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, lastSeenAt: now },
+        update: { appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, lastSeenAt: now },
+      });
+      return ok(reply, { received: true, at: now.toISOString() });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.get('/provider/desktop/installations', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const rows = await prisma.desktopHeartbeat.findMany({ orderBy: { lastSeenAt: 'desc' }, take: 1000 });
+      const cutoff = Date.now() - 24 * 60 * 60_000;
+      const installations = rows.map((row) => ({
+        installationId: row.installationId,
+        appVersion: row.appVersion,
+        licensePlan: row.licensePlan,
+        licenseStatus: row.licenseStatus,
+        licenseKnown: row.licenseKnown,
+        hasLicense: row.hasLicense,
+        licenseExpiresAt: row.licenseExpiresAt?.toISOString() ?? null,
+        firstSeenAt: row.firstSeenAt.toISOString(),
+        lastSeenAt: row.lastSeenAt.toISOString(),
+        active: row.lastSeenAt.getTime() >= cutoff,
+      }));
+      return ok(reply, {
+        generatedAt: new Date().toISOString(),
+        total: installations.length,
+        active: installations.filter((row) => row.active).length,
+        installations,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   /* ------------------------------ Descargas ------------------------------ */
 
   app.get('/provider/downloads', async (request, reply) => {

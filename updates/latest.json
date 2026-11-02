@@ -1,6 +1,6 @@
 {
-  "version": "0.3.47",
+  "version": "0.3.48",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El centro de diagnostico ahora muestra por gimnasio las cuentas activas de la app de socios.",
+  "notes": "El panel ahora detecta instalaciones de escritorio activas, con licencia, en prueba o sin licencia.",
   "mandatory": false
 }

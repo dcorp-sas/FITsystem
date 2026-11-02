@@ -374,6 +374,30 @@ async function checkLicense(): Promise<LicenseInfo | null> {
   return licenseInfo;
 }
 
+// Señal mínima de actividad para el centro de diagnóstico del proveedor.
+// No incluye hostname, IP, email, datos del gimnasio ni la clave de licencia.
+async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
+  if (!app.isPackaged) return;
+  try {
+    await fetch(`${CLOUD_API_URL}/api/provider/desktop/heartbeat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        installationId: getInstallationId(),
+        appVersion: app.getVersion(),
+        licenseKnown: Boolean(info),
+        hasLicense: Boolean(info?.hasKey),
+        licensePlan: info?.plan ?? null,
+        licenseStatus: info?.status ?? 'UNKNOWN',
+        licenseExpiresAt: info?.expiresAt ?? null,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // Diagnóstico auxiliar: no debe demorar ni bloquear el inicio del sistema.
+  }
+}
+
 function activationHtml(info: LicenseInfo | null): string {
   const installationId = getInstallationId();
   const statusText = info
@@ -1429,8 +1453,10 @@ app.whenReady().then(async () => {
   await createWindow();
 
   if (app.isPackaged && servicesReady) {
+    let heartbeatLicense: LicenseInfo | null = null;
     try {
       const info = await checkLicense();
+      heartbeatLicense = info;
       log('Estado de licencia al iniciar:', info?.plan, info?.status, 'usable=', info?.isUsable);
       // Bloqueo duro: prueba vencida / licencia suspendida y sin activar => el
       // panel queda inaccesible; solo se muestra la pantalla de activación.
@@ -1462,6 +1488,7 @@ app.whenReady().then(async () => {
     } catch (err) {
       log('No se pudo validar la licencia:', (err as Error).message);
     }
+    void reportDesktopHeartbeat(heartbeatLicense);
 
     // Revalidación periódica: si la licencia se revoca en el servidor (p. ej. por
     // falta de pago de la suscripción), el panel se bloquea sin esperar reinicio.
@@ -1469,8 +1496,10 @@ app.whenReady().then(async () => {
       void (async () => {
         try {
           const info = await checkLicense();
+          void reportDesktopHeartbeat(info);
           if (info && !info.isUsable) await showActivationInMain(info);
         } catch {
+          void reportDesktopHeartbeat(null);
           /* sin internet: se conserva el estado local */
         }
       })();
