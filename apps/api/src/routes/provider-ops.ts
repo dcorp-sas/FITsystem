@@ -137,6 +137,17 @@ interface SystemModule {
 }
 
 export function providerOpsRoutes(app: FastifyInstance) {
+  app.get('/provider/diagnostics/database', async (request, reply) => {
+    const startedAt = Date.now();
+    try {
+      requireProviderToken(request);
+      await prisma.$queryRaw`SELECT 1`;
+      return ok(reply, { ok: true, latencyMs: Date.now() - startedAt, checkedAt: new Date().toISOString() });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   /* ----------------------- Latidos de escritorio ----------------------- */
 
   app.post('/provider/desktop/heartbeat', { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'desktop-heartbeat' })] }, async (request, reply) => {

@@ -1,6 +1,6 @@
 {
-  "version": "0.3.48",
+  "version": "0.3.49",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El panel ahora detecta instalaciones de escritorio activas, con licencia, en prueba o sin licencia.",
+  "notes": "Corrige los diagnósticos de CPU compartida en VPS, detecta presión de recursos aislada por contenedor y verifica la conectividad real con PostgreSQL desde el centro de diagnóstico.",
   "mandatory": false
 }
