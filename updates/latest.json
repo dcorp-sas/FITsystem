@@ -1,6 +1,6 @@
 {
-  "version": "0.3.52",
+  "version": "0.3.53",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Agrega un historial persistente de salud de 30 días, monitor automático cada cinco minutos con alertas por cambios de estado y soluciones guiadas. Unifica sistemas sincronizados, instalaciones activas y licencias, e incorpora verificaciones de app de socios, WhatsApp, PostgreSQL y servicios externos.",
+  "notes": "Diagnóstico continuo en la VPS cada cinco minutos, con historial independiente del escritorio; seguimiento de base de datos, servicios, App de socios y recursos; monitor de escritorio persistente en bandeja e inicio de Windows; estados claros cuando aún no hay clientes o instalaciones vinculados.",
   "mandatory": false
 }

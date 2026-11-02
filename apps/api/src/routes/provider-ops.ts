@@ -229,7 +229,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
       requireProviderToken(request);
       const query = (request.query ?? {}) as { hours?: string; limit?: string };
       const hours = Math.min(720, Math.max(1, Number(query.hours) || 168));
-      const limit = Math.min(2500, Math.max(1, Number(query.limit) || 2200));
+      const limit = Math.min(6000, Math.max(1, Number(query.limit) || 4500));
       const since = new Date(Date.now() - hours * 60 * 60_000);
       const [snapshots, incidents] = await Promise.all([
         prisma.providerHealthSnapshot.findMany({ where: { capturedAt: { gte: since } }, orderBy: { capturedAt: 'desc' }, take: limit }),
