@@ -137,6 +137,41 @@ interface SystemModule {
 }
 
 export function providerOpsRoutes(app: FastifyInstance) {
+  app.post('/provider/marketing/brevo', { onRequest: [rateLimit({ max: 180, windowMs: 60_000, keyPrefix: 'provider-brevo-proxy' })] }, async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      if (!env.PLATFORM_BREVO_API_KEY) throw new HttpError(503, 'Brevo no está configurado en el servidor');
+      const input = (request.body ?? {}) as { method?: unknown; path?: unknown; body?: unknown };
+      const method = String(input.method ?? 'GET').toUpperCase();
+      const pathname = String(input.path ?? '');
+      if (!pathname.startsWith('/') || pathname.length > 300 || pathname.includes('..') || pathname.includes('//')) {
+        throw new HttpError(400, 'Ruta de Brevo inválida');
+      }
+      const pathOnly = pathname.split('?')[0] ?? '';
+      const allowedGet = /^\/(account|senders|contacts(?:\/.*)?|emailCampaigns(?:\/.*)?)$/.test(pathOnly);
+      const allowedPost = pathOnly === '/contacts' || pathOnly === '/contacts/lists' || /^\/emailCampaigns\/\d+\/sendNow$/.test(pathOnly);
+      if (!(method === 'GET' && allowedGet) && !(method === 'POST' && allowedPost)) {
+        throw new HttpError(400, 'Operación de Brevo no habilitada desde el panel');
+      }
+      const upstream = await fetch(`https://api.brevo.com/v3${pathname}`, {
+        method,
+        headers: { 'api-key': env.PLATFORM_BREVO_API_KEY, accept: 'application/json', ...(method === 'POST' ? { 'content-type': 'application/json' } : {}) },
+        ...(method === 'POST' ? { body: JSON.stringify(input.body ?? {}) } : {}),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const raw = await upstream.text();
+      let data: unknown = null;
+      try { data = raw ? JSON.parse(raw) : {}; } catch { data = { message: raw.slice(0, 500) }; }
+      if (!upstream.ok) {
+        const message = (data as { message?: string })?.message || `Brevo HTTP ${upstream.status}`;
+        return reply.code(502).send({ error: 'BrevoError', message });
+      }
+      return ok(reply, data);
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   app.get('/provider/diagnostics/database', async (request, reply) => {
     const startedAt = Date.now();
     try {

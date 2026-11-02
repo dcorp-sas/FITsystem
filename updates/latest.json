@@ -1,6 +1,6 @@
 {
-  "version": "0.3.49",
+  "version": "0.3.50",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Corrige los diagnósticos de CPU compartida en VPS, detecta presión de recursos aislada por contenedor y verifica la conectividad real con PostgreSQL desde el centro de diagnóstico.",
+  "notes": "Estabiliza Brevo usando la salida IP fija del servidor con respaldo local, agrega diagnóstico real de PostgreSQL y corrige métricas de CPU compartida de la VPS.",
   "mandatory": false
 }
