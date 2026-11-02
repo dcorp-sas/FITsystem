@@ -704,6 +704,52 @@ export function providerOpsRoutes(app: FastifyInstance) {
     }
   });
 
+  // Detalle operativo de la app de socios por organización. Nunca devolver
+  // hashes, códigos de activación, tokens push ni credenciales.
+  app.get('/provider/systems/:organizationId/portal', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { organizationId } = request.params as { organizationId: string };
+      const providerId = await providerOrgId();
+      const organization = organizationId === providerId ? null : await prisma.organization.findFirst({
+        where: { id: organizationId, NOT: { slug: { startsWith: '__' } } },
+        select: { id: true, name: true, slug: true, isActive: true },
+      });
+      if (!organization) return reply.code(404).send({ ok: false, error: 'Cliente no encontrado' });
+
+      const [accounts, errors] = await Promise.all([
+        prisma.portalAccount.findMany({
+          where: { organizationId },
+          orderBy: [{ lastLoginAt: 'desc' }, { updatedAt: 'desc' }],
+          take: 500,
+          select: {
+            id: true, email: true, isActive: true, activationCode: true,
+            lastLoginAt: true, createdAt: true, updatedAt: true,
+            member: { select: { memberCode: true, firstName: true, lastName: true, status: true } },
+            _count: { select: { pushTokens: true, webPushSubscriptions: true } },
+          },
+        }),
+        prisma.errorLog.findMany({
+          where: { organizationId, createdAt: { gte: new Date(Date.now() - 30 * DAY_MS) } },
+          orderBy: { createdAt: 'desc' }, take: 30,
+          select: { id: true, level: true, message: true, path: true, method: true, statusCode: true, createdAt: true },
+        }),
+      ]);
+      const activeAccounts = accounts.filter((account) => account.isActive).length;
+      return ok(reply, {
+        generatedAt: new Date().toISOString(), organization,
+        summary: { total: accounts.length, active: activeAccounts, inactive: accounts.length - activeAccounts,
+          neverLoggedIn: accounts.filter((account) => !account.lastLoginAt).length,
+          pushDevices: accounts.reduce((sum, account) => sum + account._count.pushTokens + account._count.webPushSubscriptions, 0),
+          errors30d: errors.length, truncated: accounts.length === 500 },
+        accounts: accounts.map(({ activationCode, ...account }) => ({ ...account, activationPending: Boolean(activationCode) })),
+        errors,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
   app.get('/provider/errors', async (request, reply) => {
     try {
       requireProviderToken(request);
