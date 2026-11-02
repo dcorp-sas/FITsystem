@@ -1,6 +1,6 @@
 {
-  "version": "0.3.45",
+  "version": "0.3.46",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Publica Fitora en su subdominio usando el despliegue existente de la VPS.",
+  "notes": "Se mejoran las alertas operativas y el diagnóstico de infraestructura. La geolocalización de descargas requiere ahora una clave IP-API Pro y usa HTTPS; sin clave permanece deshabilitada.",
   "mandatory": false
 }

@@ -61,6 +61,9 @@ interface GeoEntry {
 
 /** Geolocaliza hasta 100 IPs en una sola llamada (endpoint batch de ip-api). */
 async function enrichPendingDownloads(limit = 100): Promise<{ ips: number; updated: number; error?: string }> {
+  if (!env.IP_API_KEY) {
+    return { ips: 0, updated: 0, error: 'Geolocalización deshabilitada: configurá IP_API_KEY con una clave comercial de IP-API.' };
+  }
   const rows = await prisma.downloadHit.findMany({
     where: { enriched: false, ip: { not: null } },
     orderBy: { at: 'desc' },
@@ -70,7 +73,10 @@ async function enrichPendingDownloads(limit = 100): Promise<{ ips: number; updat
   const ips = [...new Set(rows.map((r) => r.ip).filter((ip): ip is string => Boolean(ip)))].slice(0, Math.min(100, limit));
   if (!ips.length) return { ips: 0, updated: 0 };
   try {
-    const res = await fetch('http://ip-api.com/batch?fields=status,message,country,regionName,city,isp,org,as,query', {
+    const url = new URL('https://pro.ip-api.com/batch');
+    url.searchParams.set('fields', 'status,message,country,regionName,city,isp,org,as,query');
+    url.searchParams.set('key', env.IP_API_KEY);
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(ips),
@@ -150,6 +156,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
       return ok(reply, {
         days,
         total,
+        geolocation: { configured: Boolean(env.IP_API_KEY), provider: 'IP-API Pro' },
         summary: buildDownloadSummary(allForSummary),
         rows: rows.map((row) => ({
           id: row.id,
@@ -397,9 +404,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
       return ok(reply, {
         generatedAt: new Date().toISOString(),
         platform: [
-          { id: 'api', name: 'API de la nube', status: 'online', detail: env.PUBLIC_URL || 'api.fitsystem.com.ar' },
-          { id: 'web', name: 'Sitio web / tienda', status: 'online', detail: env.SITE_URL },
-          { id: 'panel', name: 'Panel de control FS', status: 'online', detail: 'Cliente de escritorio' },
+          { id: 'api', name: 'API de la nube', status: 'no medido', detail: env.PUBLIC_URL || 'api.fitsystem.com.ar' },
+          { id: 'web', name: 'Sitio web / tienda', status: 'no medido', detail: env.SITE_URL },
+          { id: 'panel', name: 'Panel de control FS', status: 'no medido', detail: 'Aplicación de escritorio; la API no recibe una señal de disponibilidad' },
           {
             id: 'licensador',
             name: 'Licensador',

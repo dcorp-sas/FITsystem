@@ -196,6 +196,10 @@ services:
       # BACKUP_TOKEN del Licensador.
       - key: PROVIDER_BACKUP_TOKEN
         sync: false
+      # Clave comercial IP-API Pro para geolocalización por HTTPS. Opcional;
+      # si se omite, el panel deja la consulta deshabilitada y no envía IPs.
+      - key: IP_API_KEY
+        sync: false
       # --- Tienda del sitio (landing): contacto y pasarela de pago del proveedor ---
       # Destinatario del formulario de contacto de la landing.
       - key: PLATFORM_CONTACT_TO

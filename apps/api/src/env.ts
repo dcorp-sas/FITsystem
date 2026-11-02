@@ -101,6 +101,9 @@ export const env = {
   // Postgres (su disco es efímero en el plan free). Si está vacío, el respaldo
   // remoto queda deshabilitado.
   PROVIDER_BACKUP_TOKEN: process.env.PROVIDER_BACKUP_TOKEN || '',
+  // Clave Pro de IP-API para geolocalizar IPs de descargas por HTTPS. Sin ella,
+  // la consulta queda deshabilitada (el endpoint gratuito es HTTP y no permite uso comercial).
+  IP_API_KEY: process.env.IP_API_KEY || '',
   // Carpeta donde se guarda la sesión de WhatsApp (credenciales vinculadas). Por
   // defecto, junto a la base de datos (userData del escritorio). Debe ser
   // persistente: si se borra, hay que volver a escanear el QR.

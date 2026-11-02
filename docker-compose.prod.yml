@@ -85,6 +85,7 @@ services:
       LICENSE_SECRET: ${LICENSE_SECRET:-}
       LICENSE_PRIVATE_KEY: ${LICENSE_PRIVATE_KEY:-}
       PROVIDER_BACKUP_TOKEN: ${PROVIDER_BACKUP_TOKEN:-}
+      IP_API_KEY: ${IP_API_KEY:-}
       # Credenciales del Licensador para emitir la clave al aprobarse un pago.
       LICENSOR_ADMIN_USER: ${LICENSOR_ADMIN_USER:-admin}
       LICENSOR_ADMIN_PASS: ${LICENSOR_ADMIN_PASS:-}
