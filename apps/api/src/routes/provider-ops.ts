@@ -191,7 +191,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
         .digest('hex'));
       const open = await prisma.providerHealthIncident.findMany({ where: { status: 'OPEN' }, select: { fingerprint: true, title: true } });
       const activeSet = new Set(fingerprints);
-      const recovered = open.filter((incident) => !activeSet.has(incident.fingerprint));
+      // El monitor VPS es autoridad para sus propios incidentes. Un chequeo
+      // del escritorio no puede resolver una falla que sigue ocurriendo en la VPS.
+      const recovered = open.filter((incident) => !incident.fingerprint.startsWith('srv:') && !activeSet.has(incident.fingerprint));
       if (recovered.length) await prisma.providerHealthIncident.updateMany({
         where: { fingerprint: { in: recovered.map((incident) => incident.fingerprint) }, status: 'OPEN' },
         data: { status: 'RESOLVED', resolvedAt: now, lastSeenAt: now },

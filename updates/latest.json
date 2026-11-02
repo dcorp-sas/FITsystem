@@ -1,6 +1,6 @@
 {
-  "version": "0.3.53",
+  "version": "0.3.54",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Diagnóstico continuo en la VPS cada cinco minutos, con historial independiente del escritorio; seguimiento de base de datos, servicios, App de socios y recursos; monitor de escritorio persistente en bandeja e inicio de Windows; estados claros cuando aún no hay clientes o instalaciones vinculados.",
+  "notes": "Preserva los incidentes originados por el monitor VPS para que las mediciones del escritorio no los cierren cuando el servicio remoto sigue fallando; el historial distingue el origen de cada medición.",
   "mandatory": false
 }
