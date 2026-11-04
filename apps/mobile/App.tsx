@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, shadow, spacing } from './src/theme';
-import { setToken, portal, bootstrapToken, type LoginResponse } from './src/lib/api';
+import { setToken, portal, bootstrapToken, setTelemetryScreen, type LoginResponse } from './src/lib/api';
 import { configureNotifications, registerPushAsync } from './src/lib/push';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -38,6 +38,10 @@ export default function App() {
   useEffect(() => {
     configureNotifications();
   }, []);
+
+  useEffect(() => {
+    if (session) setTelemetryScreen(TABS.find((item) => item.key === tab)?.label || 'Perfil');
+  }, [session, tab]);
 
   // Indicador de conexión (solo web/PWA): avisa cuando se ven datos guardados.
   useEffect(() => {

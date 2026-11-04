@@ -20,6 +20,24 @@ export class ApiError extends Error {
 }
 
 let token: string | null = null;
+let telemetryScreen = 'Inicio';
+
+function sendTelemetry(eventType: 'screen' | 'api_error', message: string) {
+  if (!token) return;
+  const safeMessage = message
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
+    .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+    .slice(0, 1000);
+  void fetch(`${API_URL}/api/system/client-telemetry`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ eventType: eventType === 'api_error' ? 'api_error' : 'screen', source: 'socios', screen: telemetryScreen, message: safeMessage }),
+  }).catch(() => undefined);
+}
+
+export function setTelemetryScreen(screen: string) {
+  telemetryScreen = screen.slice(0, 120);
+  sendTelemetry('screen', 'Pantalla abierta');
+}
 
 // El token persiste para que la sesión sobreviva a una recarga (PWA) y al
 // cierre/reapertura de la app en nativo (SecureStore).
@@ -116,6 +134,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!res.ok) {
     // Sesión inválida o vencida: limpiar token para forzar un nuevo login.
     if (res.status === 401) setToken(null);
+    if (res.status >= 400 && res.status !== 401 && !path.includes('client-telemetry')) {
+      sendTelemetry('api_error', `${method} API respondió HTTP ${res.status}: ${json.message || `Error ${res.status}`}`);
+    }
     throw new ApiError(res.status, json.message || `Error ${res.status}`);
   }
   return (json.data ?? (json as T)) as T;

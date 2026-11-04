@@ -5,6 +5,7 @@ import { upsertSettings } from '../services/settings.js';
 import { getObservabilityConfig, pruneOldData, sendAlert } from '../services/observability.js';
 import { observabilityUpdateSchema, retentionPurgeSchema } from '@fitsystem/validators';
 import { logActivity } from '../lib/activity.js';
+import { rateLimit } from '../lib/ratelimit.js';
 
 const ADMIN = ['OWNER', 'ADMIN'];
 
@@ -13,6 +14,29 @@ const ADMIN = ['OWNER', 'ADMIN'];
  * (retencion/borrado y exportacion de datos por organizacion).
  */
 export function systemRoutes(app: FastifyInstance) {
+  // Errores de pantalla/API que el servidor no puede inferir por sí mismo.
+  // No acepta URLs completas, cuerpos de formularios ni datos de socios.
+  app.post('/system/client-telemetry', { onRequest: [app.authenticate, rateLimit({ max: 120, windowMs: 60_000, keyPrefix: 'client-telemetry' })] }, async (request, reply) => {
+    try {
+      const req = request as AuthedRequest;
+      const input = (request.body ?? {}) as Record<string, unknown>;
+      const eventType = String(input.eventType ?? 'error').toLowerCase();
+      if (!['error', 'api_error', 'screen'].includes(eventType)) throw new HttpError(400, 'Tipo de señal inválido');
+      const screen = String(input.screen ?? '').replace(/[?#].*$/, '').slice(0, 180) || null;
+      const redact = (value: string) => value
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
+        .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]');
+      const message = redact(String(input.message ?? (eventType === 'screen' ? 'Pantalla abierta' : '')).trim()).slice(0, 1000);
+      if (!message) throw new HttpError(400, 'La señal necesita un detalle');
+      const stack = input.stack == null ? null : redact(String(input.stack)).slice(0, 4000);
+      const source = String(input.source ?? 'web').slice(0, 40);
+      await prisma.clientTelemetryEvent.create({
+        data: { organizationId: req.user.organizationId, userId: req.user.id, source, eventType, screen, message, stack },
+      });
+      return ok(reply, { recorded: true });
+    } catch (error) { return fail(reply, error); }
+  });
+
   // Lista de errores registrados (paginado y filtrable por nivel).
   app.get('/system/errors', { onRequest: [app.authenticate, app.requireRoles(ADMIN)] }, async (request, reply) => {
     try {

@@ -251,6 +251,98 @@ export function providerOpsRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get('/provider/support/cases', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const query = (request.query ?? {}) as { status?: string; limit?: string };
+      const limit = Math.min(200, Math.max(1, Number(query.limit) || 100));
+      const status = String(query.status || '').toUpperCase();
+      const cases = await prisma.providerSupportCase.findMany({
+        where: status && ['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status) ? { status } : {},
+        orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }], take: limit,
+        include: { events: { orderBy: { createdAt: 'desc' }, take: 50 } },
+      });
+      return ok(reply, { generatedAt: new Date().toISOString(), cases });
+    } catch (error) { return fail(reply, error); }
+  });
+
+  app.get('/provider/clients/:organizationId/telemetry', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { organizationId } = request.params as { organizationId: string };
+      const query = (request.query ?? {}) as { limit?: string };
+      const limit = Math.min(100, Math.max(1, Number(query.limit) || 40));
+      const events = await prisma.clientTelemetryEvent.findMany({
+        where: { organizationId }, orderBy: { createdAt: 'desc' }, take: limit,
+        select: { id: true, source: true, eventType: true, screen: true, message: true, stack: true, createdAt: true },
+      });
+      return ok(reply, { organizationId, events });
+    } catch (error) { return fail(reply, error); }
+  });
+
+  app.post('/provider/support/cases', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const input = (request.body ?? {}) as Record<string, unknown>;
+      const title = String(input.title ?? '').trim().slice(0, 180);
+      if (!title) throw new HttpError(400, 'El caso necesita un título');
+      const priority = String(input.priority ?? 'NORMAL').toUpperCase();
+      if (!['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority)) throw new HttpError(400, 'Prioridad inválida');
+      const message = String(input.message ?? input.summary ?? '').trim().slice(0, 4000);
+      const supportCase = await prisma.providerSupportCase.create({
+        data: {
+          organizationId: input.organizationId ? String(input.organizationId).slice(0, 120) : null,
+          installationId: input.installationId ? String(input.installationId).slice(0, 120) : null,
+          clientName: input.clientName ? String(input.clientName).slice(0, 160) : null,
+          title, summary: message, priority,
+          assignedTo: input.assignedTo ? String(input.assignedTo).slice(0, 120) : null,
+          events: { create: { kind: 'CREATED', actor: 'Panel FS', message: message || 'Caso creado desde el Panel FS.' } },
+        },
+        include: { events: true },
+      });
+      return ok(reply, { supportCase }, 201);
+    } catch (error) { return fail(reply, error); }
+  });
+
+  app.patch('/provider/support/cases/:id', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { id } = request.params as { id: string };
+      const input = (request.body ?? {}) as Record<string, unknown>;
+      const current = await prisma.providerSupportCase.findUnique({ where: { id } });
+      if (!current) throw new HttpError(404, 'Caso no encontrado');
+      const data: Record<string, unknown> = {};
+      const events: Array<{ kind: string; message: string }> = [];
+      if (input.status !== undefined) {
+        const status = String(input.status).toUpperCase();
+        if (!['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status)) throw new HttpError(400, 'Estado de caso inválido');
+        if (status !== current.status) {
+          data.status = status;
+          data.resolvedAt = ['RESOLVED', 'CLOSED'].includes(status) ? new Date() : null;
+          events.push({ kind: 'STATUS', message: `Estado cambiado a ${status}.` });
+        }
+      }
+      if (input.priority !== undefined) {
+        const priority = String(input.priority).toUpperCase();
+        if (!['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority)) throw new HttpError(400, 'Prioridad inválida');
+        if (priority !== current.priority) { data.priority = priority; events.push({ kind: 'PRIORITY', message: `Prioridad cambiada a ${priority}.` }); }
+      }
+      if (input.assignedTo !== undefined) {
+        const assignedTo = String(input.assignedTo || '').trim().slice(0, 120) || null;
+        if (assignedTo !== current.assignedTo) { data.assignedTo = assignedTo; events.push({ kind: 'ASSIGNMENT', message: assignedTo ? `Asignado a ${assignedTo}.` : 'Se quitó la asignación.' }); }
+      }
+      if (input.message !== undefined) {
+        const message = String(input.message || '').trim().slice(0, 4000);
+        if (message) events.push({ kind: 'NOTE', message });
+      }
+      const supportCase = await prisma.$transaction(async (tx) => {
+        for (const event of events) await tx.providerSupportCaseEvent.create({ data: { caseId: id, actor: 'Panel FS', ...event } });
+        return tx.providerSupportCase.update({ where: { id }, data, include: { events: { orderBy: { createdAt: 'desc' }, take: 50 } } });
+      });
+      return ok(reply, { supportCase });
+    } catch (error) { return fail(reply, error); }
+  });
+
   app.post('/provider/marketing/brevo', { onRequest: [rateLimit({ max: 180, windowMs: 60_000, keyPrefix: 'provider-brevo-proxy' })] }, async (request, reply) => {
     try {
       requireProviderToken(request);
@@ -319,13 +411,21 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const cloudSyncError = input.cloudSyncError == null ? null : String(input.cloudSyncError).slice(0, 500);
       const portalAccounts = countOrNull(input.portalAccounts);
       const activePortalAccounts = countOrNull(input.activePortalAccounts);
+      let diagnosticsJson: string | null = null;
+      if (input.diagnostics && typeof input.diagnostics === 'object' && !Array.isArray(input.diagnostics)) {
+        diagnosticsJson = JSON.stringify(input.diagnostics);
+        if (diagnosticsJson.length > 20_000) throw new HttpError(413, 'El diagnóstico local supera el tamaño permitido');
+      } else if (input.localDiagnostics && typeof input.localDiagnostics === 'object' && !Array.isArray(input.localDiagnostics)) {
+        diagnosticsJson = JSON.stringify({ localDiagnostics: input.localDiagnostics });
+        if (diagnosticsJson.length > 20_000) throw new HttpError(413, 'El diagnóstico local supera el tamaño permitido');
+      }
       const result = input.commandResult && typeof input.commandResult === 'object'
         ? input.commandResult as Record<string, unknown>
         : null;
       const now = new Date();
       await prisma.desktopHeartbeat.upsert({
         where: { installationId },
-        create: { installationId, appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, cloudSyncConnected, cloudSyncLastAt: parsedSyncAt, cloudSyncError, portalAccounts, activePortalAccounts, lastSeenAt: now },
+        create: { installationId, appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, cloudSyncConnected, cloudSyncLastAt: parsedSyncAt, cloudSyncError, portalAccounts, activePortalAccounts, ...(diagnosticsJson ? { diagnostics: diagnosticsJson, diagnosticsAt: now } : {}), lastSeenAt: now },
         update: {
           appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, lastSeenAt: now,
           ...(input.cloudSyncConnected !== undefined ? { cloudSyncConnected } : {}),
@@ -333,6 +433,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
           ...(input.cloudSyncError !== undefined ? { cloudSyncError } : {}),
           ...(input.portalAccounts !== undefined ? { portalAccounts } : {}),
           ...(input.activePortalAccounts !== undefined ? { activePortalAccounts } : {}),
+          ...(diagnosticsJson ? { diagnostics: diagnosticsJson, diagnosticsAt: now } : {}),
         },
       });
       if (result && typeof result.id === 'string') {
@@ -389,6 +490,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
         pendingCommand: Boolean(row.pendingCommandId),
         lastCommandResult: row.lastCommandResult ? JSON.parse(row.lastCommandResult) : null,
         lastCommandAt: row.lastCommandAt?.toISOString() ?? null,
+        diagnosticsAt: row.diagnosticsAt?.toISOString() ?? null,
       }));
       return ok(reply, {
         generatedAt: new Date().toISOString(),
@@ -424,6 +526,48 @@ export function providerOpsRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post('/provider/desktop/installations/:installationId/diagnostics', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { installationId } = request.params as { installationId: string };
+      if (!/^inst_[a-f0-9]{32}$/i.test(installationId)) throw new HttpError(400, 'ID de instalación inválido');
+      const row = await prisma.desktopHeartbeat.findUnique({ where: { installationId } });
+      if (!row) throw new HttpError(404, 'La instalación todavía no envió una señal al panel');
+      if (Date.now() - row.lastSeenAt.getTime() > 24 * 60 * 60_000) throw new HttpError(409, 'La instalación está sin conexión; la solicitud no puede llegar al equipo');
+      if (row.pendingCommandId) throw new HttpError(409, 'La instalación ya tiene una acción pendiente');
+      const versionParts = row.appVersion.split('.').map((part) => Number(part));
+      const supportsDiagnosticsCommand = versionParts.length >= 3 && (versionParts[0]! > 0 || versionParts[1]! > 3 || versionParts[2]! >= 68);
+      const action = supportsDiagnosticsCommand ? 'diagnostics-now' : 'sync-now';
+      const id = randomUUID();
+      const command = JSON.stringify({ id, action, requestedAt: new Date().toISOString() });
+      const queued = await prisma.desktopHeartbeat.updateMany({
+        where: { installationId, pendingCommandId: null },
+        data: { pendingCommandId: id, pendingCommand: command, lastCommandResult: null, lastCommandAt: null },
+      });
+      if (!queued.count) throw new HttpError(409, 'La instalación ya tiene una acción pendiente');
+      return ok(reply, {
+        queued: true, commandId: id, installationId, action,
+        message: action === 'diagnostics-now'
+          ? 'Diagnóstico local de solo lectura solicitado; se recibirá en la próxima señal.'
+          : `Esta versión (${row.appVersion}) no tiene el comando de diagnóstico. Se encoló un reintento de sincronización compatible para actualizar las señales locales.`,
+      });
+    } catch (error) { return fail(reply, error); }
+  });
+
+  app.get('/provider/desktop/installations/:installationId/diagnostics', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { installationId } = request.params as { installationId: string };
+      const row = await prisma.desktopHeartbeat.findUnique({ where: { installationId }, select: { diagnostics: true, diagnosticsAt: true, appVersion: true, lastSeenAt: true } });
+      if (!row) throw new HttpError(404, 'No hay información de esta instalación');
+      return ok(reply, {
+        installationId, appVersion: row.appVersion, lastSeenAt: row.lastSeenAt.toISOString(),
+        capturedAt: row.diagnosticsAt?.toISOString() ?? null,
+        diagnostics: row.diagnostics ? JSON.parse(row.diagnostics) : null,
+      });
+    } catch (error) { return fail(reply, error); }
+  });
+
   // Diagnóstico local solicitado por el escritorio. Solo responde en una API
   // instalada y exige su secreto local, que nunca sale de ese equipo.
   app.get('/provider/desktop/local-diagnostics', async (request, reply) => {
@@ -432,22 +576,45 @@ export function providerOpsRoutes(app: FastifyInstance) {
       if (!env.LICENSE_INSTALLATION_ID || !env.JWT_SECRET || token !== env.JWT_SECRET) {
         throw new HttpError(403, 'No autorizado');
       }
-      const cloud = await getCloudConfig();
-      const [portalAccounts, activePortalAccounts] = await Promise.all([
-        prisma.portalAccount.count({ where: { organizationId: cloud.orgId } }),
-        prisma.portalAccount.count({ where: { organizationId: cloud.orgId, isActive: true } }),
+      const dbCheck = await prisma.$queryRaw<Array<{ ok: number }>>`SELECT 1 AS ok`
+        .then(() => true).catch(() => false);
+      let cloud: Awaited<ReturnType<typeof getCloudConfig>> | null = null;
+      if (dbCheck) cloud = await getCloudConfig().catch(() => null);
+      const orgId = cloud?.orgId;
+      const [portalAccounts, activePortalAccounts, instructors, instructorUsers, members, recentErrors] = await Promise.all([
+        orgId ? prisma.portalAccount.count({ where: { organizationId: orgId } }).catch(() => null) : Promise.resolve(null),
+        orgId ? prisma.portalAccount.count({ where: { organizationId: orgId, isActive: true } }).catch(() => null) : Promise.resolve(null),
+        orgId ? prisma.instructor.count({ where: { organizationId: orgId } }).catch(() => null) : Promise.resolve(null),
+        orgId ? prisma.user.count({ where: { organizationId: orgId, role: 'INSTRUCTOR', isActive: true } }).catch(() => null) : Promise.resolve(null),
+        orgId ? prisma.member.count({ where: { organizationId: orgId } }).catch(() => null) : Promise.resolve(null),
+        orgId ? prisma.errorLog.findMany({
+          where: { organizationId: orgId, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) } },
+          orderBy: { createdAt: 'desc' }, take: 8,
+          select: { level: true, message: true, path: true, method: true, statusCode: true, createdAt: true },
+        }).catch(() => []) : Promise.resolve([]),
       ]);
-      const lastSuccessfulSync = cloud.lastSyncAt ? new Date(cloud.lastSyncAt).getTime() : 0;
+      const lastSuccessfulSync = cloud?.lastSyncAt ? new Date(cloud.lastSyncAt).getTime() : 0;
       const syncRecent = lastSuccessfulSync > 0 && Date.now() - lastSuccessfulSync <= 30 * 60_000;
       return ok(reply, {
         // SYNC_URL + SYNC_KEY solo prueban que hay configuración. Una señal
         // sana requiere un push reciente confirmado por la API remota.
-        cloudSyncConnected: cloud.connected && syncRecent && !cloud.lastError,
-        cloudSyncLastAt: cloud.lastSyncAt,
-        cloudSyncError: cloud.lastError
-          || (!cloud.url ? 'No hay una dirección de nube configurada' : !cloud.key ? 'Todavía no se obtuvo la clave de sincronización' : !syncRecent ? 'Sin confirmación de sincronización exitosa en los últimos 30 minutos' : null),
+        cloudSyncConnected: Boolean(cloud?.connected && syncRecent && !cloud.lastError),
+        cloudSyncLastAt: cloud?.lastSyncAt ?? null,
+        cloudSyncError: cloud?.lastError
+          || (!dbCheck ? 'La base local no respondió; no se pudo consultar la configuración de nube' : !cloud ? 'No se pudo leer la configuración de nube' : !cloud.url ? 'No hay una dirección de nube configurada' : !cloud.key ? 'Todavía no se obtuvo la clave de sincronización' : !syncRecent ? 'Sin confirmación de sincronización exitosa en los últimos 30 minutos' : null),
         portalAccounts,
         activePortalAccounts,
+        localDiagnostics: {
+          capturedAt: new Date().toISOString(),
+          localApi: { status: 'online', uptimeSeconds: Math.round(process.uptime()), nodeVersion: process.version },
+          database: { status: dbCheck ? 'online' : 'offline', detail: dbCheck ? 'Consulta SELECT 1 correcta' : 'La base local no respondió a SELECT 1' },
+          cloudSync: { status: cloud?.connected && syncRecent && !cloud.lastError ? 'online' : 'attention', lastSuccessAt: cloud?.lastSyncAt ?? null, error: cloud?.lastError || (!dbCheck ? 'No se pudo consultar la configuración de nube' : !syncRecent ? 'Sin sincronización confirmada en los últimos 30 minutos' : null) },
+          records: { members, portalAccounts, activePortalAccounts, instructors, activeInstructorUsers: instructorUsers },
+          recentErrors: recentErrors.map((row) => ({
+            level: row.level, path: row.path, method: row.method, statusCode: row.statusCode, at: row.createdAt.toISOString(),
+            message: row.message.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]').replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]').slice(0, 300),
+          })),
+        },
       });
     } catch (error) {
       return fail(reply, error);

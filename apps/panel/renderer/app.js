@@ -11,6 +11,7 @@ const MODULES = [
   { id: 'facturacion', label: 'Facturación FS', glyph: '$' },
   { id: 'vps', label: 'Infraestructura', glyph: '▣' },
   { id: 'alertas', label: 'Alertas', glyph: '⚑' },
+  { id: 'casos', label: 'Casos de soporte', glyph: '▣' },
   { id: 'correo', label: 'Correo', glyph: '✉' },
   { id: 'whatsapp', label: 'WhatsApp', glyph: '◉' },
   { id: 'marketing', label: 'Marketing', glyph: '✦' },
@@ -753,15 +754,38 @@ async function loadIps() {
   state.cache.ips = { ...(state.cache.ips || {}), items: [...seen.values(), ...downloads].sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()), warning: dl.status === 'rejected' ? `Descargas: ${dl.reason?.message}` : null };
 }
 
+function remoteDiagnosticsHtml(diagnostics) {
+  if (!diagnostics) return '<div class="muted">Todavía no se recibió un diagnóstico remoto de esta instalación.</div>';
+  const local = diagnostics.localDiagnostics || diagnostics;
+  const workstation = diagnostics.workstation || {};
+  const rows = [
+    ['API local', local.localApi?.status === 'online' ? 'responde' : 'sin dato', local.localApi?.uptimeSeconds != null ? `activa hace ${Math.round(local.localApi.uptimeSeconds / 60)} min` : local.localApi?.nodeVersion || ''],
+    ['Base local', local.database?.status === 'online' ? 'responde' : local.database?.status === 'offline' ? 'sin conexión' : 'sin dato', local.database?.detail || ''],
+    ['Nube', local.cloudSync?.status === 'online' ? 'conectada' : local.cloudSync?.status === 'attention' ? 'requiere atención' : 'sin dato', local.cloudSync?.error || (local.cloudSync?.lastSuccessAt ? fmtDate(local.cloudSync.lastSuccessAt) : '')],
+    ['Equipo', workstation.platform || 'sin dato', workstation.architecture || ''],
+    ['Memoria', workstation.freeMemoryMb != null ? `${workstation.freeMemoryMb} MB libres / ${workstation.totalMemoryMb} MB` : 'sin dato', ''],
+    ['Memoria de FIT System', workstation.desktopProcessMemoryMb != null ? `${workstation.desktopProcessMemoryMb} MB` : 'sin dato', ''],
+    ['Datos locales', local.records ? `${local.records.members} socios · ${local.records.portalAccounts} cuentas · ${local.records.instructors} profesores` : 'sin dato', ''],
+  ];
+  const recentErrors = local.recentErrors || [];
+  const desktopLog = diagnostics.desktopLog || [];
+  return `<div class="muted">Informe recibido ${esc(fmtDate(local.capturedAt || diagnostics.capturedAt))}</div><div style="margin-top:5px">${rows.map(([name, state, detail]) => `<div class="muted"><strong>${esc(name)}:</strong> ${esc(state)}${detail ? ` · ${esc(detail)}` : ''}</div>`).join('')}${recentErrors.length ? `<div class="muted" style="margin-top:6px"><strong>Errores de API local (24 h):</strong>${recentErrors.map((error) => `<div>• ${esc(error.level)} · HTTP ${esc(error.statusCode || '—')} · ${esc(error.method || '')} ${esc(error.path || '')} · ${esc(error.message)}</div>`).join('')}</div>` : '<div class="muted" style="margin-top:6px">No se encontraron errores locales de API en 24 h. No descarta errores que no llegaron a registrarse.</div>'}${desktopLog.length ? `<div class="muted" style="margin-top:6px"><strong>Errores recientes de la aplicación:</strong>${desktopLog.map((line) => `<div>• ${esc(line)}</div>`).join('')}</div>` : '<div class="muted" style="margin-top:6px">No se encontraron advertencias recientes de FIT System.</div>'}</div>`;
+}
+
 async function loadOps() {
-  const [systems, downloads, errors, installations, licenses] = await Promise.allSettled([api.opsSystems(), api.opsDownloads(90), api.opsErrors(), api.opsDesktopInstallations(), api.licensadorOverview()]);
+  const [systems, downloads, errors, installations, licenses, releases] = await Promise.allSettled([api.opsSystems(), api.opsDownloads(90), api.opsErrors(), api.opsDesktopInstallations(), api.licensadorOverview(), api.opsReleases()]);
+  const previousDetails = state.cache.ops?.diagnosticDetails || {};
+  const telemetryDetails = state.cache.ops?.telemetryDetails || {};
   state.cache.ops = {
     systems: systems.status === 'fulfilled' ? systems.value : null,
     downloads: downloads.status === 'fulfilled' ? downloads.value : null,
     errors: errors.status === 'fulfilled' ? errors.value : null,
     installations: installations.status === 'fulfilled' ? installations.value : null,
     licenses: licenses.status === 'fulfilled' ? licenses.value : null,
-    errorsList: [systems, downloads, errors, installations, licenses].filter((x) => x.status === 'rejected').map((x) => x.reason?.message || String(x.reason)),
+    releases: releases.status === 'fulfilled' ? releases.value : null,
+    diagnosticDetails: previousDetails,
+    telemetryDetails,
+    errorsList: [systems, downloads, errors, installations, licenses, releases].filter((x) => x.status === 'rejected').map((x) => x.reason?.message || String(x.reason)),
   };
   const clients = (systems.status === 'fulfilled' ? (systems.value?.clients || []) : []);
   state.cache.partnerApps = state.cache.partnerApps || {};
@@ -781,7 +805,9 @@ function opsHtml() {
   const errorsUnavailable = !d.errors;
   const clientRows = (systems.clients || []).map((c) => {
     const license = licenseFor(c, d.licenses?.licenses || []);
-    return `<tr><td><strong>${esc(c.name)}</strong><div class="muted">${esc(c.slug)}</div>${systemExpandedDetails(c, c, license, d.installations?.installations || [], errorRows)}</td><td>${c.isActive ? '<span class="pill ok">activo</span>' : '<span class="pill bad">inactivo</span>'}</td><td>${c.counts?.users ?? 0} usuarios · ${c.counts?.activeMembers ?? 0}/${c.counts?.members ?? 0} socios</td><td>${esc(c.sync?.lastPushAt ? relTime(c.sync.lastPushAt) : 'sin sincronizar')}</td><td>${(c.modules || []).map((m) => `<span class="pill ${m.active ? 'ok' : ''}" title="${esc(m.detail)}">${esc(m.label)}: ${m.active ? 'sí' : 'no'}</span> `).join('')}</td><td>${c.counts?.errors7d ?? 0}</td></tr>`;
+    const telemetry = d.telemetryDetails?.[c.id];
+    const telemetryRows = (telemetry?.events || []).map((event) => `<div class="muted" style="padding:5px 0;border-top:1px solid var(--border)"><strong>${esc(event.eventType === 'screen' ? 'Pantalla abierta' : event.eventType === 'api_error' ? 'Falla de solicitud' : 'Error de pantalla')}</strong> · ${esc(event.source)} · ${esc(fmtDate(event.createdAt))}<div>${esc(event.screen || 'pantalla sin identificar')} · ${esc(event.message)}</div>${event.stack ? `<details><summary>Detalle técnico</summary><pre style="white-space:pre-wrap">${esc(event.stack)}</pre></details>` : ''}</div>`).join('');
+    return `<tr><td><strong>${esc(c.name)}</strong><div class="muted">${esc(c.slug)}</div>${systemExpandedDetails(c, c, license, d.installations?.installations || [], errorRows)}<details style="margin-top:6px"><summary style="cursor:pointer">Actividad y errores de pantallas</summary><button class="btn small" data-client-telemetry="${esc(c.id)}">${telemetry ? 'Actualizar telemetría' : 'Cargar señales'}</button>${telemetry?.error ? `<div class="muted">${esc(telemetry.error)}</div>` : telemetry ? telemetryRows || '<div class="muted">Sin señales de pantalla registradas todavía. Las señales empiezan al actualizar las apps del cliente.</div>' : '<div class="muted">Cargá las señales para ver actividad reciente y fallas informadas por Socios o Profes.</div>'}</details></td><td>${c.isActive ? '<span class="pill ok">activo</span>' : '<span class="pill bad">inactivo</span>'}</td><td>${c.counts?.users ?? 0} usuarios · ${c.counts?.activeMembers ?? 0}/${c.counts?.members ?? 0} socios</td><td>${esc(c.sync?.lastPushAt ? relTime(c.sync.lastPushAt) : 'sin sincronizar')}</td><td>${(c.modules || []).map((m) => `<span class="pill ${m.active ? 'ok' : ''}" title="${esc(m.detail)}">${esc(m.label)}: ${m.active ? 'sí' : 'no'}</span> `).join('')}</td><td>${c.counts?.errors7d ?? 0}</td></tr>`;
   }).join('');
   const installRows = (() => {
     const byId = new Map();
@@ -813,7 +839,9 @@ function opsHtml() {
       const commandResult = hb?.lastCommandResult
         ? `${hb.lastCommandResult.ok ? 'Correcto' : 'Falló'} · ${hb.lastCommandResult.message || 'sin detalle'} · ${hb.lastCommandAt ? fmtDate(hb.lastCommandAt) : ''}`
         : 'Sin acciones remotas recientes';
-      return `<tr><td><strong>${esc(lic?.client || 'Instalación de escritorio')}</strong><div class="muted mono">${esc(id)}</div><details style="margin-top:6px"><summary style="cursor:pointer">Ver detalles</summary><div class="muted" style="padding:6px 0">Asiento: ${activation ? activation.active ? 'ocupado · activación vigente' : 'liberado · activación desactivada' : 'sin activación asociada'} · cupo: ${Number(lic?.seats_used || 0)} / ${Number(lic?.seats || 0) || 'no informado'}<br>Fecha de activación: ${esc(activation?.activated_at ? fmtDate(activation.activated_at) : item.activatedAt ? fmtDate(item.activatedAt) : 'sin datos')} · IP: ${esc(activation?.last_ip || 'sin datos')}<br>Última verificación de licencia: ${esc(licenseSeenAt ? fmtDate(licenseSeenAt) : 'sin dato')}<br>Última señal del escritorio: ${esc(hb?.lastSeenAt ? fmtDate(hb.lastSeenAt) : 'sin señal')} · versión: ${esc(hb?.appVersion || 'sin versión')}<br><strong>Sincronización:</strong> ${esc(desktopSyncStatusText(hb))}<br><strong>Último reintento solicitado:</strong> ${esc(commandResult)}<br><strong>App de socios:</strong> ${partnerAppStatus}</div></details></td><td><span class="pill ${activityClass}">${activity}</span></td><td><span class="pill ${licClass}">${licText}</span>${lic?.plan ? `<div class="muted">${esc(lic.plan)}</div>` : ''}</td><td>${esc(hb?.appVersion || 'sin señal de versión')}</td><td>${esc(hb?.lastSeenAt ? relTime(hb.lastSeenAt) : licenseSeenAt ? `licencia ${relTime(licenseSeenAt)}` : item.activatedAt ? `activada ${fmtDate(item.activatedAt)}` : '—')}</td><td>${partnerClient ? `<button class="btn small" data-partner-app="${esc(partnerClient.id)}">Ver cuentas del cliente</button>` : '<span class="muted">Sin sistema recibido en nube</span>'} ${hb?.active ? `<button class="btn small" data-desktop-sync="${esc(id)}" ${hb.pendingCommand ? 'disabled' : ''}>${hb.pendingCommand ? 'Reintento en cola' : 'Reintentar sincronización'}</button>` : ''} <button class="btn small" data-sync-help="${esc(repairPrompt(lic?.client || 'Instalacion de escritorio', desktopSyncStatusText(hb), 'Revisa la sincronizacion a la nube y el estado de las cuentas.'))}">Diagnosticar sincronización</button></td></tr>`;
+      const diagnostic = d.diagnosticDetails?.[id];
+      const diagnosticReport = remoteDiagnosticsHtml(diagnostic?.diagnostics);
+      return `<tr><td><strong>${esc(lic?.client || 'Instalación de escritorio')}</strong><div class="muted mono">${esc(id)}</div><details style="margin-top:6px"><summary style="cursor:pointer">Ver detalles</summary><div class="muted" style="padding:6px 0">Asiento: ${activation ? activation.active ? 'ocupado · activación vigente' : 'liberado · activación desactivada' : 'sin activación asociada'} · cupo: ${Number(lic?.seats_used || 0)} / ${Number(lic?.seats || 0) || 'no informado'}<br>Fecha de activación: ${esc(activation?.activated_at ? fmtDate(activation.activated_at) : item.activatedAt ? fmtDate(item.activatedAt) : 'sin datos')} · IP: ${esc(activation?.last_ip || 'sin datos')}<br>Última verificación de licencia: ${esc(licenseSeenAt ? fmtDate(licenseSeenAt) : 'sin dato')}<br>Última señal del escritorio: ${esc(hb?.lastSeenAt ? fmtDate(hb.lastSeenAt) : 'sin señal')} · versión: ${esc(hb?.appVersion || 'sin versión')}<br><strong>Sincronización:</strong> ${esc(desktopSyncStatusText(hb))}<br><strong>Última acción remota:</strong> ${esc(commandResult)}<br><strong>Diagnóstico del equipo:</strong> ${diagnostic?.capturedAt ? fmtDate(diagnostic.capturedAt) : 'sin informe remoto consultado'}${diagnostic?.diagnostics ? `<div style="margin-top:6px">${diagnosticReport}</div>` : ''}<br><strong>App de socios:</strong> ${partnerAppStatus}</div></details></td><td><span class="pill ${activityClass}">${activity}</span></td><td><span class="pill ${licClass}">${licText}</span>${lic?.plan ? `<div class="muted">${esc(lic.plan)}</div>` : ''}</td><td>${esc(hb?.appVersion || 'sin señal de versión')}</td><td>${esc(hb?.lastSeenAt ? relTime(hb.lastSeenAt) : licenseSeenAt ? `licencia ${relTime(licenseSeenAt)}` : item.activatedAt ? `activada ${fmtDate(item.activatedAt)}` : '—')}</td><td>${partnerClient ? `<button class="btn small" data-partner-app="${esc(partnerClient.id)}">Ver cuentas del cliente</button>` : '<span class="muted">Sin sistema recibido en nube</span>'} ${hb?.active ? `<button class="btn small" data-desktop-sync="${esc(id)}" ${hb.pendingCommand ? 'disabled' : ''}>${hb.pendingCommand ? 'Acción en cola' : 'Reintentar sincronización'}</button><button class="btn small" data-diag-request="${esc(id)}" ${hb.pendingCommand ? 'disabled' : ''}>${hb.pendingCommand ? 'Diagnóstico en cola' : 'Solicitar diagnóstico local'}</button>` : '<span class="muted">Sin conexión reciente: no se puede pedir un diagnóstico remoto ahora</span>'} <button class="btn small" data-diag-view="${esc(id)}">Ver informe local</button> <button class="btn small" data-sync-help="${esc(repairPrompt(lic?.client || 'Instalacion de escritorio', desktopSyncStatusText(hb), 'Revisa la sincronizacion a la nube y el estado de las cuentas.'))}">Diagnosticar sincronización</button></td></tr>`;
     }).join('');
   })();
   const licenseList = d.licenses?.licenses || [];
@@ -825,11 +853,27 @@ function opsHtml() {
     ...licenseList.flatMap((license) => (license.activations || []).map((activation) => activation.install_id).filter(Boolean)),
   ]);
   const recentInstallations = (d.installations?.installations || []).filter((install) => install.active).length;
+  const latestVersion = String(d.releases?.release?.version || '').replace(/^v/i, '');
+  const versionParts = (value) => String(value || '').replace(/^v/i, '').split('.').map((part) => Number(part) || 0);
+  const isVersionBehind = (value) => {
+    const current = versionParts(value);
+    const latest = versionParts(latestVersion);
+    for (let i = 0; i < 3; i++) { if ((current[i] || 0) < (latest[i] || 0)) return true; if ((current[i] || 0) > (latest[i] || 0)) return false; }
+    return false;
+  };
+  const behindCount = (d.installations?.installations || []).filter((install) => latestVersion && isVersionBehind(install.appVersion)).length;
+  const workflowRows = (d.releases?.workflows || []).slice(0, 8).map((run) => {
+    const state = run.status === 'completed' ? run.conclusion || 'sin resultado' : run.status === 'in_progress' ? 'en curso' : 'en cola';
+    const tone = state === 'success' ? 'ok' : state === 'failure' || state === 'cancelled' ? 'bad' : 'warn';
+    return `<div class="row" style="padding:5px 0"><span>${esc(run.name)} · ${esc(run.sha)}</span><span class="pill ${tone}">${esc(state)}</span><a href="${esc(run.url)}" target="_blank" rel="noreferrer">ver</a></div>`;
+  }).join('');
+  const releaseCard = `<div class="card" style="margin-bottom:14px"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Versiones y publicaciones</h3><span class="muted">consultado ${esc(d.releases?.checkedAt ? fmtDate(d.releases.checkedAt) : '—')}</span></div>${d.releases?.release ? `<div class="row" style="margin-top:8px"><strong>Última release: ${esc(d.releases.release.version)}</strong><span>${esc(d.releases.release.publishedAt ? fmtDate(d.releases.release.publishedAt) : 'sin fecha')}</span><a href="${esc(d.releases.release.url)}" target="_blank" rel="noreferrer">abrir release</a></div><div class="muted">${behindCount} instalación(es) con señal están en una versión anterior a la release. ${d.releases.errors?.length ? `Fuentes con error: ${d.releases.errors.map(esc).join(' · ')}` : ''}</div>` : `<div class="muted">Estado de releases no disponible${d.releases?.errors?.length ? ': ' + d.releases.errors.map(esc).join(' · ') : ''}.</div>`}<div style="margin-top:8px">${workflowRows || '<div class="muted">GitHub no devolvió ejecuciones recientes.</div>'}</div></div>`;
   const downloadRows = (downloads.rows || []).map((r) => `<tr><td>${fmtDate(r.at)}</td><td>${esc(r.asset)}</td><td class="mono">${esc(r.ip || 'sin IP')}</td><td>${esc([r.city, r.country].filter(Boolean).join(', ') || '—')}</td><td>${esc(r.isp || r.source)}</td></tr>`).join('');
   const platform = (systems.platform || []).map((s) => `<span class="pill ${['online', 'local', 'configurado', 'con sesiones', 'habilitada'].includes(s.status) ? 'ok' : ['offline', 'con error'].includes(s.status) ? 'bad' : 'warn'}" title="${esc(s.detail)}">${esc(s.name)} · ${esc(s.status)}${(s.url || {web:'https://fitsystem.com.ar',socios:'https://socios.fitsystem.com.ar',profes:'https://profes.fitsystem.com.ar',fitora:'https://fitora.fitsystem.com.ar',licensador:'https://licensador.fitsystem.com.ar'}[s.id]) ? ` <a href="${esc(s.url || {web:'https://fitsystem.com.ar',socios:'https://socios.fitsystem.com.ar',profes:'https://profes.fitsystem.com.ar',fitora:'https://fitora.fitsystem.com.ar',licensador:s.licensador?.url||'https://licensador.fitsystem.com.ar'}[s.id])}" target="_blank" rel="noreferrer" class="btn small" style="margin-left:6px">Abrir</a>` : ''}<div class="muted">${esc(s.detail)}</div>${['offline', 'con error', 'sin sesiones conectadas'].includes(s.status) ? `<button class="btn small" data-service-help="${esc(repairPrompt(s.name, `${s.name} requiere revisión`, s.detail))}">Diagnosticar solución</button>` : ''}</span>`).join(' ');
   return `<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="muted">Centro de soporte · clientes, instalaciones, cuentas, errores y sincronización</span><button class="btn small" data-ops-reload>Actualizar sistemas</button></div>
   <div class="grid" style="margin-bottom:14px"><div class="card"><div class="stat">${systems.totals?.clients ?? '—'} <small>clientes en nube</small></div><div class="muted">Organizaciones sincronizadas</div></div><div class="card"><div class="stat">${allInstallIds.size} <small>instalaciones / activaciones</small></div><div class="muted">${recentInstallations} con señal de actividad en 24 h · la falta de señal no confirma que el sistema esté apagado</div></div><div class="card"><div class="stat">${seatsUsed} <small>/ ${seatCapacity || '—'} asientos ocupados</small></div><div class="muted">${seatCapacity ? Math.max(0, seatCapacity - seatsUsed) : '—'} disponibles en licencias no revocadas</div></div><div class="card"><div class="stat">${downloads.summary?.total ?? downloads.total ?? '—'} <small>descargas / 90 días</small></div><div class="muted">${downloads.summary?.uniqueIps ?? 0} IP distintas</div></div><div class="card"><div class="stat">${systems.totals?.withErrors ?? '—'} <small>clientes con errores</small></div><div class="muted">Errores recibidos por la nube</div></div></div>
   ${d.errorsList?.length ? `<div class="card muted">Algunas fuentes no respondieron: ${d.errorsList.map(esc).join(' · ')}</div>` : ''}
+  ${releaseCard}
   <div class="card" style="margin-bottom:14px"><h3>Servicios de FIT System</h3>${platform || 'Sin datos'}<div class="muted" style="margin-top:8px">Estado informado por la API; para disponibilidad detallada revisá Diagnóstico e Infraestructura.</div></div>
   <div class="card" style="padding:0;overflow:auto;margin-bottom:14px"><h3 style="padding:16px 16px 0">Sistemas sincronizados en la nube</h3><table><thead><tr><th>Cliente</th><th>Cuenta</th><th>Uso</th><th>Última sincronización</th><th>Módulos</th><th>Errores (7d)</th></tr></thead><tbody>${clientRows || '<tr><td colspan="6">No hay cuentas de cliente sincronizadas en la nube. Revisá las instalaciones y licencias detectadas debajo.</td></tr>'}</tbody></table></div>
   <div class="card" style="padding:0;overflow:auto;margin-bottom:14px"><h3 style="padding:16px 16px 0">Instalaciones de escritorio y licencias (con y sin licencia)</h3><p class="muted" style="padding:0 16px">Actividad confirmada por señal de la aplicación en las últimas 24 h. Las activaciones de licencia se muestran aunque el equipo no haya actualizado para enviar señales.</p><table><thead><tr><th>Cliente / instalación</th><th>Actividad</th><th>Licencia</th><th>Versión</th><th>Última señal / activación</th><th>Acciones</th></tr></thead><tbody>${installRows || '<tr><td colspan="5">Todavía no hay señales de instalaciones ni activaciones registradas.</td></tr>'}</tbody></table></div>
@@ -841,6 +885,53 @@ function opsHtml() {
 async function loadInvoices() {
   const [config, invoices] = await Promise.allSettled([api.invoiceConfig(), api.invoiceList()]);
   state.cache.invoices = { config: config.status === 'fulfilled' ? config.value : null, rows: invoices.status === 'fulfilled' ? invoices.value?.invoices || [] : [], error: [config, invoices].find((x) => x.status === 'rejected')?.reason?.message };
+}
+
+function supportCaseLabel(value) {
+  return ({ OPEN: 'Abierto', IN_PROGRESS: 'En curso', WAITING: 'En espera', RESOLVED: 'Resuelto', CLOSED: 'Cerrado', LOW: 'Baja', NORMAL: 'Normal', HIGH: 'Alta', URGENT: 'Urgente' })[value] || value || '—';
+}
+
+async function loadCases() {
+  const [cases, systems] = await Promise.allSettled([api.supportCasesList(), state.cache.ops?.systems ? Promise.resolve(state.cache.ops.systems) : api.opsSystems()]);
+  if (systems.status === 'fulfilled') state.cache.ops = { ...(state.cache.ops || {}), systems: systems.value };
+  state.cache.cases = cases.status === 'fulfilled' ? { ...cases.value, error: null } : { cases: [], error: cases.reason?.message || String(cases.reason) };
+}
+
+function casesHtml() {
+  const d = state.cache.cases || {};
+  const clientOptions = (state.cache.ops?.systems?.clients || []).map((client) => `<option value="${esc(client.id)}" data-client-name="${esc(client.name)}" data-installation="${esc(client.installationId || '')}">${esc(client.name)}</option>`).join('');
+  const cases = (d.cases || []).map((item) => `<article class="card" style="margin-top:12px" data-case="${esc(item.id)}"><div class="row" style="justify-content:space-between"><div><strong>${esc(item.title)}</strong><div class="muted">${esc(item.clientName || 'Cliente no asociado')}${item.installationId ? ` · instalación ${esc(item.installationId)}` : ''} · creado ${esc(fmtDate(item.createdAt))}</div></div><span class="pill ${item.priority === 'URGENT' || item.priority === 'HIGH' ? 'bad' : item.status === 'RESOLVED' || item.status === 'CLOSED' ? 'ok' : 'warn'}">${esc(supportCaseLabel(item.priority))}</span></div>${item.summary ? `<p style="white-space:pre-wrap">${esc(item.summary)}</p>` : ''}<div class="row" style="align-items:flex-end"><label>Estado<select data-case-status><option value="OPEN" ${item.status === 'OPEN' ? 'selected' : ''}>Abierto</option><option value="IN_PROGRESS" ${item.status === 'IN_PROGRESS' ? 'selected' : ''}>En curso</option><option value="WAITING" ${item.status === 'WAITING' ? 'selected' : ''}>En espera</option><option value="RESOLVED" ${item.status === 'RESOLVED' ? 'selected' : ''}>Resuelto</option><option value="CLOSED" ${item.status === 'CLOSED' ? 'selected' : ''}>Cerrado</option></select></label><label>Prioridad<select data-case-priority><option value="LOW" ${item.priority === 'LOW' ? 'selected' : ''}>Baja</option><option value="NORMAL" ${item.priority === 'NORMAL' ? 'selected' : ''}>Normal</option><option value="HIGH" ${item.priority === 'HIGH' ? 'selected' : ''}>Alta</option><option value="URGENT" ${item.priority === 'URGENT' ? 'selected' : ''}>Urgente</option></select></label><label>Asignado a<input data-case-assignee value="${esc(item.assignedTo || '')}" placeholder="Nombre del responsable" /></label></div><details style="margin-top:8px"><summary>Historial · ${(item.events || []).length} movimiento(s)</summary><div style="padding:8px 0">${(item.events || []).slice().reverse().map((event) => `<div class="muted" style="padding:4px 0;border-bottom:1px solid var(--border)">${esc(fmtDate(event.createdAt))} · ${esc(event.actor)} · ${esc(event.kind)}<div style="white-space:pre-wrap">${esc(event.message)}</div></div>`).join('') || '<div class="muted">Sin movimientos</div>'}</div></details><div class="row" style="margin-top:8px"><input data-case-note placeholder="Agregar nota o resultado de una prueba…" style="flex:1" /><button class="btn primary" data-case-save>Guardar actualización</button></div></article>`).join('');
+  return `${d.error ? `<div class="card muted">No se pudieron cargar los casos: ${esc(d.error)}</div>` : ''}<div class="card"><h3>Abrir caso de soporte</h3><div class="grid"><label>Cliente<select id="case-client"><option value="">Sin organización vinculada</option>${clientOptions}</select></label><label>Instalación<input id="case-installation" placeholder="ID inst_… si no aparece arriba" /></label><label>Prioridad<select id="case-priority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label style="display:block;margin-top:10px">Problema<input id="case-title" placeholder="Ej.: Profes no pueden iniciar sesión" style="width:100%" /></label><label style="display:block;margin-top:10px">Síntoma y evidencia<textarea id="case-summary" rows="4" placeholder="Qué informó el cliente, qué se comprobó y qué falta revisar…" style="width:100%"></textarea></label><button class="btn primary" id="case-create" style="margin-top:8px">Crear caso</button></div><div class="row" style="justify-content:space-between;margin-top:14px"><h3>Seguimiento de soporte</h3><button class="btn small" id="case-refresh">Actualizar casos</button></div>${cases || '<div class="card muted">No hay casos guardados todavía.</div>'}`;
+}
+
+function wireCases(view) {
+  view.querySelector('#case-client')?.addEventListener('change', (event) => {
+    const option = event.target.selectedOptions[0];
+    if (option?.dataset.installation) view.querySelector('#case-installation').value = option.dataset.installation;
+  });
+  view.querySelector('#case-create')?.addEventListener('click', async () => {
+    const select = view.querySelector('#case-client');
+    const option = select.selectedOptions[0];
+    const title = view.querySelector('#case-title').value.trim();
+    if (!title) return toast('Escribí el problema para abrir el caso.', 'err');
+    try {
+      await api.supportCaseCreate({ organizationId: select.value || null, clientName: option?.dataset.clientName || null, installationId: view.querySelector('#case-installation').value.trim() || option?.dataset.installation || null, title, priority: view.querySelector('#case-priority').value, summary: view.querySelector('#case-summary').value.trim() });
+      toast('Caso creado con historial.');
+      await loadCases();
+      renderView();
+    } catch (error) { toast(error.message || String(error), 'err'); }
+  });
+  view.querySelector('#case-refresh')?.addEventListener('click', async () => { await loadCases(); renderView(); });
+  view.querySelectorAll('[data-case-save]').forEach((button) => button.addEventListener('click', async () => {
+    const card = button.closest('[data-case]');
+    button.disabled = true;
+    try {
+      await api.supportCaseUpdate(card.dataset.case, { status: card.querySelector('[data-case-status]').value, priority: card.querySelector('[data-case-priority]').value, assignedTo: card.querySelector('[data-case-assignee]').value, message: card.querySelector('[data-case-note]').value });
+      toast('Caso actualizado y movimiento registrado.');
+      await loadCases();
+      renderView();
+    } catch (error) { toast(error.message || String(error), 'err'); button.disabled = false; }
+  }));
 }
 
 function invoicesHtml() {
@@ -1167,7 +1258,7 @@ async function loadAssistant() {
   }
   try {
     const res = await api.assistantSuggest({ text: '', organizationId: m.organizationId || '' });
-    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions });
+    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions, workflow: res.workflow, workflowPrompt: '', caseDraft: res.client ? { client: res.client, title: `Diagnóstico de ${res.client.name}` } : null });
   } catch (e) {
     m.messages.push({ role: 'bot', text: 'No pude analizar el estado: ' + e.message });
   }
@@ -1179,7 +1270,7 @@ async function assistantSend(text) {
   renderView();
   try {
     const res = await api.assistantSuggest({ text, organizationId: m.organizationId || '' });
-    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions });
+    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions, workflow: res.workflow, workflowPrompt: text, caseDraft: res.client ? { client: res.client, title: text ? `Soporte ${res.client.name}: ${text.slice(0, 110)}` : `Diagnóstico de ${res.client.name}`, message: text } : null });
   } catch (e) {
     m.messages.push({ role: 'bot', text: 'No pude analizarlo: ' + e.message });
   }
@@ -1210,7 +1301,7 @@ function assistantHtml() {
   const msgs = m.messages || [];
   const clientOptions = (m.clients || []).map((client) => `<option value="${esc(client.id)}" ${m.organizationId === client.id ? 'selected' : ''}>${esc(client.name)}</option>`).join('');
   const cards = msgs
-    .map((msg) => {
+    .map((msg, messageIndex) => {
       if (msg.role === 'user')
         return `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><span class="pill" style="background:var(--bg-3);max-width:70%;text-align:right">${esc(msg.text)}</span></div>`;
       const chips = (msg.suggestions || [])
@@ -1223,9 +1314,12 @@ function assistantHtml() {
         msg.output !== undefined
           ? `<pre class="mono" style="margin:8px 0 0;white-space:pre-wrap;max-height:320px;overflow:auto;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px">${esc(msg.output)}</pre>`
           : '';
+      const workflow = msg.workflow ? `<div class="card" style="margin-top:10px;padding:10px"><strong>Procedimiento: ${esc(msg.workflow.title)}</strong><ol style="padding-left:22px;margin:8px 0">${msg.workflow.steps.map((step) => `<li style="padding:3px 0">${esc(step)}</li>`).join('')}</ol>${msg.workflow.syncInstallationId ? `<button class="btn small" data-as-sync="${esc(msg.workflow.syncInstallationId)}">Reintentar sincronización</button> ` : ''}<button class="btn small" data-as-verify="${messageIndex}">Volver a comprobar después del paso</button></div>` : '';
       return `<div style="margin-bottom:14px">
         <div style="white-space:pre-wrap">${esc(msg.text)}</div>
         ${chips ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${chips}</div>` : ''}
+        ${workflow}
+        ${msg.caseDraft ? `<button class="btn small" style="margin-top:8px" data-as-case="${messageIndex}">Guardar diagnóstico como caso</button>` : ''}
         ${out}
       </div>`;
     })
@@ -1264,6 +1358,31 @@ function wireAssistant(view) {
   view.querySelectorAll('[data-as-run]').forEach((btn) =>
     btn.addEventListener('click', () => assistantRunAction(btn.dataset.asRun, btn.dataset.asTitle, btn.dataset.asLevel)),
   );
+  view.querySelectorAll('[data-as-case]').forEach((btn) => btn.addEventListener('click', async () => {
+    const message = state.cache.assistant.messages[Number(btn.dataset.asCase)];
+    if (!message?.caseDraft) return;
+    btn.disabled = true;
+    try {
+      await api.supportCaseCreate({ organizationId: message.caseDraft.client.id, installationId: message.caseDraft.client.installationId, clientName: message.caseDraft.client.name, title: message.caseDraft.title, priority: 'NORMAL', summary: message.text });
+      toast('Diagnóstico guardado como caso de soporte.');
+      state.view = 'casos';
+      renderNav();
+      await renderView();
+    } catch (error) { toast(error.message || String(error), 'err'); btn.disabled = false; }
+  }));
+  view.querySelectorAll('[data-as-verify]').forEach((btn) => btn.addEventListener('click', async () => {
+    const message = state.cache.assistant.messages[Number(btn.dataset.asVerify)];
+    btn.disabled = true;
+    btn.textContent = 'Consultando datos actuales…';
+    await assistantSend(message?.workflowPrompt || '');
+  }));
+  view.querySelectorAll('[data-as-sync]').forEach((btn) => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      const result = await api.opsDesktopSyncRetry(btn.dataset.asSync);
+      toast(result.message || 'Reintento solicitado. Esperá la próxima señal del equipo y volvé a comprobar.');
+    } catch (error) { toast(error.message || String(error), 'err'); btn.disabled = false; }
+  }));
   const stream = view.querySelector('#as-stream');
   if (stream) stream.scrollTop = stream.scrollHeight;
 }
@@ -2148,6 +2267,7 @@ async function renderView() {
     suscripciones: { load: loadSubscriptions, html: subscriptionsHtml, wire: wireSubscriptions },
     licencias: { load: loadLicenses, html: licensesHtml },
     ips: { load: loadIps, html: ipsHtml },
+    casos: { load: loadCases, html: casesHtml, wire: wireCases },
     sistemas: { load: loadOps, html: opsHtml, wire: (v) => {
       v.querySelector('[data-ops-reload]')?.addEventListener('click', async () => { state.cache.ops = null; await renderView(); });
       v.querySelector('[data-ops-enrich]')?.addEventListener('click', async () => { try { const r = await api.opsEnrichDownloads(); toast(`Ubicación completada: ${r.updated ?? 0} IPs`); renderView(); } catch (e) { toast(e.message, 'err'); } });
@@ -2164,6 +2284,37 @@ async function renderView() {
           toast(error.message || String(error), 'err');
           button.disabled = false;
           button.textContent = 'Reintentar sincronización';
+        }
+      }));
+      v.querySelectorAll('[data-diag-request]').forEach((button) => button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          const result = await api.opsDesktopDiagnosticsRequest(button.dataset.diagRequest);
+          toast(result.message || 'Diagnóstico solicitado.');
+          state.cache.ops = null;
+          await renderView();
+        } catch (error) { toast(error.message || String(error), 'err'); button.disabled = false; }
+      }));
+      v.querySelectorAll('[data-diag-view]').forEach((button) => button.addEventListener('click', async () => {
+        button.disabled = true;
+        button.textContent = 'Cargando informe…';
+        try {
+          const result = await api.opsDesktopDiagnosticsGet(button.dataset.diagView);
+          state.cache.ops.diagnosticDetails = state.cache.ops.diagnosticDetails || {};
+          state.cache.ops.diagnosticDetails[button.dataset.diagView] = result;
+          await renderView();
+        } catch (error) { toast(error.message || String(error), 'err'); button.disabled = false; button.textContent = 'Ver informe local'; }
+      }));
+      v.querySelectorAll('[data-client-telemetry]').forEach((button) => button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          state.cache.ops.telemetryDetails = state.cache.ops.telemetryDetails || {};
+          state.cache.ops.telemetryDetails[button.dataset.clientTelemetry] = await api.opsClientTelemetry(button.dataset.clientTelemetry);
+          await renderView();
+        } catch (error) {
+          state.cache.ops.telemetryDetails = state.cache.ops.telemetryDetails || {};
+          state.cache.ops.telemetryDetails[button.dataset.clientTelemetry] = { error: error.message || String(error) };
+          await renderView();
         }
       }));
     } },

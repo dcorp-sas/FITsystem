@@ -42,6 +42,19 @@ export class ApiError extends Error {
   }
 }
 
+function reportClientTelemetry(event: { eventType: 'api_error'; screen?: string; message: string; stack?: string }) {
+  if (typeof window === 'undefined' || !window.localStorage.getItem(TOKEN_KEY)) return;
+  const safe = (value: string) => value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
+    .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+    .slice(0, 1000);
+  void fetch(`${API_URL}/system/client-telemetry`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${window.localStorage.getItem(TOKEN_KEY)}` },
+    body: JSON.stringify({ eventType: event.eventType, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web' }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
+
 type ApiOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
@@ -94,6 +107,9 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       (json && 'message' in json && (json as { message?: string }).message) ||
       (json && 'error' in json && (json as { error?: string }).error) ||
       `Error ${res.status}`;
+    if (res.status >= 400 && res.status !== 401 && res.status !== 402 && !path.startsWith('/system/client-telemetry')) {
+      reportClientTelemetry({ eventType: 'api_error', screen: path.split('?')[0], message: `${method} ${path.split('?')[0]} respondió HTTP ${res.status}: ${message}` });
+    }
     throw new ApiError(res.status, message, json?.details);
   }
   return json?.data as T;

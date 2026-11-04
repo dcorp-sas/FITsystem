@@ -1113,6 +1113,8 @@ model DesktopHeartbeat {
   pendingCommand String?
   lastCommandResult String?
   lastCommandAt DateTime?
+  diagnostics String?
+  diagnosticsAt DateTime?
   firstSeenAt    DateTime @default(now())
   lastSeenAt     DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1337,6 +1339,56 @@ model ProviderHealthIncident {
 
   @@index([status, lastSeenAt])
   @@map("provider_health_incidents")
+}
+
+model ProviderSupportCase {
+  id             String   @id @default(cuid())
+  organizationId String?
+  installationId String?
+  clientName     String?
+  title          String
+  summary        String   @default("")
+  status         String   @default("OPEN")
+  priority       String   @default("NORMAL")
+  assignedTo     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  resolvedAt     DateTime?
+  events         ProviderSupportCaseEvent[]
+
+  @@index([status, updatedAt])
+  @@index([organizationId, updatedAt])
+  @@index([installationId, updatedAt])
+  @@map("provider_support_cases")
+}
+
+model ProviderSupportCaseEvent {
+  id        String   @id @default(cuid())
+  caseId    String
+  actor     String   @default("Panel FS")
+  kind      String   @default("NOTE")
+  message   String
+  createdAt DateTime @default(now())
+  supportCase ProviderSupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+  @@map("provider_support_case_events")
+}
+
+model ClientTelemetryEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  source         String   @default("web")
+  eventType      String   @default("error")
+  screen         String?
+  message        String
+  stack          String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, screen, createdAt])
+  @@map("client_telemetry_events")
 }
 
 /// Comprobantes emitidos por el proveedor por las suscripciones del producto.

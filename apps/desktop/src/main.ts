@@ -394,10 +394,44 @@ async function readLocalDesktopDiagnostics(): Promise<Record<string, unknown> | 
     });
     if (!response.ok) return null;
     const json = (await response.json().catch(() => null)) as { data?: Record<string, unknown> } | null;
-    return json?.data ?? null;
+    return json?.data ? {
+      ...json.data,
+      workstation: {
+        platform: os.platform(),
+        release: os.release(),
+        architecture: os.arch(),
+        freeMemoryMb: Math.round(os.freemem() / 1024 / 1024),
+        totalMemoryMb: Math.round(os.totalmem() / 1024 / 1024),
+        systemUptimeSeconds: Math.round(os.uptime()),
+        desktopProcessMemoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      },
+      desktopLog: recentDesktopWarnings(),
+    } : null;
   } catch {
     return null;
   }
+}
+
+function diagnosticSnapshot(value: Record<string, unknown> | null) {
+  if (!value) return null;
+  return {
+    ...(value.localDiagnostics && typeof value.localDiagnostics === 'object' ? value.localDiagnostics as Record<string, unknown> : {}),
+    workstation: value.workstation,
+    desktopLog: value.desktopLog,
+  };
+}
+
+function recentDesktopWarnings(): string[] {
+  try {
+    return fs.readFileSync(LOG_FILE, 'utf8').split(/\r?\n/)
+      .filter((line) => /(no se pudo|fall[oó]|error|timeout|no responde|api-err)/i.test(line))
+      .slice(-12)
+      .map((line) => line
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
+        .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[ip]')
+        .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+        .slice(0, 350));
+  } catch { return []; }
 }
 
 // Señal mínima de actividad para el centro de diagnóstico del proveedor.
@@ -418,27 +452,33 @@ async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
         licenseStatus: info?.status ?? 'UNKNOWN',
         licenseExpiresAt: info?.expiresAt ?? null,
         ...(diagnostics ?? {}),
+        diagnostics: diagnosticSnapshot(diagnostics),
       }),
       signal: AbortSignal.timeout(5000),
     });
     const result = await response.json().catch(() => null) as { data?: { pendingCommand?: { id?: string; action?: string } | null }; message?: string } | null;
     if (!response.ok) throw new Error(result?.message || `HTTP ${response.status}`);
     const command = result?.data?.pendingCommand;
-    if (command?.id && command.action === 'sync-now') {
+    if (command?.id && ['sync-now', 'diagnostics-now'].includes(String(command.action))) {
       let commandResult: { id: string; ok: boolean; message: string };
-      try {
-        const localResponse = await fetch(`http://127.0.0.1:${API_PORT}/api/provider/desktop/local-support-command`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'x-desktop-diagnostics-token': getApiSecret() },
-          body: JSON.stringify({ action: command.action }),
-          signal: AbortSignal.timeout(60_000),
-        });
-        const localJson = await localResponse.json().catch(() => null) as { message?: string; data?: { action?: string } } | null;
-        if (!localResponse.ok) throw new Error(localJson?.message || `HTTP ${localResponse.status}`);
-        commandResult = { id: command.id, ok: true, message: 'Sincronización enviada y recepción completada' };
-      } catch (error) {
-        commandResult = { id: command.id, ok: false, message: (error as Error).message.slice(0, 500) };
+      if (command.action === 'sync-now') {
+        try {
+          const localResponse = await fetch(`http://127.0.0.1:${API_PORT}/api/provider/desktop/local-support-command`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-desktop-diagnostics-token': getApiSecret() },
+            body: JSON.stringify({ action: command.action }),
+            signal: AbortSignal.timeout(60_000),
+          });
+          const localJson = await localResponse.json().catch(() => null) as { message?: string; data?: { action?: string } } | null;
+          if (!localResponse.ok) throw new Error(localJson?.message || `HTTP ${localResponse.status}`);
+          commandResult = { id: command.id, ok: true, message: 'Sincronización enviada y recepción completada' };
+        } catch (error) {
+          commandResult = { id: command.id, ok: false, message: (error as Error).message.slice(0, 500) };
+        }
+      } else {
+        commandResult = { id: command.id, ok: true, message: 'Diagnóstico local de solo lectura completado' };
       }
+      const updatedDiagnostics = await readLocalDesktopDiagnostics();
       await fetch(`${CLOUD_API_URL}/api/provider/desktop/heartbeat`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -450,6 +490,8 @@ async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
           licensePlan: info?.plan ?? null,
           licenseStatus: info?.status ?? 'UNKNOWN',
           licenseExpiresAt: info?.expiresAt ?? null,
+          ...(updatedDiagnostics ?? {}),
+          diagnostics: diagnosticSnapshot(updatedDiagnostics),
           commandResult,
         }),
         signal: AbortSignal.timeout(5000),

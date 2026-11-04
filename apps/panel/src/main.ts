@@ -261,6 +261,33 @@ async function apiHealth(cfg: PanelConfig) {
   return { status: res.status, ok: res.ok, latencyMs: Date.now() - started };
 }
 
+let githubReleaseCache: { expiresAt: number; value: Record<string, unknown> } | null = null;
+
+async function githubReleaseOverview() {
+  if (githubReleaseCache && githubReleaseCache.expiresAt > Date.now()) return githubReleaseCache.value;
+  const headers = { accept: 'application/vnd.github+json', 'user-agent': 'FIT-System-Panel' };
+  const get = async (url: string) => {
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(12_000) });
+    const body = await response.json().catch(() => null) as Record<string, any> | null;
+    if (!response.ok) throw new Error(response.status === 403 ? 'GitHub limitó las consultas públicas; intentá actualizar más tarde.' : `GitHub respondió HTTP ${response.status}`);
+    return body;
+  };
+  const [releaseResult, runsResult] = await Promise.allSettled([
+    get('https://api.github.com/repos/dcorp-sas/FITsystem/releases/latest'),
+    get('https://api.github.com/repos/dcorp-sas/FITsystem/actions/runs?per_page=20'),
+  ]);
+  const release = releaseResult.status === 'fulfilled' ? releaseResult.value : null;
+  const runs = runsResult.status === 'fulfilled' ? runsResult.value?.workflow_runs || [] : [];
+  const value = {
+    checkedAt: new Date().toISOString(),
+    release: release ? { version: release.tag_name, name: release.name, url: release.html_url, publishedAt: release.published_at, assets: (release.assets || []).map((asset: Record<string, any>) => ({ name: asset.name, size: asset.size, url: asset.browser_download_url })) } : null,
+    workflows: runs.map((run: Record<string, any>) => ({ name: run.name, workflow: run.path, status: run.status, conclusion: run.conclusion, branch: run.head_branch, sha: String(run.head_sha || '').slice(0, 7), createdAt: run.created_at, updatedAt: run.updated_at, url: run.html_url })).slice(0, 20),
+    errors: [releaseResult, runsResult].filter((result) => result.status === 'rejected').map((result) => result.reason?.message || String(result.reason)),
+  };
+  githubReleaseCache = { value, expiresAt: Date.now() + 5 * 60_000 };
+  return value;
+}
+
 /* ------------------------------------------------------------------ */
 /* CRM (leads del sitio) sobre la API del proveedor                    */
 /* ------------------------------------------------------------------ */
@@ -1212,7 +1239,15 @@ async function assistantSuggest(cfg: PanelConfig, input: string | { text?: strin
   const next = suggestions[0];
   if (next) lines.push(`Siguiente paso sugerido: ${next.why}`);
   else if (selectedClient && !clientErrors.length) lines.push('Siguiente paso: describí la pantalla o función afectada; con estos datos no aparece una falla reportada que identifique la causa.');
-  return { reply: lines.join('\n'), suggestions, alerts, client: selectedClient ? { id: selectedClient.id, name: selectedClient.name } : null, evidenceAt: new Date().toISOString() };
+  const workflow = (() => {
+    if (!selectedClient) return null;
+    if (/licencia|activaci[oó]n|vencid/i.test(text)) return { title: 'Revisar licencia', steps: [linkedLicense ? `Estado observado: ${linkedLicense.state || 'sin estado'}; revisá vencimiento y asientos en Licencias.` : 'No se encontró una licencia asociada; buscá el cliente en Licencias y confirmá el ID de instalación.', heartbeat ? `Última validación del equipo: ${heartbeat.lastSeenAt ? new Date(heartbeat.lastSeenAt).toLocaleString('es-AR') : 'sin fecha'}; versión ${heartbeat.appVersion || 'desconocida'}.` : 'No hay latido reciente para confirmar la validación del equipo.', 'Pedile al cliente que reinicie FIT System y compruebe el acceso; después volvé a consultar para confirmar una señal nueva.'] };
+    if (/sincron|nube|datos no aparecen|no actualiza/i.test(text)) return { title: 'Recuperar sincronización', steps: [selectedClient.sync?.lastPushAt ? `Último envío confirmado: ${new Date(selectedClient.sync.lastPushAt).toLocaleString('es-AR')}.` : 'No hay confirmación de envío; tratá el estado como no comprobado.', heartbeat?.cloudSyncError ? `Hallazgo del equipo: ${heartbeat.cloudSyncError}` : `Conectividad informada por escritorio: ${heartbeat?.cloudSyncConnected ? 'conectada' : 'sin confirmación reciente'}.`, 'Si el equipo está en línea, ejecutá “Reintentar sincronización” en Sistemas; esperá su próxima señal y actualizá el diagnóstico.', 'Comprobá que el cliente y sus datos recientes aparezcan en Sistemas activos y que no haya errores nuevos.'], syncInstallationId: installationId || null };
+    if (/profe|profesor|instructor|clase/i.test(text)) return { title: 'Revisar Portal de Profes', steps: [portal?.profes?.summary ? `${portal.profes.summary.activeUsers}/${portal.profes.summary.users} usuarios y ${portal.profes.summary.activeInstructors}/${portal.profes.summary.instructors} profesores activos.` : 'No se pudo comprobar el inventario de Profes; volvé a cargar Sistemas activos.', 'Confirmá que la cuenta esté activa y vinculada al perfil del profesor correcto.', 'Revisá que el profesor tenga clases activas asignadas y que pueda entrar al portal.', 'Tras cualquier cambio, pedí al profesor que vuelva a entrar y actualizá el diagnóstico para revisar errores recientes.'] };
+    if (/socio|app|portal|acceso|cuenta|login|contrase/i.test(text)) return { title: 'Revisar acceso de Socios', steps: [portal?.summary ? `${portal.summary.active}/${portal.summary.total} cuentas activas; ${portal.summary.neverLoggedIn} nunca inició sesión.` : 'No se pudo comprobar el inventario de Socios; volvé a cargar Sistemas activos.', 'Identificá la cuenta exacta por correo, nombre o código; confirmá que esté activa y vinculada al socio correcto.', 'Probá el acceso en el mismo dispositivo del socio y anotá el mensaje exacto; restablecé la clave solo si confirma un error de credenciales.', 'Después del cambio, pedile que vuelva a iniciar sesión y actualizá el diagnóstico para confirmar el último acceso o detectar errores nuevos.'] };
+    return { title: 'Aislar el problema informado', steps: ['Confirmá el cliente y el módulo afectado (escritorio, Socios o Profes).', 'Registrá pantalla, hora, usuario afectado y texto exacto del error en el caso de soporte.', 'Revisá la telemetría reciente del cliente y ejecutá solo la comprobación correspondiente al módulo.', 'Aplicá un cambio a la vez y volvé a consultar para confirmar si desapareció el síntoma.'] };
+  })();
+  return { reply: lines.join('\n'), suggestions, alerts, workflow, client: selectedClient ? { id: selectedClient.id, name: selectedClient.name, installationId: installationId || null } : null, evidenceAt: new Date().toISOString() };
 }
 
 async function assistantRun(cfg: PanelConfig, id: string) {
@@ -1409,6 +1444,13 @@ function registerIpc() {
   handle('panel:ops:portal-toggle', (organizationId: string, accountId: string, active: boolean) => providerOps(readConfig(), 'systems/' + encodeURIComponent(organizationId) + '/portal/' + encodeURIComponent(accountId) + '/toggle', { method: 'POST', body: { active } }));
   handle('panel:ops:desktop-installations', () => providerOps(readConfig(), 'desktop/installations'));
   handle('panel:ops:desktop-sync-retry', (installationId: string) => providerOps(readConfig(), `desktop/installations/${encodeURIComponent(installationId)}/sync`, { method: 'POST', body: {} }));
+  handle('panel:ops:desktop-diagnostics-request', (installationId: string) => providerOps(readConfig(), `desktop/installations/${encodeURIComponent(installationId)}/diagnostics`, { method: 'POST', body: {} }));
+  handle('panel:ops:desktop-diagnostics-get', (installationId: string) => providerOps(readConfig(), `desktop/installations/${encodeURIComponent(installationId)}/diagnostics`));
+  handle('panel:ops:releases', () => githubReleaseOverview());
+  handle('panel:ops:client-telemetry', (organizationId: string) => providerOps(readConfig(), `clients/${encodeURIComponent(organizationId)}/telemetry`));
+  handle('panel:support:cases:list', () => providerOps(readConfig(), 'support/cases'));
+  handle('panel:support:cases:create', (input: unknown) => providerOps(readConfig(), 'support/cases', { method: 'POST', body: input }));
+  handle('panel:support:cases:update', (id: string, input: unknown) => providerOps(readConfig(), `support/cases/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }));
   handle('panel:ops:downloads', (days = 90) => providerOps(readConfig(), `downloads?days=${encodeURIComponent(String(days))}`));
   handle('panel:ops:enrich-downloads', (limit = 100) => providerOps(readConfig(), 'downloads/enrich', { method: 'POST', body: { limit } }));
   handle('panel:ops:errors', () => providerOps(readConfig(), 'errors'));
