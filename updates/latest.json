@@ -1,6 +1,6 @@
 {
-  "version": "0.3.66",
+  "version": "0.3.67",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El Panel FS ahora muestra la última verificación de cada licencia, incluso si el escritorio no envía latidos. Se corrigió la ventana que impedía a la API revalidar licencias en el Licensador y se conserva esa señal en los respaldos remotos.",
+  "notes": "El asistente del Panel FS ahora diagnostica con información actual del cliente seleccionado: licencia, sincronización, latidos, módulos, errores, cuentas de socios y usuarios de profesores. Distingue los datos ausentes de un estado correcto. El Panel de Windows incorpora el icono corporativo FIT System en varios tamaños y su identidad propia en la barra de tareas.",
   "mandatory": false
 }

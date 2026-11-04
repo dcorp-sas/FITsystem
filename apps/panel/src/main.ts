@@ -13,6 +13,8 @@ const { Client: SshClient } = require('ssh2') as typeof import('ssh2');
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
+if (process.platform === 'win32') app.setAppUserModelId('com.dcorp.fitsystem.panel');
+
 /* ------------------------------------------------------------------ */
 /* Config del Panel (credenciales del proveedor)                       */
 /* ------------------------------------------------------------------ */
@@ -1075,29 +1077,142 @@ function suggestedFromAlerts(alerts: AlertItem[]): AssistantAction[] {
     .slice(0, 4);
 }
 
-async function assistantSuggest(cfg: PanelConfig, text: string) {
-  let alerts: AlertItem[] = [];
-  try {
-    alerts = (await runAlerts(cfg)).alerts;
-  } catch {
-    alerts = [];
-  }
-  const fromText = matchActions(text);
-  const fromAlerts = suggestedFromAlerts(alerts);
-  const seen = new Set<string>();
-  const suggestions = [...fromText, ...fromAlerts]
-    .filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)))
-    .slice(0, 5)
-    .map((a) => ({ id: a.id, title: a.title, why: a.why, level: a.level }));
+async function assistantSuggest(cfg: PanelConfig, input: string | { text?: string; organizationId?: string }) {
+  const text = typeof input === 'string' ? input : String(input?.text || '');
+  const requestedOrganizationId = typeof input === 'string' ? '' : String(input?.organizationId || '');
+  const [healthResult, systemsResult, errorsResult, installationsResult, licensesResult] = await Promise.allSettled([
+    runAlerts(cfg),
+    providerOps<{ clients?: Array<Record<string, any>>; platform?: Array<Record<string, any>> }>(cfg, 'systems'),
+    providerOps<{ errors?: Array<Record<string, any>> }>(cfg, 'errors?limit=100'),
+    providerOps<{ installations?: Array<Record<string, any>> }>(cfg, 'desktop/installations'),
+    licensadorApi<{ licenses?: Array<Record<string, any>> }>(cfg, '/api/licenses'),
+  ]);
+  const alerts = healthResult.status === 'fulfilled' ? healthResult.value.alerts : [];
+  const clients = systemsResult.status === 'fulfilled' ? systemsResult.value.clients || [] : [];
+  const platform = systemsResult.status === 'fulfilled' ? systemsResult.value.platform || [] : [];
+  const errors = errorsResult.status === 'fulfilled' ? errorsResult.value.errors || [] : [];
+  const installations = installationsResult.status === 'fulfilled' ? installationsResult.value.installations || [] : [];
+  const licenses = licensesResult.status === 'fulfilled' ? licensesResult.value.licenses || [] : [];
+  const normalized = (value: unknown) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const query = normalized(text);
+  const selectedClient = clients.find((client) => client.id === requestedOrganizationId)
+    || clients.filter((client) => normalized(client.name).length >= 3 && query.includes(normalized(client.name)))
+      .sort((a, b) => normalized(b.name).length - normalized(a.name).length)[0];
+  const specificCustomerProblem = /cliente|gimnasio|socio|profes|profesor|sistema|licencia|sincron|portal|app/i.test(text);
+  const [portalResult] = selectedClient
+    ? await Promise.allSettled([providerOps<Record<string, any>>(cfg, `systems/${encodeURIComponent(selectedClient.id)}/portal`)] as const)
+    : [null];
+  const portal = portalResult?.status === 'fulfilled' ? portalResult.value : null;
+  const clientErrors = selectedClient ? (portal?.errors || errors.filter((error) => error.organizationId === selectedClient.id)) : [];
+  const installationId = selectedClient?.installationId || selectedClient?.sync?.installationId;
+  const heartbeat = installationId ? installations.find((item) => item.installationId === installationId) : null;
+  const linkedLicense = licenses.find((license) => license.activations?.some((activation: Record<string, any>) => activation.install_id === installationId))
+    || licenses.find((license) => normalized(license.client) === normalized(selectedClient?.name));
+  const matchedActions = matchActions(text);
+  const suggestions = (() => {
+    const candidates = [...matchedActions.filter((action) => !selectedClient || action.id !== 'logs-socios'), ...suggestedFromAlerts(alerts)];
+    const seen = new Set<string>();
+    const available = candidates.filter((action): action is AssistantAction => Boolean(action));
+    return available.filter((action) => !seen.has(action.id) && Boolean(seen.add(action.id)))
+      .slice(0, 4).map(({ id, title, why, level }) => ({ id, title, why, level }));
+  })();
 
-  const crits = alerts.filter((a) => a.level === 'crit');
-  const warns = alerts.filter((a) => a.level === 'warn');
-  const reply = crits.length
-    ? `Hay ${crits.length} incidencia(s) crítica(s): ${crits.map((c) => c.title).join(' · ')}`
-    : warns.length
-      ? `Todo responde, pero hay ${warns.length} aviso(s): ${warns.map((w) => w.title).join(' · ')}`
-      : 'Todo en orden: sitio, API, Brevo y VPS responden bien.';
-  return { reply, suggestions, alerts };
+  const lines: string[] = [];
+  if (selectedClient) {
+    lines.push(`Diagnóstico de ${selectedClient.name}:`);
+    if (selectedClient.isActive === false) lines.push('• La organización figura desactivada en la nube.');
+    const syncError = selectedClient.sync?.lastError;
+    if (syncError) lines.push(`• Sincronización con error: ${syncError}`);
+    else if (selectedClient.sync?.lastPushAt) lines.push(`• Última sincronización confirmada: ${new Date(selectedClient.sync.lastPushAt).toLocaleString('es-AR')}.`);
+    else lines.push('• No hay una sincronización confirmada para esta organización.');
+    if (heartbeat) {
+      lines.push(`• Escritorio ${heartbeat.active ? 'con señal reciente' : 'sin señal en las últimas 24 h'} · versión ${heartbeat.appVersion || 'desconocida'}.`);
+      lines.push(heartbeat.cloudSyncConnected ? '• El escritorio informa sincronización con la nube conectada.' : `• El escritorio informa sincronización desconectada${heartbeat.cloudSyncError ? `: ${heartbeat.cloudSyncError}` : '.'}`);
+    } else if (installationId) lines.push('• No se recibió latido reciente del escritorio; no puedo confirmar su versión ni estado actual.');
+    else lines.push('• Esta organización no está asociada a un ID de instalación de escritorio.');
+    if (linkedLicense) {
+      const activation = linkedLicense.activations?.find((item: Record<string, any>) => item.install_id === installationId);
+      lines.push(`• Licencia ${linkedLicense.state === 'revoked' ? 'revocada' : Number(linkedLicense.expires) < Date.now() ? 'vencida' : 'vigente'} · verificada ${activation?.last_seen_at ? new Date(activation.last_seen_at).toLocaleString('es-AR') : 'sin fecha de contacto registrada'}.`);
+    } else lines.push('• No encontré una licencia del Licensador asociada a esta instalación.');
+    const moduleRows = (selectedClient.modules || []).map((module: Record<string, any>) => `  – ${module.label}: ${module.detail || (module.active ? 'activo' : 'inactivo')}`).join('\n');
+    if (moduleRows) lines.push(`• Estado informado por módulos:\n${moduleRows}`);
+    const serviceChecks = healthResult.status === 'fulfilled' ? healthResult.value.checks.filter((check) => /App de socios|Portal de Profes/.test(check.name)) : [];
+    if (serviceChecks.length) lines.push(`• Disponibilidad general de los portales (no prueba una cuenta concreta): ${serviceChecks.map((check) => `${check.name}: ${check.status === 'ok' ? 'responde' : check.status === 'skip' ? 'sin comprobar' : 'requiere atención'} (${check.detail})`).join(' · ')}`);
+    if (portal?.summary) {
+      lines.push(`• Socios: ${portal.summary.active}/${portal.summary.total} cuentas activas; ${portal.summary.neverLoggedIn} nunca inició sesión; ${portal.summary.pushDevices} dispositivos con notificaciones.`);
+      lines.push(`• Profes: ${portal.profes?.summary?.activeUsers}/${portal.profes?.summary?.users} usuarios activos; ${portal.profes?.summary?.activeInstructors}/${portal.profes?.summary?.instructors} profesores activos; ${portal.profes?.summary?.activeClasses} clases activas.`);
+      if (/socio|portal|app|login|acceso|contrase|notificacion|push/i.test(text)) {
+        if (!portal.summary.total) lines.push('• Señal a investigar: este cliente no tiene cuentas de Socios creadas.');
+        else if (!portal.summary.active) lines.push('• Señal a investigar: todas las cuentas de Socios están desactivadas.');
+        if (portal.summary.neverLoggedIn) lines.push(`• ${portal.summary.neverLoggedIn} cuenta(s) de Socios nunca registraron un inicio de sesión.`);
+        if (/notificacion|push/i.test(text) && !portal.summary.pushDevices) lines.push('• No hay dispositivos registrados para notificaciones push en las cuentas de Socios.');
+      }
+      if (/profe|profesor|clase|instructor/i.test(text)) {
+        if (!portal.profes?.summary?.activeUsers) lines.push('• Señal a investigar: no hay usuarios activos del Portal de Profes.');
+        if (!portal.profes?.summary?.activeInstructors) lines.push('• Señal a investigar: no hay profesores activos asociados al cliente.');
+        if (!portal.profes?.summary?.activeClasses) lines.push('• Señal a investigar: el cliente no tiene clases activas para mostrar en el portal.');
+      }
+      if (/socio|cuenta|login|ingres|acceso|activar|contrase/i.test(text) && portal.accounts?.length) {
+        const matches = portal.accounts.filter((account: Record<string, any>) => {
+          const memberName = `${account.member?.firstName || ''} ${account.member?.lastName || ''}`;
+          const searchable = [account.email, account.member?.memberCode, memberName].map(normalized).filter(Boolean);
+          return searchable.some((value) => value.length >= 3 && query.includes(value));
+        }).slice(0, 3);
+        if (matches.length) {
+          lines.push('• Cuentas que coinciden con el nombre/correo mencionado:');
+          for (const account of matches) {
+            const memberName = `${account.member?.firstName || ''} ${account.member?.lastName || ''}`.trim();
+            const devices = Number(account._count?.pushTokens || 0) + Number(account._count?.webPushSubscriptions || 0);
+            lines.push(`  – ${memberName || account.email}: ${account.isActive ? 'activa' : 'desactivada'}${account.activationPending ? ' · activación pendiente' : ''} · último acceso ${account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleString('es-AR') : 'nunca'} · ${devices} dispositivo(s) push.`);
+          }
+        } else if (/cuenta|socio|login|ingres|acceso|activar|contrase/i.test(text)) {
+          lines.push('• No pude identificar una cuenta concreta con ese mensaje. Indicá el correo, nombre o código del socio para revisar su estado de acceso.');
+        }
+      }
+      if (/profe|profesor|instructor|cuenta|login|ingres|acceso/i.test(text) && portal.profes?.users?.length) {
+        const matches = portal.profes.users.filter((user: Record<string, any>) => {
+          const searchable = [user.email, user.name, user.instructor?.name].map(normalized).filter(Boolean);
+          return searchable.some((value) => value.length >= 3 && query.includes(value));
+        }).slice(0, 3);
+        if (matches.length) {
+          lines.push('• Usuarios de Profes que coinciden con el nombre/correo mencionado:');
+          for (const user of matches) lines.push(`  – ${user.name || user.email}: ${user.isActive ? 'usuario activo' : 'usuario desactivado'}${user.instructor ? ` · profesor ${user.instructor.isActive ? 'activo' : 'desactivado'}` : ' · sin perfil de profesor asociado'} · último acceso ${user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('es-AR') : 'nunca'}.`);
+        } else if (/profe|profesor|instructor/i.test(text) && /cuenta|login|ingres|acceso/i.test(text)) {
+          lines.push('• No pude identificar al usuario de Profes. Indicá su correo o nombre y reviso su acceso y perfil asociado.');
+        }
+      }
+    } else if (portalResult?.status === 'rejected') lines.push(`• No pude abrir el detalle de Socios/Profes: ${portalResult.reason?.message || 'error de consulta'}.`);
+    if (clientErrors.length) {
+      lines.push(`• Errores registrados de este cliente: ${clientErrors.length}. Los más recientes:`);
+      for (const error of clientErrors.slice(0, 3)) lines.push(`  – ${error.createdAt ? new Date(error.createdAt).toLocaleString('es-AR') : 'fecha desconocida'} · HTTP ${error.statusCode || '—'} · ${error.method || ''} ${error.path || ''} · ${error.message}`);
+    } else lines.push('• No hay errores reportados por este cliente en el registro consultado; eso no descarta fallas que no llegaron a la API.');
+    if (specificCustomerProblem && !/socio|portal|profes|profesor|acceso|cuenta/i.test(text)) lines.push('• Para precisar el incidente, indicá qué función falla y el mensaje exacto que aparece.');
+  } else {
+    lines.push('Diagnóstico general del Panel FS:');
+    if (healthResult.status === 'fulfilled') {
+      const badChecks = healthResult.value.checks.filter((check) => check.status === 'fail' || check.status === 'warn');
+      const unknownChecks = healthResult.value.checks.filter((check) => check.status === 'skip');
+      lines.push(badChecks.length
+        ? `• Hallazgos que requieren atención: ${badChecks.map((check) => `${check.name} (${check.detail})`).join(' · ')}`
+        : '• No encontré fallas o avisos en las comprobaciones ejecutadas.');
+      if (unknownChecks.length) lines.push(`• No comprobado: ${unknownChecks.map((check) => check.name).join(', ')}. No lo considero “en orden”.`);
+    } else lines.push(`• No pude completar las comprobaciones de salud: ${healthResult.reason?.message || 'error desconocido'}.`);
+    lines.push(`• Clientes en nube: ${clients.length}; instalaciones con latido: ${installations.length}; errores consultados: ${errors.length}.`);
+    if (specificCustomerProblem && clients.length) lines.push('• Para analizar una incidencia de cliente, elegilo en “Cliente afectado” o mencioná su nombre en el mensaje.');
+    if (systemsResult.status === 'rejected') lines.push(`• Inventario de clientes no disponible: ${systemsResult.reason?.message || 'error de consulta'}.`);
+  }
+
+  const sourceErrors = [
+    systemsResult.status === 'rejected' && 'inventario de clientes',
+    errorsResult.status === 'rejected' && 'errores de clientes',
+    installationsResult.status === 'rejected' && 'latidos de escritorio',
+    licensesResult.status === 'rejected' && 'Licensador',
+  ].filter(Boolean);
+  if (sourceErrors.length) lines.push(`• Fuentes no disponibles: ${sourceErrors.join(', ')}.`);
+  const next = suggestions[0];
+  if (next) lines.push(`Siguiente paso sugerido: ${next.why}`);
+  else if (selectedClient && !clientErrors.length) lines.push('Siguiente paso: describí la pantalla o función afectada; con estos datos no aparece una falla reportada que identifique la causa.');
+  return { reply: lines.join('\n'), suggestions, alerts, client: selectedClient ? { id: selectedClient.id, name: selectedClient.name } : null, evidenceAt: new Date().toISOString() };
 }
 
 async function assistantRun(cfg: PanelConfig, id: string) {

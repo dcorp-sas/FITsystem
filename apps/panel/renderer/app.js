@@ -1159,7 +1159,14 @@ async function loadAssistant() {
   const m = (state.cache.assistant = state.cache.assistant || { messages: [] });
   if (m.messages.length) return;
   try {
-    const res = await api.assistantSuggest('');
+    const systems = await api.opsSystems();
+    m.clients = systems.clients || [];
+  } catch (e) {
+    m.clients = [];
+    m.loadError = e.message;
+  }
+  try {
+    const res = await api.assistantSuggest({ text: '', organizationId: m.organizationId || '' });
     m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions });
   } catch (e) {
     m.messages.push({ role: 'bot', text: 'No pude analizar el estado: ' + e.message });
@@ -1168,10 +1175,10 @@ async function loadAssistant() {
 
 async function assistantSend(text) {
   const m = (state.cache.assistant = state.cache.assistant || { messages: [] });
-  m.messages.push({ role: 'user', text });
+  if (text) m.messages.push({ role: 'user', text });
   renderView();
   try {
-    const res = await api.assistantSuggest(text);
+    const res = await api.assistantSuggest({ text, organizationId: m.organizationId || '' });
     m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions });
   } catch (e) {
     m.messages.push({ role: 'bot', text: 'No pude analizarlo: ' + e.message });
@@ -1201,6 +1208,7 @@ Esta acción modifica el servidor. Asegurate de saber qué hace antes de continu
 function assistantHtml() {
   const m = state.cache.assistant || {};
   const msgs = m.messages || [];
+  const clientOptions = (m.clients || []).map((client) => `<option value="${esc(client.id)}" ${m.organizationId === client.id ? 'selected' : ''}>${esc(client.name)}</option>`).join('');
   const cards = msgs
     .map((msg) => {
       if (msg.role === 'user')
@@ -1216,23 +1224,35 @@ function assistantHtml() {
           ? `<pre class="mono" style="margin:8px 0 0;white-space:pre-wrap;max-height:320px;overflow:auto;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px">${esc(msg.output)}</pre>`
           : '';
       return `<div style="margin-bottom:14px">
-        <div>${esc(msg.text)}</div>
+        <div style="white-space:pre-wrap">${esc(msg.text)}</div>
         ${chips ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${chips}</div>` : ''}
         ${out}
       </div>`;
     })
     .join('');
   return `<div class="card" style="padding:14px">
+      <div class="row" style="margin-bottom:10px"><label for="as-client"><strong>Cliente afectado</strong></label><select id="as-client" style="min-width:240px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"><option value="">Toda la empresa</option>${clientOptions}</select><button class="btn small" type="button" id="as-refresh">Actualizar diagnóstico</button></div>
       <div id="as-stream" style="min-height:240px;max-height:480px;overflow:auto">${cards || '<div class="muted">Consultando el estado…</div>'}</div>
       <form id="as-form" style="display:flex;gap:8px;margin-top:12px">
-        <input id="as-input" type="text" placeholder="Describí el problema…" style="flex:1;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:8px 11px;color:var(--text)" />
+        <input id="as-input" type="text" placeholder="Contá qué falla y qué mensaje aparece…" style="flex:1;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:8px 11px;color:var(--text)" />
         <button class="btn primary" type="submit">Consultar</button>
       </form>
     </div>
-    <p class="muted" style="margin-top:10px">⚠ = acción que modifica el VPS y pide confirmación. Es un catálogo cerrado: nunca se ejecuta un comando arbitrario.</p>`;
+    <p class="muted" style="margin-top:10px">El diagnóstico consulta información actual de la nube, la licencia, los errores y el cliente seleccionado. Si una fuente no responde o un dato no se reportó, lo indica como no comprobado. ⚠ = acción que modifica el VPS y pide confirmación.</p>`;
 }
 
 function wireAssistant(view) {
+  view.querySelector('#as-client')?.addEventListener('change', async (event) => {
+    const m = state.cache.assistant;
+    m.organizationId = event.target.value;
+    m.messages = [];
+    await assistantSend('');
+  });
+  view.querySelector('#as-refresh')?.addEventListener('click', async () => {
+    const m = state.cache.assistant;
+    m.messages = [];
+    await assistantSend('');
+  });
   view.querySelector('#as-form')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const input = view.querySelector('#as-input');
