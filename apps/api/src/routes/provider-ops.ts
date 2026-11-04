@@ -880,10 +880,13 @@ export function providerOpsRoutes(app: FastifyInstance) {
       requireProviderToken(request);
       const { organizationId } = request.params as { organizationId: string };
       const providerId = await providerOrgId();
-      const organization = organizationId === providerId ? null : await prisma.organization.findFirst({
-        where: { id: organizationId, NOT: { slug: { startsWith: '__' } } },
+      const organizationRecord = organizationId === providerId ? null : await prisma.organization.findFirst({
+        where: { id: organizationId },
         select: { id: true, name: true, slug: true, isActive: true },
       });
+      // Do not use startsWith('__') in Prisma: PostgreSQL treats '_' in LIKE
+      // patterns as a wildcard, which would reject ordinary customer slugs.
+      const organization = organizationRecord?.slug.startsWith('__') ? null : organizationRecord;
       if (!organization) return reply.code(404).send({ ok: false, error: 'Cliente no encontrado' });
 
       const [accounts, totalAccounts, activeAccounts, neverLoggedIn, pushDevices, webPushDevices,
