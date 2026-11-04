@@ -1,6 +1,6 @@
 {
-  "version": "0.3.65",
+  "version": "0.3.66",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Fix provider panel portal account details for customer organizations.",
+  "notes": "El Panel FS ahora muestra la última verificación de cada licencia, incluso si el escritorio no envía latidos. Se corrigió la ventana que impedía a la API revalidar licencias en el Licensador y se conserva esa señal en los respaldos remotos.",
   "mandatory": false
 }

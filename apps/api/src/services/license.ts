@@ -279,7 +279,7 @@ export async function activateLicense(installationId: string, licenseKey: string
   return license;
 }
 
-/* Revalidación silenciosa: cada 15 días consulta el Licensador; si el asiento
+/* Revalidación silenciosa: cada 3 horas consulta el Licensador; si el asiento
    fue revocado, suspende la licencia. Sin internet, se conserva la copia local. */
 async function maybeRevalidate(license: {
   id: string;
@@ -315,6 +315,7 @@ async function maybeRevalidate(license: {
     }
   } catch {
     /* sin internet: se conserva la licencia local hasta el vencimiento */
+    await prisma.license.update({ where: { id: license.id }, data: { lastCheckAt: new Date() } }).catch(() => {});
   }
 }
 
@@ -334,9 +335,10 @@ export async function validateLicense(
 
   const updated = await prisma.license.update({
     where: { id: license.id },
-    data: { status, lastCheckAt: new Date(), ...(licenseKey ? { licenseKey } : {}) },
+    data: { status, ...(licenseKey ? { licenseKey } : {}) },
   });
 
+  // lastCheckAt marca el último intento remoto, no cada validación local.
   await maybeRevalidate(updated);
 
   const fresh = await prisma.license.findUnique({ where: { id: license.id } });

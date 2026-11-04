@@ -117,10 +117,15 @@ CREATE TABLE IF NOT EXISTS licenses(
 );
 CREATE TABLE IF NOT EXISTS activations(
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, install_id TEXT, sede TEXT,
-  last_ip TEXT, activated_at INTEGER, active INTEGER DEFAULT 1
+  last_ip TEXT, activated_at INTEGER, active INTEGER DEFAULT 1, last_seen_at INTEGER
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_activation ON activations(key, install_id);
 `);
+// Migración compatible con la base persistente existente del Licensador.
+const activationColumns = db.prepare('PRAGMA table_info(activations)').all();
+if (!activationColumns.some((column) => column.name === 'last_seen_at')) {
+  db.exec('ALTER TABLE activations ADD COLUMN last_seen_at INTEGER');
+}
 
 const sessions = new Map();
 function auth(token) {
@@ -218,7 +223,7 @@ function listLicenses() {
     .all()
     .map((r) => {
       const activations = db
-        .prepare('SELECT install_id, sede, last_ip, activated_at, active FROM activations WHERE key=? ORDER BY activated_at DESC')
+        .prepare('SELECT install_id, sede, last_ip, activated_at, active, last_seen_at FROM activations WHERE key=? ORDER BY activated_at DESC')
         .all(r.key);
       return {
         key: r.key,
@@ -237,6 +242,7 @@ function listLicenses() {
           last_ip: a.last_ip || '',
           activated_at: a.activated_at,
           active: !!a.active,
+          last_seen_at: a.last_seen_at ?? null,
         })),
       };
     });
@@ -255,7 +261,7 @@ function backupSnapshot() {
     version: 1,
     exported_at: new Date().toISOString(),
     licenses: db.prepare('SELECT key,client,plan,days,seats,notas,issued_at,expires,state FROM licenses').all(),
-    activations: db.prepare('SELECT key,install_id,sede,last_ip,activated_at,active FROM activations').all(),
+    activations: db.prepare('SELECT key,install_id,sede,last_ip,activated_at,active,last_seen_at FROM activations').all(),
   };
 }
 function writeLatestBackup() {
@@ -344,11 +350,12 @@ function restoreSnapshot(obj) {
         Number(r.expires) || 0, String(r.state || 'emitida'),
       );
     }
-    const ia = db.prepare('INSERT INTO activations(key,install_id,sede,last_ip,activated_at,active) VALUES(?,?,?,?,?,?)');
+    const ia = db.prepare('INSERT INTO activations(key,install_id,sede,last_ip,activated_at,active,last_seen_at) VALUES(?,?,?,?,?,?,?)');
     for (const r of act) {
       ia.run(
         String(r.key), String(r.install_id), String(r.sede || ''), String(r.last_ip || ''),
         Number(r.activated_at) || Date.now(), r.active ? 1 : 0,
+        Number(r.last_seen_at) || null,
       );
     }
     db.exec('COMMIT');
@@ -403,16 +410,16 @@ function activate({ key, installId, sede }) {
   if (existing) {
     // No se reactiva un asiento revocado.
     if (!existing.active) return { status: 403, error: 'La instalación fue revocada para esta licencia' };
-    db.prepare('UPDATE activations SET sede=?, last_ip=?, activated_at=? WHERE id=?').run(
-      String(sede || ''), clientIpArg, Date.now(), existing.id,
+    db.prepare('UPDATE activations SET sede=?, last_ip=?, activated_at=?, last_seen_at=? WHERE id=?').run(
+      String(sede || ''), clientIpArg, Date.now(), Date.now(), existing.id,
     );
   } else {
     const used = db.prepare('SELECT COUNT(*) c FROM activations WHERE key=? AND active=1').get(key).c;
     if (used >= seats) {
       return { status: 409, error: 'Sin asientos disponibles para esta licencia (usados ' + used + ' de ' + seats + ')' };
     }
-    db.prepare('INSERT INTO activations(key,install_id,sede,last_ip,activated_at,active) VALUES(?,?,?,?,?,1)').run(
-      key, installId, String(sede || ''), clientIpArg || '', Date.now(),
+    db.prepare('INSERT INTO activations(key,install_id,sede,last_ip,activated_at,active,last_seen_at) VALUES(?,?,?,?,?,1,?)').run(
+      key, installId, String(sede || ''), clientIpArg || '', Date.now(), Date.now(),
     );
   }
   const cert = core.makeCert({ client: row.client, plan: row.plan, exp: v.exp, installId }, SIGNER);
@@ -422,18 +429,23 @@ function activate({ key, installId, sede }) {
 function revalidate({ key, installId }) {
   key = String(key || '').trim();
   installId = String(installId || '').trim();
-  const row = db.prepare('SELECT * FROM activations WHERE key=? AND install_id=? AND active=1').get(key, installId);
+  const row = db.prepare('SELECT * FROM activations WHERE key=? AND install_id=?').get(key, installId);
   if (!row) return { status: 410, ok: false, revoked: true, error: 'Asiento revocado o no registrado' };
+  const seenAt = Date.now();
+  db.prepare('UPDATE activations SET last_seen_at=? WHERE key=? AND install_id=?').run(seenAt, key, installId);
+  // Mantiene la última verificación también en el respaldo remoto del Licensador.
+  writeLatestBackup();
+  if (!row.active) return { status: 410, ok: false, revoked: true, error: 'Asiento revocado o no registrado', seenAt };
   const lic = db.prepare('SELECT * FROM licenses WHERE key=?').get(key);
-  if (lic && lic.state === 'revoked') return { status: 410, ok: false, revoked: true, error: 'Licencia revocada' };
+  if (lic && lic.state === 'revoked') return { status: 410, ok: false, revoked: true, error: 'Licencia revocada', seenAt };
   const v = core.verifyKey(key, VERIFIERS);
-  if (!v.ok) return { status: 410, ok: false, revoked: true, error: 'Clave no válida' };
-  if (v.exp < Date.now()) return { status: 410, ok: false, revoked: true, error: 'Clave vencida' };
+  if (!v.ok) return { status: 410, ok: false, revoked: true, error: 'Clave no válida', seenAt };
+  if (v.exp < Date.now()) return { status: 410, ok: false, revoked: true, error: 'Clave vencida', seenAt };
   const cert = core.makeCert(
     { client: (lic && lic.client) || v.payload.c, plan: (lic && lic.plan) || v.payload.p, exp: v.exp, installId },
     SIGNER,
   );
-  return { status: 200, ok: true, cert };
+  return { status: 200, ok: true, cert, seenAt };
 }
 
 let clientIpArg = '';
