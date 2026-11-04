@@ -70,6 +70,8 @@ console.log('\n[4/7] Empaquetando API (deploy plano)...');
 run(
   `pnpm --filter @fitsystem/api deploy "${stagingApi}" --prod --config.node-linker=hoisted`,
 );
+const cloudUrl = (process.env.CLOUD_URL || 'https://api.fitsystem.com.ar').replace(/\/+$/, '');
+fs.writeFileSync(path.join(stagingApi, 'runtime-config.json'), JSON.stringify({ cloudUrl }, null, 2), 'utf8');
 
 console.log('\n[5/7] Empaquetando web (deploy plano)...');
 run(

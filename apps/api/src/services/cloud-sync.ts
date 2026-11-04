@@ -99,7 +99,9 @@ export async function ensureCloudConnected(): Promise<boolean> {
     console.log('[cloud-sync] conectado automaticamente a la nube');
     return true;
   } catch (error) {
-    console.error('[cloud-sync] no se pudo conectar:', error instanceof Error ? error.message : error);
+    const message = error instanceof Error ? error.message : String(error);
+    await upsertSettings(orgId, CLOUD, { LAST_ERROR: message.slice(0, 500) }).catch(() => undefined);
+    console.error('[cloud-sync] no se pudo conectar:', message);
     return false;
   }
 }
@@ -183,7 +185,7 @@ async function buildPayload(orgId: string, memberIds?: string[]) {
   };
 }
 
-export async function runCloudSync(opts?: { memberIds?: string[] }) {
+export async function runCloudSync(opts?: { memberIds?: string[] }, recoveryAttempt = 0) {
   const cfg = await getCloudConfig();
   if (!cfg.url || !cfg.key) throw new Error('La nube no esta configurada');
   const payload = await buildPayload(cfg.orgId, opts?.memberIds);
@@ -205,6 +207,18 @@ export async function runCloudSync(opts?: { memberIds?: string[] }) {
 
   if (!response.ok) {
     const message = json?.message || `Error HTTP ${response.status}`;
+    if (response.status === 401 && recoveryAttempt === 0) {
+      // Una clave antigua puede haberse invalidado. Vaciarla fuerza un nuevo
+      // intercambio; la API remota solo la renueva si conserva el vínculo de
+      // esta instalación con el mismo gimnasio.
+      await upsertSettings(cfg.orgId, CLOUD, { SYNC_KEY: '', LAST_ERROR: message.slice(0, 500) });
+      if (await ensureCloudConnected()) {
+        const recovered = await getCloudConfig();
+        if (recovered.key && recovered.key !== cfg.key) return runCloudSync(opts, recoveryAttempt + 1);
+      }
+      const recovered = await getCloudConfig();
+      throw new Error(recovered.lastError || message);
+    }
     await upsertSettings(cfg.orgId, CLOUD, { LAST_ERROR: message.slice(0, 500) });
     throw new Error(message);
   }

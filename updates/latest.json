@@ -1,6 +1,6 @@
 {
-  "version": "0.3.62",
+  "version": "0.3.63",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "El panel ahora monitorea Socios, Profes y servicios de la empresa; agrega detalle de cuentas y docentes por cliente y corrige estados engañosos.",
+  "notes": "Mejora el acceso del Panel FS a clientes y cuentas, agrega reintento remoto de sincronización y registra el destino de nube configurado en GitHub.",
   "mandatory": false
 }

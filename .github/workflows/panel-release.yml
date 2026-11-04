@@ -1,0 +1,58 @@
+name: release-panel-fs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/panel/**'
+      - 'apps/api/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/panel-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Habilitar pnpm
+        run: corepack enable
+
+      - name: Instalar dependencias
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Compilar Panel de control FS
+        run: pnpm --filter @fitsystem/panel dist:win
+
+      - name: Preparar instalador
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $setup = Get-ChildItem "apps/panel/release/*Setup*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "No se encontró el instalador del Panel FS" }
+          Copy-Item $setup.FullName "out/Panel-FS-Setup.exe"
+          $hash = (Get-FileHash "out/Panel-FS-Setup.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Panel-FS-Setup.exe" | Set-Content -Path "out/SHA256SUMS.txt" -Encoding utf8
+
+      - name: Publicar la última versión del panel
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: panel-latest
+          name: Panel de control FS (última versión)
+          prerelease: true
+          make_latest: false
+          generate_release_notes: false
+          overwrite_files: true
+          files: |
+            out/Panel-FS-Setup.exe
+            out/SHA256SUMS.txt

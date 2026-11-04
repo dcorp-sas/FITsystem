@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src https://web.whatsapp.com" />
+    <title>Panel de control FS</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="brand">
+          <img src="logo.png" alt="" onerror="this.style.display='none'" />
+          <div>
+            <strong>Panel de control FS</strong>
+            <span>FIT system</span>
+          </div>
+        </div>
+        <nav id="nav"></nav>
+        <div class="sidebar-foot">
+          <span id="vault-badge" class="badge">—</span>
+        </div>
+      </aside>
+      <main>
+        <header id="topbar">
+          <h1 id="view-title">Inicio</h1>
+          <div class="topbar-actions">
+            <span id="conn" class="conn">sin probar</span>
+            <button id="refresh" class="btn">Actualizar</button>
+          </div>
+        </header>
+        <section id="view" class="view"></section>
+      </main>
+    </div>
+    <div id="toast" class="toast"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

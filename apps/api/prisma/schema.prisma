@@ -1109,6 +1109,10 @@ model DesktopHeartbeat {
   cloudSyncError String?
   portalAccounts Int?
   activePortalAccounts Int?
+  pendingCommandId String?
+  pendingCommand String?
+  lastCommandResult String?
+  lastCommandAt DateTime?
   firstSeenAt    DateTime @default(now())
   lastSeenAt     DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -104,7 +104,30 @@ export function syncRoutes(app: FastifyInstance) {
         const slug = input.slug || slugify(input.organizationName);
 
         const existing = await prisma.organization.findUnique({ where: { slug } });
-        if (existing) throw new HttpError(409, 'El nombre corto ya esta en uso');
+        if (existing) {
+          const installationId = input.installationId?.trim() || '';
+          const binding = installationId
+            ? await prisma.setting.findUnique({
+                where: { organizationId_category_key: { organizationId: existing.id, category: 'SYNC', key: 'INSTALLATION_ID' } },
+                select: { value: true },
+              })
+            : null;
+          // Solo la instalación ya vinculada puede reemplazar una clave perdida.
+          if (/^inst_[a-f0-9]{32}$/i.test(installationId) && binding?.value === installationId) {
+            const syncKey = `sk_${randomBytes(24).toString('hex')}`;
+            await prisma.setting.upsert({
+              where: { organizationId_category_key: { organizationId: existing.id, category: 'SYNC', key: 'KEY' } },
+              create: { organizationId: existing.id, category: 'SYNC', key: 'KEY', value: syncKey, isSecret: false },
+              update: { value: syncKey, isSecret: false },
+            });
+            return ok(reply, {
+              organizationId: existing.id,
+              syncKey,
+              organization: { id: existing.id, name: existing.name, slug: existing.slug, currency: existing.currency },
+            });
+          }
+          throw new HttpError(409, 'El nombre corto ya está en uso por otro sistema');
+        }
 
         const org = await prisma.organization.create({
           data: {

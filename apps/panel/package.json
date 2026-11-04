@@ -1,0 +1,70 @@
+{
+  "name": "@fitsystem/panel",
+  "productName": "Panel de control FS",
+  "version": "0.1.1",
+  "private": true,
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron .",
+    "build:main": "tsup src/main.ts --format esm --out-dir dist --external electron --external ssh2 --external imapflow --external mailparser --external nodemailer && tsup src/preload.ts --format cjs --out-dir dist --external electron",
+    "build": "pnpm run build:main",
+    "typecheck": "tsc --noEmit",
+    "start": "electron .",
+    "dist:win": "pnpm run build:main && electron-builder --win --x64 --publish never"
+  },
+  "dependencies": {
+    "imapflow": "^1.0.164",
+    "mailparser": "^3.7.1",
+    "nodemailer": "^6.9.16",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/nodemailer": "^6.4.16",
+    "@types/ssh2": "^1.15.1",
+    "electron": "^45.0.0",
+    "electron-builder": "^25.1.8",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "build": {
+    "appId": "com.dcorp.fitsystem.panel",
+    "productName": "Panel de control FS",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "Panel-FS-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "Panel-FS-Portable.exe"
+    }
+  }
+}

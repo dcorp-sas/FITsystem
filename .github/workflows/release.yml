@@ -34,6 +34,8 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Compilar recursos y generar instaladores del panel
+        env:
+          CLOUD_URL: ${{ vars.CLOUD_URL || 'https://api.fitsystem.com.ar' }}
         run: pnpm --filter @fitsystem/desktop dist:win
 
       - name: Generar instaladores del kiosco de acceso

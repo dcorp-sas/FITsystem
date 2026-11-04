@@ -16,6 +16,7 @@ out/
 apps/desktop/build-resources/
 apps/desktop/release/
 apps/access-gate-desktop/release/
+apps/panel/release*/
 
 # Mobile (Expo)
 .expo/

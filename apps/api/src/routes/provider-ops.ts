@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { isIP } from 'node:net';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { fail, ok, HttpError } from '../lib/http.js';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
@@ -16,8 +16,9 @@ import {
   saveInvoiceSettings,
 } from '../services/provider-invoicing.js';
 import { providerOrgId } from '../services/provider-account.js';
+import { generateActivationCode } from '../services/portal-account.js';
 import { getWhatsAppRuntimeStatus } from '../services/whatsapp-client.js';
-import { getCloudConfig } from '../services/cloud-sync.js';
+import { ensureCloudConnected, getCloudConfig, runCloudPull, runCloudSync } from '../services/cloud-sync.js';
 
 /*
  * Operaciones del Panel de control FS sobre la nube:
@@ -298,7 +299,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
 
   /* ----------------------- Latidos de escritorio ----------------------- */
 
-  app.post('/provider/desktop/heartbeat', { onRequest: [rateLimit({ max: 30, windowMs: 60_000, keyPrefix: 'desktop-heartbeat' })] }, async (request, reply) => {
+  app.post('/provider/desktop/heartbeat', { onRequest: [rateLimit({ max: 120, windowMs: 60_000, keyPrefix: 'desktop-heartbeat' })] }, async (request, reply) => {
     try {
       const input = (request.body ?? {}) as Record<string, unknown>;
       const installationId = String(input.installationId ?? '').trim();
@@ -318,13 +319,47 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const cloudSyncError = input.cloudSyncError == null ? null : String(input.cloudSyncError).slice(0, 500);
       const portalAccounts = countOrNull(input.portalAccounts);
       const activePortalAccounts = countOrNull(input.activePortalAccounts);
+      const result = input.commandResult && typeof input.commandResult === 'object'
+        ? input.commandResult as Record<string, unknown>
+        : null;
       const now = new Date();
       await prisma.desktopHeartbeat.upsert({
         where: { installationId },
         create: { installationId, appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, cloudSyncConnected, cloudSyncLastAt: parsedSyncAt, cloudSyncError, portalAccounts, activePortalAccounts, lastSeenAt: now },
-        update: { appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, cloudSyncConnected, cloudSyncLastAt: parsedSyncAt, cloudSyncError, portalAccounts, activePortalAccounts, lastSeenAt: now },
+        update: {
+          appVersion, licensePlan, licenseStatus, licenseKnown, hasLicense, licenseExpiresAt: parsedExpiry, lastSeenAt: now,
+          ...(input.cloudSyncConnected !== undefined ? { cloudSyncConnected } : {}),
+          ...(input.cloudSyncLastAt !== undefined ? { cloudSyncLastAt: parsedSyncAt } : {}),
+          ...(input.cloudSyncError !== undefined ? { cloudSyncError } : {}),
+          ...(input.portalAccounts !== undefined ? { portalAccounts } : {}),
+          ...(input.activePortalAccounts !== undefined ? { activePortalAccounts } : {}),
+        },
       });
-      return ok(reply, { received: true, at: now.toISOString() });
+      if (result && typeof result.id === 'string') {
+        const resultText = JSON.stringify({
+          ok: Boolean(result.ok),
+          message: String(result.message ?? '').slice(0, 500),
+        });
+        await prisma.desktopHeartbeat.updateMany({
+          where: { installationId, pendingCommandId: result.id },
+          data: { pendingCommandId: null, pendingCommand: null, lastCommandResult: resultText, lastCommandAt: now },
+        });
+      }
+      const current = await prisma.desktopHeartbeat.findUnique({ where: { installationId } });
+      let pendingCommand: { id: string; action: string } | null = null;
+      if (current?.pendingCommand) {
+        try {
+          const parsed = JSON.parse(current.pendingCommand) as { id: string; action: string; requestedAt?: string };
+          const requestedAt = parsed.requestedAt ? new Date(parsed.requestedAt).getTime() : 0;
+          if (!requestedAt || Date.now() - requestedAt > 24 * 60 * 60_000) {
+            await prisma.desktopHeartbeat.updateMany({
+              where: { installationId, pendingCommandId: parsed.id },
+              data: { pendingCommandId: null, pendingCommand: null, lastCommandResult: JSON.stringify({ ok: false, message: 'El reintento venció después de 24 horas sin señal' }), lastCommandAt: now },
+            });
+          } else pendingCommand = { id: parsed.id, action: parsed.action };
+        } catch { /* comando corrupto: queda visible para soporte */ }
+      }
+      return ok(reply, { received: true, at: now.toISOString(), pendingCommand });
     } catch (error) {
       return fail(reply, error);
     }
@@ -351,6 +386,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
         cloudSyncError: row.cloudSyncError,
         portalAccounts: row.portalAccounts,
         activePortalAccounts: row.activePortalAccounts,
+        pendingCommand: Boolean(row.pendingCommandId),
+        lastCommandResult: row.lastCommandResult ? JSON.parse(row.lastCommandResult) : null,
+        lastCommandAt: row.lastCommandAt?.toISOString() ?? null,
       }));
       return ok(reply, {
         generatedAt: new Date().toISOString(),
@@ -358,6 +396,29 @@ export function providerOpsRoutes(app: FastifyInstance) {
         active: installations.filter((row) => row.active).length,
         installations,
       });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post('/provider/desktop/installations/:installationId/sync', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { installationId } = request.params as { installationId: string };
+      if (!/^inst_[a-f0-9]{32}$/i.test(installationId)) throw new HttpError(400, 'ID de instalación inválido');
+      const row = await prisma.desktopHeartbeat.findUnique({ where: { installationId } });
+      if (!row || Date.now() - row.lastSeenAt.getTime() > 24 * 60 * 60_000) {
+        throw new HttpError(409, 'La instalación no envió ninguna señal en las últimas 24 horas');
+      }
+      if (row.pendingCommandId) throw new HttpError(409, 'Ya hay una acción pendiente para esta instalación');
+      const id = randomUUID();
+      const command = JSON.stringify({ id, action: 'sync-now', requestedAt: new Date().toISOString() });
+      const queued = await prisma.desktopHeartbeat.updateMany({
+        where: { installationId, pendingCommandId: null },
+        data: { pendingCommandId: id, pendingCommand: command, lastCommandResult: null, lastCommandAt: null },
+      });
+      if (!queued.count) throw new HttpError(409, 'Ya hay una acción pendiente para esta instalación');
+      return ok(reply, { queued: true, commandId: id, installationId });
     } catch (error) {
       return fail(reply, error);
     }
@@ -376,13 +437,39 @@ export function providerOpsRoutes(app: FastifyInstance) {
         prisma.portalAccount.count({ where: { organizationId: cloud.orgId } }),
         prisma.portalAccount.count({ where: { organizationId: cloud.orgId, isActive: true } }),
       ]);
+      const lastSuccessfulSync = cloud.lastSyncAt ? new Date(cloud.lastSyncAt).getTime() : 0;
+      const syncRecent = lastSuccessfulSync > 0 && Date.now() - lastSuccessfulSync <= 30 * 60_000;
       return ok(reply, {
-        cloudSyncConnected: cloud.connected,
+        // SYNC_URL + SYNC_KEY solo prueban que hay configuración. Una señal
+        // sana requiere un push reciente confirmado por la API remota.
+        cloudSyncConnected: cloud.connected && syncRecent && !cloud.lastError,
         cloudSyncLastAt: cloud.lastSyncAt,
-        cloudSyncError: cloud.lastError,
+        cloudSyncError: cloud.lastError
+          || (!cloud.url ? 'No hay una dirección de nube configurada' : !cloud.key ? 'Todavía no se obtuvo la clave de sincronización' : !syncRecent ? 'Sin confirmación de sincronización exitosa en los últimos 30 minutos' : null),
         portalAccounts,
         activePortalAccounts,
       });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  // Acciones de soporte autorizadas por la empresa, ejecutadas localmente en
+  // la instalación del cliente. Por ahora solo permite reintentar la nube.
+  app.post('/provider/desktop/local-support-command', async (request, reply) => {
+    try {
+      const token = String(request.headers['x-desktop-diagnostics-token'] ?? '');
+      if (!env.LICENSE_INSTALLATION_ID || !env.JWT_SECRET || token !== env.JWT_SECRET) throw new HttpError(403, 'No autorizado');
+      const input = (request.body ?? {}) as { action?: unknown };
+      if (input.action !== 'sync-now') throw new HttpError(400, 'Acción de soporte no permitida');
+      const configured = await ensureCloudConnected();
+      if (!configured) {
+        const config = await getCloudConfig();
+        throw new HttpError(503, config.lastError || 'No se pudo establecer conexión con la nube');
+      }
+      const pushed = await runCloudSync();
+      const pulled = await runCloudPull();
+      return ok(reply, { action: 'sync-now', pushed, pulled, completedAt: new Date().toISOString() });
     } catch (error) {
       return fail(reply, error);
     }
@@ -705,7 +792,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
           isActive: org.isActive,
           createdAt: org.createdAt.toISOString(),
           lastActivityAt: lastActivityAt.length ? new Date(Math.max(...lastActivityAt)).toISOString() : null,
-          sync: { lastPushAt, lastError: syncError },
+          sync: { lastPushAt, lastError: syncError, installationId: s.get('SYNC.INSTALLATION_ID') || null },
           counts: {
             users: counts.users.get(org.id) ?? 0,
             teacherUsers: counts.teacherUsers.get(org.id) ?? 0,
@@ -723,6 +810,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
             activePortalAccounts: counts.portalActive.get(org.id) ?? 0,
           },
           modules,
+          installationId: s.get('SYNC.INSTALLATION_ID') || null,
         };
       });
 
@@ -741,16 +829,17 @@ export function providerOpsRoutes(app: FastifyInstance) {
         generatedAt: new Date().toISOString(),
         platform: [
           { id: 'api', name: 'API de la nube', status: 'online', detail: `Atendiendo esta consulta · ${Date.now() - requestStarted} ms` },
-          { id: 'web', name: 'Sitio web / tienda', ...websiteProbe, detail: `${websiteProbe.detail} · ${env.SITE_URL}` },
-          { id: 'socios', name: 'App de socios (PWA)', ...sociosProbe, detail: `${sociosProbe.detail} · ${env.SOCIOS_URL}` },
-          { id: 'profes', name: 'Portal de Profes', ...profesProbe, detail: `${profesProbe.detail} · ${env.PROFES_URL} · ruta web compartida` },
-          { id: 'fitora', name: 'Fitora', ...fitoraProbe, detail: `${fitoraProbe.detail} · ${env.FITORA_URL}` },
+          { id: 'web', name: 'Sitio web / tienda', ...websiteProbe, url: env.SITE_URL, detail: `${websiteProbe.detail} · ${env.SITE_URL}` },
+          { id: 'socios', name: 'App de socios (PWA)', ...sociosProbe, url: env.SOCIOS_URL, detail: `${sociosProbe.detail} · ${env.SOCIOS_URL}` },
+          { id: 'profes', name: 'Portal de Profes', ...profesProbe, url: env.PROFES_URL, detail: `${profesProbe.detail} · ${env.PROFES_URL} · ruta web compartida` },
+          { id: 'fitora', name: 'Fitora', ...fitoraProbe, url: env.FITORA_URL, detail: `${fitoraProbe.detail} · ${env.FITORA_URL}` },
           { id: 'panel', name: 'Panel de control FS', status: 'local', detail: 'Este módulo del panel está abierto en este equipo' },
           {
             id: 'licensador',
             name: 'Licensador',
             ...licenseProbe,
             detail: `${licenseProbe.detail} · ${env.LICENSE_SERVER || ''}`,
+            url: env.LICENSE_SERVER || undefined,
           },
           {
             id: 'whatsapp',
@@ -974,6 +1063,35 @@ export function providerOpsRoutes(app: FastifyInstance) {
       requireProviderToken(request);
       const { limit } = (request.body ?? {}) as { limit?: number };
       return ok(reply, await issuePendingInvoices(Number(limit) || 10));
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post('/provider/systems/:organizationId/portal/:accountId/reset', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { organizationId, accountId } = request.params as { organizationId: string; accountId: string };
+      const account = await prisma.portalAccount.findFirst({ where: { id: accountId, organizationId } });
+      if (!account) throw new HttpError(404, 'Cuenta no encontrada');
+      const code = generateActivationCode();
+      await prisma.portalAccount.update({ where: { id: accountId }, data: { activationCode: code, isActive: true } });
+      return ok(reply, { accountId, activationCode: code });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post('/provider/systems/:organizationId/portal/:accountId/toggle', async (request, reply) => {
+    try {
+      requireProviderToken(request);
+      const { organizationId, accountId } = request.params as { organizationId: string; accountId: string };
+      const body = (request.body ?? {}) as { active?: boolean };
+      const active = Boolean(body.active);
+      const account = await prisma.portalAccount.findFirst({ where: { id: accountId, organizationId } });
+      if (!account) throw new HttpError(404, 'Cuenta no encontrada');
+      await prisma.portalAccount.update({ where: { id: accountId }, data: { isActive: active } });
+      return ok(reply, { accountId, isActive: active });
     } catch (error) {
       return fail(reply, error);
     }

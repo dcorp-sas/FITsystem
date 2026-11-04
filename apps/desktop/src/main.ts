@@ -15,6 +15,16 @@ const WEB_PORT = 3000;
 const PRINT_PORT = 3999;
 const LOG_FILE = path.join(os.tmpdir(), 'fitsystem-desktop.log');
 
+function packagedCloudApiUrl(): string | null {
+  try {
+    const file = path.join(process.resourcesPath, 'api', 'runtime-config.json');
+    const value = JSON.parse(fs.readFileSync(file, 'utf8'))?.cloudUrl;
+    return typeof value === 'string' && /^https?:\/\//i.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 // Manifiesto público de versiones (archivo updates/latest.json del repo). Cambiá esta
 // URL con UPDATE_FEED_URL si preferís otro hosting. Formato:
 //   { "version": "0.1.4", "url": "https://.../FIT-System-Setup.exe", "notes": "...", "mandatory": false }
@@ -23,7 +33,7 @@ const UPDATE_FEED_URL =
   'https://raw.githubusercontent.com/dcorp-sas/FITsystem/main/updates/latest.json';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 // Mantiene visible en el centro de diagnóstico una instalación que sigue abierta.
-const DESKTOP_HEARTBEAT_INTERVAL_MS = 10 * 60 * 1000;
+const DESKTOP_HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
 // Revalidación de licencia en segundo plano. Detecta (sin reiniciar) que la
 // licencia fue revocada por falta de pago de la suscripción y bloquea el panel.
 const LICENSE_RECHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
@@ -32,7 +42,7 @@ const LICENSE_RECHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
 // gimnasio abre el panel remoto; el proceso local solo administra la licencia y
 // la impresión de tickets. Se puede apuntar a otro entorno con estas variables.
 const CLOUD_PANEL_URL = (process.env.CLOUD_PANEL_URL || 'https://fitsystem.com.ar').replace(/\/+$/, '');
-const CLOUD_API_URL = (process.env.CLOUD_API_URL || 'https://api.fitsystem.com.ar').replace(/\/+$/, '');
+const CLOUD_API_URL = (process.env.CLOUD_API_URL || process.env.CLOUD_URL || packagedCloudApiUrl() || 'https://api.fitsystem.com.ar').replace(/\/+$/, '');
 // Auto-actualizador (electron-updater). Se inicializa solo en la app instalada
 // (app.isPackaged). El build portable no puede auto-actualizarse.
 let updater: import('electron-updater').AppUpdater | null = null;
@@ -411,7 +421,40 @@ async function reportDesktopHeartbeat(info: LicenseInfo | null): Promise<void> {
       }),
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json().catch(() => null) as { data?: { pendingCommand?: { id?: string; action?: string } | null }; message?: string } | null;
+    if (!response.ok) throw new Error(result?.message || `HTTP ${response.status}`);
+    const command = result?.data?.pendingCommand;
+    if (command?.id && command.action === 'sync-now') {
+      let commandResult: { id: string; ok: boolean; message: string };
+      try {
+        const localResponse = await fetch(`http://127.0.0.1:${API_PORT}/api/provider/desktop/local-support-command`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-desktop-diagnostics-token': getApiSecret() },
+          body: JSON.stringify({ action: command.action }),
+          signal: AbortSignal.timeout(60_000),
+        });
+        const localJson = await localResponse.json().catch(() => null) as { message?: string; data?: { action?: string } } | null;
+        if (!localResponse.ok) throw new Error(localJson?.message || `HTTP ${localResponse.status}`);
+        commandResult = { id: command.id, ok: true, message: 'Sincronización enviada y recepción completada' };
+      } catch (error) {
+        commandResult = { id: command.id, ok: false, message: (error as Error).message.slice(0, 500) };
+      }
+      await fetch(`${CLOUD_API_URL}/api/provider/desktop/heartbeat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          installationId: getInstallationId(),
+          appVersion: app.getVersion(),
+          licenseKnown: Boolean(info),
+          hasLicense: Boolean(info?.hasKey),
+          licensePlan: info?.plan ?? null,
+          licenseStatus: info?.status ?? 'UNKNOWN',
+          licenseExpiresAt: info?.expiresAt ?? null,
+          commandResult,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch((error) => log('No se pudo confirmar la acción remota:', (error as Error).message));
+    }
   } catch (error) {
     // No bloquea la aplicación. El motivo queda en el log local para investigar
     // instalaciones activas que no aparecen en el centro de diagnóstico.
@@ -1065,6 +1108,7 @@ function startApi(bindHost: string, lanMode: boolean): ChildProcess {
     // autorizado de la licencia. Esto permite migrar claves HMAC heredadas sin
     // distribuir el secreto compartido dentro del instalador.
     LICENSE_SERVER: process.env.LICENSE_SERVER || 'https://licensador.fitsystem.com.ar',
+    CLOUD_URL: CLOUD_API_URL,
   };
 
   log('Iniciando API en', `${bindHost}:${API_PORT}`, 'lan=', lanMode);
