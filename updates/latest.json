@@ -1,6 +1,6 @@
 {
-  "version": "0.3.63",
+  "version": "0.3.64",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Mejora el acceso del Panel FS a clientes y cuentas, agrega reintento remoto de sincronización y registra el destino de nube configurado en GitHub.",
+  "notes": "Corrige el filtro que ocultaba todos los gimnasios del listado del Panel FS. Verifica que la API y qrcode estén incluidos en la actualización del escritorio y conserva el reintento remoto de sincronización.",
   "mandatory": false
 }

@@ -1,5 +1,6 @@
 ﻿import { execSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +71,11 @@ console.log('\n[4/7] Empaquetando API (deploy plano)...');
 run(
   `pnpm --filter @fitsystem/api deploy "${stagingApi}" --prod --config.node-linker=hoisted`,
 );
+const requireStagedApi = createRequire(path.join(stagingApi, 'package.json'));
+for (const runtimePackage of ['qrcode', '@prisma/client']) {
+  const resolved = requireStagedApi.resolve(runtimePackage);
+  console.log(`Dependencia runtime ${runtimePackage}:`, path.relative(stagingApi, resolved));
+}
 const cloudUrl = (process.env.CLOUD_URL || 'https://api.fitsystem.com.ar').replace(/\/+$/, '');
 fs.writeFileSync(path.join(stagingApi, 'runtime-config.json'), JSON.stringify({ cloudUrl }, null, 2), 'utf8');
 

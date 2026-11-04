@@ -38,6 +38,16 @@ jobs:
           CLOUD_URL: ${{ vars.CLOUD_URL || 'https://api.fitsystem.com.ar' }}
         run: pnpm --filter @fitsystem/desktop dist:win
 
+      - name: Verificar dependencias de la API incluida
+        shell: pwsh
+        run: |
+          $qrcode = "apps/desktop/release/win-unpacked/resources/api/node_modules/qrcode/package.json"
+          if (-not (Test-Path $qrcode)) { throw "La API del escritorio no incluye qrcode; se cancela la publicación" }
+          $package = Get-Content $qrcode -Raw | ConvertFrom-Json
+          if ($package.name -ne "qrcode" -or -not (Test-Path "apps/desktop/release/win-unpacked/resources/api/node_modules/qrcode/lib/index.js")) {
+            throw "El paquete qrcode del escritorio está incompleto; se cancela la publicación"
+          }
+
       - name: Generar instaladores del kiosco de acceso
         run: pnpm --filter @fitsystem/access-gate-desktop dist:win
 

@@ -537,11 +537,14 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const requestStarted = Date.now();
       requireProviderToken(request);
       const providerId = await providerOrgId();
-      const orgs = await prisma.organization.findMany({
-        where: { id: { not: providerId }, NOT: { slug: { startsWith: '__' } } },
+      // PostgreSQL LIKE usa '_' como comodín, así que startsWith: '__' genera
+      // LIKE '__%' y oculta casi todos los slugs normales. Excluir el prefijo
+      // reservado en JavaScript mantiene la comparación literal.
+      const orgs = (await prisma.organization.findMany({
+        where: { id: { not: providerId } },
         orderBy: { createdAt: 'asc' },
         select: { id: true, name: true, slug: true, isActive: true, createdAt: true },
-      });
+      })).filter((org) => !org.slug.startsWith('__'));
 
       const group = async <T extends Record<string, unknown>>(
         model: keyof typeof prisma,
