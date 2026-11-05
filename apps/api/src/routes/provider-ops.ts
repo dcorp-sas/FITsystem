@@ -264,11 +264,21 @@ export function providerOpsRoutes(app: FastifyInstance) {
           ...(item.status === 'OPEN' ? {} : { firstResponseAt: item.createdAt }),
         },
       })));
-      const query = (request.query ?? {}) as { status?: string; limit?: string };
+      const query = (request.query ?? {}) as { status?: string; priority?: string; assignedTo?: string; organizationId?: string; q?: string; overdue?: string; limit?: string };
       const limit = Math.min(200, Math.max(1, Number(query.limit) || 100));
       const status = String(query.status || '').toUpperCase();
+      const priority = String(query.priority || '').toUpperCase();
+      const search = String(query.q || '').trim().slice(0, 120);
+      const where = {
+        ...(status && ['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status) ? { status } : {}),
+        ...(priority && ['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority) ? { priority } : {}),
+        ...(query.assignedTo ? { assignedTo: { contains: String(query.assignedTo).slice(0, 120) } } : {}),
+        ...(query.organizationId ? { organizationId: String(query.organizationId).slice(0, 120) } : {}),
+        ...(search ? { OR: ['title', 'summary', 'clientName', 'installationId'].map((field) => ({ [field]: { contains: search } })) } : {}),
+        ...(query.overdue === 'true' ? { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] }, dueAt: { lt: new Date() } } : {}),
+      };
       const cases = await prisma.providerSupportCase.findMany({
-        where: status && ['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status) ? { status } : {},
+        where,
         orderBy: [{ status: 'asc' }, { dueAt: 'asc' }, { updatedAt: 'desc' }], take: limit,
         include: { events: { orderBy: { createdAt: 'desc' }, take: 50 } },
       });
@@ -282,14 +292,19 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const { organizationId } = request.params as { organizationId: string };
       const query = (request.query ?? {}) as { limit?: string };
       const limit = Math.min(100, Math.max(1, Number(query.limit) || 40));
-      const [events, versions] = await Promise.all([prisma.clientTelemetryEvent.findMany({
+      const [events, versions, incidents] = await Promise.all([prisma.clientTelemetryEvent.findMany({
         where: { organizationId }, orderBy: { createdAt: 'desc' }, take: limit,
-        select: { id: true, source: true, appVersion: true, eventType: true, screen: true, message: true, stack: true, createdAt: true },
+        select: { id: true, source: true, appVersion: true, eventType: true, screen: true, requestPath: true, fingerprint: true, statusCode: true, durationMs: true, message: true, stack: true, createdAt: true },
       }), prisma.clientTelemetryEvent.groupBy({
         by: ['source', 'appVersion'], where: { organizationId, appVersion: { not: null } },
         _max: { createdAt: true }, _count: { _all: true }, orderBy: { _max: { createdAt: 'desc' } }, take: 30,
+      }), prisma.clientTelemetryEvent.groupBy({
+        by: ['fingerprint', 'source', 'appVersion', 'eventType', 'requestPath', 'statusCode'],
+        where: { organizationId, eventType: { not: 'screen' }, fingerprint: { not: null } },
+        _min: { createdAt: true }, _max: { createdAt: true }, _count: { _all: true },
+        orderBy: [{ _count: { fingerprint: 'desc' } }, { _max: { createdAt: 'desc' } }], take: 50,
       })]);
-      return ok(reply, { organizationId, events, versions });
+      return ok(reply, { organizationId, events, versions, incidents });
     } catch (error) { return fail(reply, error); }
   });
 
@@ -302,6 +317,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const priority = String(input.priority ?? 'NORMAL').toUpperCase();
       if (!['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority)) throw new HttpError(400, 'Prioridad inválida');
       const message = String(input.message ?? input.summary ?? '').trim().slice(0, 4000);
+      const actor = String(input.actor || 'Panel FS').trim().slice(0, 120) || 'Panel FS';
       const supportCase = await prisma.providerSupportCase.create({
         data: {
           organizationId: input.organizationId ? String(input.organizationId).slice(0, 120) : null,
@@ -310,7 +326,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
           title, summary: message, priority,
           dueAt: new Date(Date.now() + caseSlaHours(priority) * 60 * 60_000),
           assignedTo: input.assignedTo ? String(input.assignedTo).slice(0, 120) : null,
-          events: { create: { kind: 'CREATED', actor: 'Panel FS', message: message || 'Caso creado desde el Panel FS.' } },
+          events: { create: { kind: 'CREATED', actor, message: message || 'Caso creado desde el Panel FS.' } },
         },
         include: { events: true },
       });
@@ -323,6 +339,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
       requireProviderToken(request);
       const { id } = request.params as { id: string };
       const input = (request.body ?? {}) as Record<string, unknown>;
+      const actor = String(input.actor || 'Panel FS').trim().slice(0, 120) || 'Panel FS';
       const current = await prisma.providerSupportCase.findUnique({ where: { id } });
       if (!current) throw new HttpError(404, 'Caso no encontrado');
       const data: Record<string, unknown> = {};
@@ -331,11 +348,20 @@ export function providerOpsRoutes(app: FastifyInstance) {
         const status = String(input.status).toUpperCase();
         if (!['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status)) throw new HttpError(400, 'Estado de caso inválido');
         if (status !== current.status) {
+          if (['RESOLVED', 'CLOSED'].includes(status) && input.recoveryVerified !== true && !current.verifiedAt) throw new HttpError(400, 'Antes de resolver o cerrar, confirmá la recuperación y registrá qué comprobaste');
           data.status = status;
           data.resolvedAt = ['RESOLVED', 'CLOSED'].includes(status) ? new Date() : null;
+          if (status === 'OPEN' && ['RESOLVED', 'CLOSED'].includes(current.status)) { data.verifiedAt = null; data.verificationNote = null; }
           if (status === 'OPEN' && ['RESOLVED', 'CLOSED'].includes(current.status)) data.dueAt = new Date(Date.now() + caseSlaHours(current.priority) * 60 * 60_000);
           events.push({ kind: 'STATUS', message: `Estado cambiado a ${status}.` });
         }
+      }
+      if (input.recoveryVerified === true) {
+        const note = String(input.verificationNote || '').trim().slice(0, 2000);
+        if (note.length < 8) throw new HttpError(400, 'Describí brevemente cómo confirmaste que el problema quedó resuelto');
+        data.verifiedAt = new Date();
+        data.verificationNote = note;
+        events.push({ kind: 'RECOVERY_VERIFIED', message: `Recuperación comprobada: ${note}` });
       }
       if (input.priority !== undefined) {
         const priority = String(input.priority).toUpperCase();
@@ -371,7 +397,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
         if (!current.installationId && reportInstallationId) data.installationId = reportInstallationId;
       }
       const supportCase = await prisma.$transaction(async (tx) => {
-        for (const event of events) await tx.providerSupportCaseEvent.create({ data: { caseId: id, actor: 'Panel FS', ...event } });
+        for (const event of events) await tx.providerSupportCaseEvent.create({ data: { caseId: id, actor, ...event } });
         return tx.providerSupportCase.update({ where: { id }, data, include: { events: { orderBy: { createdAt: 'desc' }, take: 50 } } });
       });
       return ok(reply, { supportCase });

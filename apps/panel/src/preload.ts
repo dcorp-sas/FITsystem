@@ -43,6 +43,7 @@ const api = {
   },
   auditList: () => invoke('panel:audit:list'),
   assistantCatalog: () => invoke('panel:assistant:catalog'),
+  assistantTest: () => invoke('panel:assistant:test'),
   assistantSuggest: (input: unknown) => invoke('panel:assistant:suggest', input),
   assistantRun: (id: string) => invoke('panel:assistant:run', id),
   mailInbox: () => invoke('panel:mail:inbox'),

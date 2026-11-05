@@ -2,7 +2,7 @@
   "expo": {
     "name": "FIT system™ Socios",
     "slug": "fitsystem-socios",
-    "version": "0.3.70",
+    "version": "0.3.71",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",

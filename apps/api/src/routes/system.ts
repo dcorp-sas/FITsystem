@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { createHash } from 'node:crypto';
 import { prisma } from '../db.js';
 import { ok, fail, validate, HttpError, type AuthedRequest } from '../lib/http.js';
 import { upsertSettings } from '../services/settings.js';
@@ -24,15 +25,24 @@ export function systemRoutes(app: FastifyInstance) {
       if (!['error', 'api_error', 'screen'].includes(eventType)) throw new HttpError(400, 'Tipo de señal inválido');
       const redact = (value: string) => value
         .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
-        .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]');
+        .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+        .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [secreto]')
+        .replace(/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*[^\s&,;]+/gi, '$1=[secreto]');
       const screen = redact(String(input.screen ?? '').replace(/[?#].*$/, '')).slice(0, 180) || null;
       const message = redact(String(input.message ?? (eventType === 'screen' ? 'Pantalla abierta' : '')).trim()).slice(0, 1000);
       if (!message) throw new HttpError(400, 'La señal necesita un detalle');
       const stack = input.stack == null ? null : redact(String(input.stack)).slice(0, 4000);
       const source = String(input.source ?? 'web').slice(0, 40);
       const appVersion = input.appVersion == null ? null : String(input.appVersion).slice(0, 40);
+      const requestPath = input.requestPath == null ? null : redact(String(input.requestPath).split('?')[0] ?? '')
+        .replace(/\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi, ':id')
+        .replace(/\b[cC][a-z0-9]{20,}\b/g, ':id')
+        .replace(/\/\d+(?=\/|$)/g, '/:id').slice(0, 180);
+      const statusCode = Number.isInteger(input.statusCode) && Number(input.statusCode) >= 0 && Number(input.statusCode) <= 599 ? Number(input.statusCode) : null;
+      const durationMs = Number.isFinite(Number(input.durationMs)) && Number(input.durationMs) >= 0 ? Math.min(600_000, Math.round(Number(input.durationMs))) : null;
+      const fingerprint = createHash('sha256').update([source, appVersion || '', eventType, screen || '', requestPath || '', statusCode || '', message.replace(/\b\d+\b/g, '#')].join('|')).digest('hex').slice(0, 32);
       await prisma.clientTelemetryEvent.create({
-        data: { organizationId: req.user.organizationId, userId: req.user.id, source, appVersion, eventType, screen, message, stack },
+        data: { organizationId: req.user.organizationId, userId: req.user.id, source, appVersion, eventType, screen, requestPath, fingerprint, statusCode, durationMs, message, stack },
       });
       return ok(reply, { recorded: true });
     } catch (error) { return fail(reply, error); }

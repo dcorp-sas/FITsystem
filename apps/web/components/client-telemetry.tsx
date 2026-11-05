@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { API_URL, getToken } from '@/lib/api';
+import webPackage from '../package.json';
 
 function send(eventType: 'screen' | 'error', message: string, stack?: string) {
   const token = getToken();
@@ -10,11 +11,12 @@ function send(eventType: 'screen' | 'error', message: string, stack?: string) {
   const redact = (value: string) => value
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
     .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [secreto]')
     .slice(0, 1000);
   void fetch(`${API_URL}/system/client-telemetry`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ eventType, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', screen: window.location.pathname, message: redact(message), stack: stack ? redact(stack).slice(0, 4000) : null }),
+    body: JSON.stringify({ eventType, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', appVersion: webPackage.version, screen: window.location.pathname, message: redact(message), stack: stack ? redact(stack).slice(0, 4000) : null }),
     keepalive: true,
   }).catch(() => undefined);
 }

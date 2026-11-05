@@ -1356,6 +1356,8 @@ model ProviderSupportCase {
   resolvedAt     DateTime?
   dueAt          DateTime?
   firstResponseAt DateTime?
+  verifiedAt     DateTime?
+  verificationNote String?
   events         ProviderSupportCaseEvent[]
 
   @@index([status, updatedAt])
@@ -1386,6 +1388,10 @@ model ClientTelemetryEvent {
   appVersion     String?
   eventType      String   @default("error")
   screen         String?
+  requestPath    String?
+  fingerprint    String?
+  statusCode     Int?
+  durationMs     Int?
   message        String
   stack          String?
   createdAt      DateTime @default(now())

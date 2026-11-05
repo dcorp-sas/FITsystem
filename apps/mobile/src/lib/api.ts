@@ -23,15 +23,16 @@ export class ApiError extends Error {
 let token: string | null = null;
 let telemetryScreen = 'Inicio';
 
-function sendTelemetry(eventType: 'screen' | 'api_error' | 'error', message: string) {
+function sendTelemetry(eventType: 'screen' | 'api_error' | 'error', message: string, details: { requestPath?: string; statusCode?: number; durationMs?: number } = {}) {
   if (!token) return;
   const safeMessage = message
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
     .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [secreto]')
     .slice(0, 1000);
   void fetch(`${API_URL}/api/system/client-telemetry`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ eventType: eventType === 'api_error' ? 'api_error' : 'screen', source: 'socios', appVersion: mobilePackage.version, screen: telemetryScreen, message: safeMessage }),
+    body: JSON.stringify({ eventType, source: 'socios', appVersion: mobilePackage.version, screen: telemetryScreen, message: safeMessage, ...details }),
   }).catch(() => undefined);
 }
 
@@ -119,6 +120,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   let res: Response;
+  const startedAt = Date.now();
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
@@ -127,6 +129,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     });
   } catch {
     // Sin respuesta del servidor (sin conexión, servidor caído o arrancando).
+    sendTelemetry('api_error', `${method} ${path.split('?')[0]} no recibió respuesta del servidor`, { requestPath: path.split('?')[0], statusCode: 0, durationMs: Date.now() - startedAt });
     throw new ApiError(0, 'No se pudo conectar con el gimnasio. Revisá tu conexión e intentá de nuevo en unos segundos.');
   }
 
@@ -141,7 +144,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     // Sesión inválida o vencida: limpiar token para forzar un nuevo login.
     if (res.status === 401) setToken(null);
     if (res.status >= 400 && res.status !== 401 && !path.includes('client-telemetry')) {
-      sendTelemetry('api_error', `${method} API respondió HTTP ${res.status}: ${json.message || `Error ${res.status}`}`);
+      sendTelemetry('api_error', `${method} API respondió HTTP ${res.status}: ${json.message || `Error ${res.status}`}`, { requestPath: path.split('?')[0], statusCode: res.status, durationMs: Date.now() - startedAt });
     }
     throw new ApiError(res.status, json.message || `Error ${res.status}`);
   }

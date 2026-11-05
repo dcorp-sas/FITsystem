@@ -1,6 +1,6 @@
 {
-  "version": "0.3.70",
+  "version": "0.3.71",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "La web ahora ofrece la descarga de la prueba de FIT system directamente desde la portada y la página de software para gimnasios. Se destacan los 7 días gratis, sin tarjeta y para Windows.",
+  "notes": "Mejoras al soporte de toda la empresa:\n- Socios y Profes informan errores de conexión y fallas HTTP con ruta normalizada, versión, tiempo de respuesta y redacción de datos sensibles.\n- El Panel agrupa fallas repetidas por cliente, producto y versión para distinguir incidentes recurrentes.\n- Los casos permiten buscar y filtrar hasta 200 registros, asignar responsable y registrar quién realizó cada cambio.\n- Resolver o cerrar un caso exige describir y marcar la comprobación de recuperación.\n- El asistente incluye una prueba manual de conexión para validar la clave y el modelo configurados.",
   "mandatory": false
 }

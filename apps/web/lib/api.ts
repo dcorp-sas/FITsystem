@@ -43,15 +43,16 @@ export class ApiError extends Error {
   }
 }
 
-function reportClientTelemetry(event: { eventType: 'api_error'; screen?: string; message: string; stack?: string }) {
+function reportClientTelemetry(event: { eventType: 'api_error' | 'error'; screen?: string; message: string; stack?: string; requestPath?: string; statusCode?: number; durationMs?: number }) {
   if (typeof window === 'undefined' || !window.localStorage.getItem(TOKEN_KEY)) return;
   const safe = (value: string) => value
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
     .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [secreto]')
     .slice(0, 1000);
   void fetch(`${API_URL}/system/client-telemetry`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${window.localStorage.getItem(TOKEN_KEY)}` },
-    body: JSON.stringify({ eventType: event.eventType, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', appVersion: webPackage.version }),
+    body: JSON.stringify({ ...event, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', appVersion: webPackage.version }),
     keepalive: true,
   }).catch(() => undefined);
 }
@@ -81,6 +82,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res: Response;
+  const startedAt = Date.now();
   const controller = timeoutMs ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
@@ -91,6 +93,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       signal: controller?.signal,
     });
   } catch {
+    if (token && !path.startsWith('/system/client-telemetry')) reportClientTelemetry({ eventType: 'api_error', screen: path.split('?')[0], requestPath: path.split('?')[0], statusCode: 0, durationMs: Date.now() - startedAt, message: `${method} ${path.split('?')[0]} no recibió respuesta del servidor` });
     throw new ApiError(0, 'No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
   } finally {
     if (timer) clearTimeout(timer);
@@ -109,7 +112,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       (json && 'error' in json && (json as { error?: string }).error) ||
       `Error ${res.status}`;
     if (res.status >= 400 && res.status !== 401 && res.status !== 402 && !path.startsWith('/system/client-telemetry')) {
-      reportClientTelemetry({ eventType: 'api_error', screen: path.split('?')[0], message: `${method} ${path.split('?')[0]} respondió HTTP ${res.status}: ${message}` });
+      reportClientTelemetry({ eventType: 'api_error', screen: path.split('?')[0], requestPath: path.split('?')[0], statusCode: res.status, durationMs: Date.now() - startedAt, message: `${method} ${path.split('?')[0]} respondió HTTP ${res.status}: ${message}` });
     }
     throw new ApiError(res.status, message, json?.details);
   }
