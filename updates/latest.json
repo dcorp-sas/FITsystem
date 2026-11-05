@@ -1,6 +1,6 @@
 {
-  "version": "0.3.69",
+  "version": "0.3.70",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Mejoras para soporte integral desde el Panel FS:\n- Exportación e importación segura de diagnósticos de instalaciones, incluso cuando la conexión local falla.\n- Casos con prioridad, vencimientos de primera respuesta, avisos de atención e historial; los adjuntos de diagnóstico se depuran a los 90 días.\n- Señales de errores y versiones de Socios y Profes por cliente.\n- Asistente conversacional conectado opcionalmente a OpenAI, con clave protegida en el Panel, contexto técnico real y respuesta de respaldo si la IA no está disponible.\n- Registro de versión sincronizado entre escritorio, web y móvil.",
+  "notes": "La web ahora ofrece la descarga de la prueba de FIT system directamente desde la portada y la página de software para gimnasios. Se destacan los 7 días gratis, sin tarjeta y para Windows.",
   "mandatory": false
 }

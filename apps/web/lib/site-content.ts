@@ -47,7 +47,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     subtitle:
       'Administrá socios, cuotas, cobros, caja y asistencia desde tu PC con Windows. La app móvil permite a tus socios consultar su información y usar funciones online cuando tienen conexión.',
     chips: ['Escritorio con operación local', 'App para socios según plan', 'Prueba gratis por 7 días'],
-    ctaPrimary: 'Probar gratis',
+    ctaPrimary: 'Descargar prueba gratis',
     ctaSecondary: 'Ver planes',
   },
   stats: [

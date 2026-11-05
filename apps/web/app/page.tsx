@@ -9,12 +9,13 @@ import { Icon, type IconName } from '@/components/icon';
 import { TrackVisit } from '@/components/track-visit';
 import { TrackedDownloadLink } from '@/components/tracked-download-link';
 import { getSiteContent } from '@/lib/site-content';
+import { getDownloadUrl } from '@/lib/download-urls';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fitsystem.com.ar'),
-  title: 'Software para gimnasios con app y portal docente | FIT System',
+  title: 'Software para gimnasios con prueba gratis | FIT system',
   description:
-    'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. La operación local puede continuar sin internet; las funciones online requieren conexión.',
+    'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Probá FIT system gratis por 7 días, sin tarjeta. Incluye app para socios.',
   alternates: { canonical: '/' },
   robots: { index: true, follow: true },
   openGraph: {
@@ -22,30 +23,22 @@ export const metadata: Metadata = {
     locale: 'es_AR',
     url: 'https://fitsystem.com.ar',
     siteName: 'FIT system™',
-    title: 'Software para gimnasios con app y portal docente | FIT System',
+    title: 'Software para gimnasios con prueba gratis | FIT system',
     description:
-      'Software integral para gimnasios con escritorio Windows, app de socios y portal de profesores conectados. Gestioná socios, cuotas, clases, rutinas y progreso; las funciones online requieren conexión.',
+      'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Probá FIT system gratis por 7 días, sin tarjeta. Incluye app para socios.',
     images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'FIT system™ — Software de gestión para gimnasios' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Software para gimnasios con app y portal docente | FIT System',
+    title: 'Software para gimnasios con prueba gratis | FIT system',
     description:
-      'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Las funciones online requieren conexión.',
+      'Administrá socios, cuotas, cobros, caja y asistencia desde Windows. Probá FIT system gratis por 7 días, sin tarjeta. Incluye app para socios.',
     images: ['/opengraph-image.png'],
   },
 };
 
-const DOWNLOAD_BASE = 'https://github.com/dcorp-sas/FITsystem/releases/latest/download';
-// La API expone sus rutas bajo /api (NEXT_PUBLIC_API_URL es el host, sin /api).
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
-const API_ROOT = API_BASE ? (/\/api$/.test(API_BASE) ? API_BASE : `${API_BASE}/api`) : '';
-// Los botones de descarga pasan por la API (redireccion contada): registra el
-// hit y despues manda al instalador real. Si no hay API configurada, va directo.
-const counted = (asset: 'setup' | 'portable', direct: string) =>
-  API_ROOT ? `${API_ROOT}/metrics/download/go?asset=${asset}` : direct;
-const SETUP_URL = counted('setup', `${DOWNLOAD_BASE}/FIT-System-Setup.exe`);
-const PORTABLE_URL = counted('portable', `${DOWNLOAD_BASE}/FIT-System-Portable.exe`);
+const SETUP_URL = getDownloadUrl('setup');
+const PORTABLE_URL = getDownloadUrl('portable');
 const PWA_URL = process.env.NEXT_PUBLIC_SOCIOS_URL || 'https://socios.fitsystem.com.ar';
 const PWA_INSTALL_URL = `${PWA_URL}${PWA_URL.includes('?') ? '&' : '?'}install=1`;
 
@@ -258,13 +251,13 @@ export default async function LandingPage() {
             <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">{hero.subtitle}</p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href="#descargas"
+              <TrackedDownloadLink
+                href={SETUP_URL}
                 className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-6 text-base font-medium text-white shadow-lg shadow-primary/30 transition-colors hover:bg-primary-dark"
               >
                 <Icon name="dashboard" size={18} />
                 {hero.ctaPrimary}
-              </a>
+              </TrackedDownloadLink>
               <a
                 href="#planes"
                 className="inline-flex h-12 items-center gap-2 rounded-xl border border-line px-6 text-base font-medium text-text transition-colors hover:bg-surface-alt"
@@ -273,6 +266,7 @@ export default async function LandingPage() {
                 {hero.ctaSecondary}
               </a>
             </div>
+            <p className="mt-3 text-sm text-text-muted">{trialDays} días gratis · Sin tarjeta · Para Windows</p>
 
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
               <a href="/arrepentimiento" className="underline decoration-current underline-offset-4 hover:text-text">Botón de arrepentimiento</a>

@@ -1,19 +1,20 @@
 import type { Metadata } from 'next';
 import { SeoArticle } from '@/components/seo-article';
+import { getDownloadUrl } from '@/lib/download-urls';
 
 export const metadata: Metadata = {
-  title: 'Software para gimnasios: gestión de socios y cuotas | FIT system',
+  title: 'Software para gimnasios: prueba gratis 7 días | FIT system',
   description:
-    'Software de gestión para gimnasios: administrá socios, cuotas o mensualidades, cobros, caja, asistencia, clases y app móvil con FIT system.',
+    'Gestioná socios, cuotas, cobros, caja y asistencia en un solo sistema. Descargá la prueba gratis por 7 días, sin tarjeta.',
   alternates: { canonical: '/software-para-gimnasios' },
   openGraph: {
     type: 'website',
     locale: 'es_AR',
     url: 'https://fitsystem.com.ar/software-para-gimnasios',
     siteName: 'FIT system',
-    title: 'Software para gimnasios: gestión de socios y cuotas | FIT system',
+    title: 'Software para gimnasios: prueba gratis 7 días | FIT system',
     description:
-      'Gestioná socios, cuotas, cobros, caja, asistencia y clases desde FIT system, con aplicación de escritorio y app móvil para socios.',
+      'Gestioná socios, cuotas, cobros, caja y asistencia en un solo sistema. Descargá la prueba gratis por 7 días, sin tarjeta.',
     images: [
       {
         url: '/opengraph-image',
@@ -25,9 +26,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Software para gimnasios: gestión de socios y cuotas | FIT system',
+    title: 'Software para gimnasios: prueba gratis 7 días | FIT system',
     description:
-      'Gestioná socios, cuotas, cobros, caja, asistencia y clases desde FIT system.',
+      'Gestioná socios, cuotas, cobros, caja y asistencia. Probá FIT system gratis por 7 días, sin tarjeta.',
     images: ['/opengraph-image'],
   },
 };
@@ -35,6 +36,8 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <SeoArticle
+      downloadHref={getDownloadUrl('setup')}
+      trialDays={7}
       title="Software de gestión para gimnasios"
       intro="Organizá la administración diaria de tu gimnasio desde un mismo sistema: socios, cuotas, cobros, caja, asistencia, clases, productos y comunicación con tus clientes. FIT system combina un programa de gestión para PC con una aplicación móvil para socios."
       internationalContact

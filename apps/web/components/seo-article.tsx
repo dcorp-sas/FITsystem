@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { TrackedDownloadLink } from '@/components/tracked-download-link';
 
 export interface SeoSection {
   title: string;
   paragraphs: string[];
 }
 
-export function SeoArticle({ title, intro, sections, internationalContact = false }: { title: string; intro: string; sections: SeoSection[]; internationalContact?: boolean }) {
+export function SeoArticle({ title, intro, sections, internationalContact = false, downloadHref, trialDays }: { title: string; intro: string; sections: SeoSection[]; internationalContact?: boolean; downloadHref?: string; trialDays?: number }) {
   return (
     <main id="contenido" className="min-h-screen bg-base px-4 py-12 text-text sm:px-6 lg:px-8">
       <article className="mx-auto max-w-4xl">
@@ -15,9 +16,11 @@ export function SeoArticle({ title, intro, sections, internationalContact = fals
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">{title}</h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-text-muted">{intro}</p>
           <div className="mt-6 flex flex-wrap gap-3">
+            {downloadHref && <TrackedDownloadLink href={downloadHref} className="inline-flex items-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-dark">Descargar prueba gratis para Windows</TrackedDownloadLink>}
             <Link href="/#planes" className="inline-flex items-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-dark">Ver planes</Link>
             <Link href="/#contacto" className="inline-flex items-center rounded-xl border border-line px-5 py-3 text-sm font-semibold text-text hover:bg-surface-alt">Consultar por mi gimnasio</Link>
           </div>
+          {downloadHref && <p className="mt-3 text-sm text-text-muted">{trialDays ?? 7} días gratis · Sin tarjeta · Para Windows</p>}
         </header>
         <div className="mt-8 grid gap-5">
           {sections.map((section) => (
