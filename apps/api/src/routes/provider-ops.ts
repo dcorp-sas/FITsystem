@@ -351,12 +351,18 @@ export function providerOpsRoutes(app: FastifyInstance) {
           if (['RESOLVED', 'CLOSED'].includes(status) && input.recoveryVerified !== true && !current.verifiedAt) throw new HttpError(400, 'Antes de resolver o cerrar, confirmá la recuperación y registrá qué comprobaste');
           data.status = status;
           data.resolvedAt = ['RESOLVED', 'CLOSED'].includes(status) ? new Date() : null;
-          if (status === 'OPEN' && ['RESOLVED', 'CLOSED'].includes(current.status)) { data.verifiedAt = null; data.verificationNote = null; }
-          if (status === 'OPEN' && ['RESOLVED', 'CLOSED'].includes(current.status)) data.dueAt = new Date(Date.now() + caseSlaHours(current.priority) * 60 * 60_000);
+          if (['OPEN', 'IN_PROGRESS', 'WAITING'].includes(status) && ['RESOLVED', 'CLOSED'].includes(current.status)) {
+            data.verifiedAt = null;
+            data.verificationNote = null;
+            data.dueAt = new Date(Date.now() + caseSlaHours(current.priority) * 60 * 60_000);
+            data.firstResponseAt = null;
+          }
           events.push({ kind: 'STATUS', message: `Estado cambiado a ${status}.` });
         }
       }
       if (input.recoveryVerified === true) {
+        const effectiveStatus = String(input.status ?? current.status).toUpperCase();
+        if (!['RESOLVED', 'CLOSED'].includes(effectiveStatus)) throw new HttpError(400, 'La recuperación solo se puede confirmar al resolver o cerrar el caso');
         const note = String(input.verificationNote || '').trim().slice(0, 2000);
         if (note.length < 8) throw new HttpError(400, 'Describí brevemente cómo confirmaste que el problema quedó resuelto');
         data.verifiedAt = new Date();

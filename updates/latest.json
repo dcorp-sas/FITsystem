@@ -1,6 +1,6 @@
 {
-  "version": "0.3.72",
+  "version": "0.3.73",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Acceso y operación segura del Panel FS:\n- Primer arranque con creación del administrador y contraseña de al menos 12 caracteres.\n- Operadores individuales con permisos de Administrador, Soporte o Consulta; sesiones se bloquean luego de 30 minutos sin actividad y se limita el intento repetido de claves.\n- Los permisos se comprueban en el proceso principal del Panel, no solo ocultando botones.\n- Casos de soporte registran el nombre del operador; las acciones administrativas quedan en la bitácora local.\n- El monitor de casos prioritarios y vencidos notifica desde la bandeja aunque la ventana esté oculta.\n- Gestión de altas, roles, activación y cambio de contraseña de operadores.",
+  "notes": "Corregir inicio por roles, buscador de casos, telemetría de Profes y reapertura de incidentes",
   "mandatory": false
 }

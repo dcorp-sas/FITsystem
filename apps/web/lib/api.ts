@@ -20,6 +20,12 @@ function resolveApiUrl(): string {
 
 export const API_URL = resolveApiUrl();
 
+export function getClientSource(): 'profes' | 'web' {
+  if (typeof window === 'undefined') return 'web';
+  const host = window.location.hostname.toLowerCase();
+  return host.startsWith('profes.') || window.location.pathname.startsWith('/profes') ? 'profes' : 'web';
+}
+
 const TOKEN_KEY = 'fit_token';
 
 export function getToken(): string | null {
@@ -52,7 +58,7 @@ function reportClientTelemetry(event: { eventType: 'api_error' | 'error'; screen
     .slice(0, 1000);
   void fetch(`${API_URL}/system/client-telemetry`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${window.localStorage.getItem(TOKEN_KEY)}` },
-    body: JSON.stringify({ ...event, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', appVersion: webPackage.version }),
+    body: JSON.stringify({ ...event, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: getClientSource(), appVersion: webPackage.version }),
     keepalive: true,
   }).catch(() => undefined);
 }

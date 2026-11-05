@@ -1460,7 +1460,7 @@ const readOnlyIPC = new Set([
   'panel:auth:status', 'panel:auth:operators:list', 'panel:config:get', 'panel:licensador:overview', 'panel:brevo:check', 'panel:marketing:overview',
   'panel:marketing:contacts', 'panel:crm:leads', 'panel:metrics:summary', 'panel:clients:list', 'panel:subscriptions:list', 'panel:site:load',
   'panel:api:health', 'panel:api:database-health', 'panel:vps:metrics', 'panel:ip:analyze', 'panel:alerts:run', 'panel:health:history',
-  'panel:audit:list', 'panel:assistant:catalog', 'panel:assistant:suggest', 'panel:assistant:test', 'panel:mail:inbox', 'panel:mail:read',
+  'panel:audit:list', 'panel:assistant:catalog', 'panel:assistant:suggest', 'panel:mail:inbox', 'panel:mail:read',
   'panel:ops:systems', 'panel:ops:partner-app', 'panel:ops:desktop-installations', 'panel:ops:desktop-diagnostics-get', 'panel:ops:releases',
   'panel:ops:client-telemetry', 'panel:support:cases:list', 'panel:ops:downloads', 'panel:ops:errors', 'panel:invoice:config', 'panel:invoice:list',
 ]);

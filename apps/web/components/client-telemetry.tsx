@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { API_URL, getToken } from '@/lib/api';
+import { API_URL, getClientSource, getToken } from '@/lib/api';
 import webPackage from '../package.json';
 
 function send(eventType: 'screen' | 'error', message: string, stack?: string) {
@@ -16,7 +16,7 @@ function send(eventType: 'screen' | 'error', message: string, stack?: string) {
   void fetch(`${API_URL}/system/client-telemetry`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ eventType, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', appVersion: webPackage.version, screen: window.location.pathname, message: redact(message), stack: stack ? redact(stack).slice(0, 4000) : null }),
+    body: JSON.stringify({ eventType, source: getClientSource(), appVersion: webPackage.version, screen: window.location.pathname, message: redact(message), stack: stack ? redact(stack).slice(0, 4000) : null }),
     keepalive: true,
   }).catch(() => undefined);
 }

@@ -81,7 +81,8 @@ function renderNav() {
     }),
   );
   $('#view-title').textContent = MODULES.find((m) => m.id === state.view)?.label ?? '';
-  $('#logout')?.addEventListener('click', async () => { await api.authLogout(); window.location.reload(); });
+  const logoutButton = $('#logout');
+  if (logoutButton) logoutButton.onclick = async () => { await api.authLogout(); window.location.reload(); };
 }
 
 function renderAuthScreen(setupRequired) {
@@ -983,9 +984,20 @@ function casesHtml() {
 }
 
 function wireCases(view) {
-  const updateFilters = () => {
+  const updateFilters = (event) => {
     state.cache.caseFilters = { q: view.querySelector('[data-case-filter-q]')?.value.trim() || '', status: view.querySelector('[data-case-filter-status]')?.value || '', priority: view.querySelector('[data-case-filter-priority]')?.value || '' };
-    renderView();
+    const focusSearch = event?.currentTarget?.matches('[data-case-filter-q]');
+    const selectionStart = focusSearch ? event.currentTarget.selectionStart : null;
+    const selectionEnd = focusSearch ? event.currentTarget.selectionEnd : null;
+    const scrollTop = view.scrollTop;
+    view.innerHTML = casesHtml();
+    wireCases(view);
+    view.scrollTop = scrollTop;
+    if (focusSearch) {
+      const nextInput = view.querySelector('[data-case-filter-q]');
+      nextInput?.focus();
+      if (selectionStart != null && selectionEnd != null) nextInput?.setSelectionRange(selectionStart, selectionEnd);
+    }
   };
   view.querySelector('[data-case-filter-q]')?.addEventListener('input', updateFilters);
   view.querySelector('[data-case-filter-status]')?.addEventListener('change', updateFilters);
@@ -2785,6 +2797,7 @@ async function boot() {
   catch { auth = { setupRequired: true, authenticated: false }; }
   if (!auth.authenticated) { renderAuthScreen(auth.setupRequired); return; }
   state.operator = auth.user;
+  if (state.operator?.role !== 'ADMIN' && !['dashboard', 'sistemas', 'alertas', 'casos', 'asistente'].includes(state.view)) state.view = 'dashboard';
   api.onHealthUpdate((value) => {
     const update = value || {};
     state.cache.alerts = { alerts: update.alerts || [], checks: update.checks || [], at: update.at };
