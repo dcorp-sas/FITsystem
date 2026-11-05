@@ -2,7 +2,7 @@
   "expo": {
     "name": "FIT system™ Socios",
     "slug": "fitsystem-socios",
-    "version": "0.1.0",
+    "version": "0.3.69",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,9 @@
     },
     "android": {
       "package": "app.fitsystem.socios",
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0b1120",
         "foregroundImage": "./assets/android-icon-foreground.png",

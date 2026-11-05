@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Image, Pressable, SafeAreaView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, shadow, spacing } from './src/theme';
-import { setToken, portal, bootstrapToken, setTelemetryScreen, type LoginResponse } from './src/lib/api';
+import { setToken, portal, bootstrapToken, setTelemetryScreen, reportClientError, type LoginResponse } from './src/lib/api';
 import { configureNotifications, registerPushAsync } from './src/lib/push';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -20,6 +20,26 @@ import { Icon, type IconName } from './src/components/icon';
 
 type Tab = 'home' | 'checkin' | 'classes' | 'news' | 'routines' | 'payments' | 'profile';
 
+class ClientErrorBoundary extends Component<{ children: ReactNode; onRetry: () => void }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, _info: ErrorInfo) { reportClientError(error); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <StatusBar style="light" />
+      <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', textAlign: 'center' }}>La app encontró un problema</Text>
+      <Text style={{ color: colors.textMuted, marginTop: 12, textAlign: 'center' }}>El error se registró para ayudar al gimnasio a revisarlo. Volvé a intentar.</Text>
+      <Pressable onPress={this.props.onRetry} style={{ marginTop: 20, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 }}><Text style={{ color: '#fff', fontWeight: '700' }}>Reintentar</Text></Pressable>
+    </SafeAreaView>;
+  }
+}
+
+export default function App() {
+  const [attempt, setAttempt] = useState(0);
+  return <ClientErrorBoundary key={attempt} onRetry={() => setAttempt((value) => value + 1)}><AppContent key={attempt} /></ClientErrorBoundary>;
+}
+
 const TABS: { key: Tab; label: string; icon: IconName; iconActive: IconName }[] = [
   { key: 'home', label: 'Inicio', icon: 'home-outline', iconActive: 'home' },
   { key: 'checkin', label: 'Ingreso', icon: 'qr-code-outline', iconActive: 'qr-code' },
@@ -29,7 +49,7 @@ const TABS: { key: Tab; label: string; icon: IconName; iconActive: IconName }[] 
   { key: 'payments', label: 'Pagos', icon: 'card-outline', iconActive: 'card' },
 ];
 
-export default function App() {
+function AppContent() {
   const [status, setStatus] = useState<'loading' | 'ready'>('loading');
   const [session, setSession] = useState<LoginResponse | null>(null);
   const [tab, setTab] = useState<Tab>('home');

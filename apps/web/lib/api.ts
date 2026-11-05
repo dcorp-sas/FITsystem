@@ -1,4 +1,5 @@
 'use client';
+import webPackage from '../package.json';
 
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'production' ? 'https://api.fitsystem.com.ar' : undefined);
@@ -50,7 +51,7 @@ function reportClientTelemetry(event: { eventType: 'api_error'; screen?: string;
     .slice(0, 1000);
   void fetch(`${API_URL}/system/client-telemetry`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${window.localStorage.getItem(TOKEN_KEY)}` },
-    body: JSON.stringify({ eventType: event.eventType, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web' }),
+    body: JSON.stringify({ eventType: event.eventType, screen: event.screen || window.location.pathname, message: safe(event.message), stack: event.stack ? safe(event.stack).slice(0, 4000) : null, source: window.location.pathname.startsWith('/profes') ? 'profes' : 'web', appVersion: webPackage.version }),
     keepalive: true,
   }).catch(() => undefined);
 }

@@ -50,6 +50,7 @@ import { recordError } from './services/observability.js';
 import { licensePublicKeyFingerprint } from './services/license.js';
 import { startLocalBackupScheduler } from './services/local-backup.js';
 import { startProviderHealthMonitor } from './services/provider-health.js';
+import { pruneProviderSupportData } from './services/provider-support-retention.js';
 
 export async function buildServer() {
   const app = Fastify({
@@ -245,10 +246,22 @@ async function start() {
     startSubscriptionEnforcement();
     startLocalBackupScheduler();
     startProviderHealthMonitor();
+    startProviderSupportRetention();
   } catch (error) {
     app.log.error(error);
     process.exit(1);
   }
+}
+
+function startProviderSupportRetention() {
+  const run = async () => {
+    try {
+      const result = await pruneProviderSupportData();
+      if (result.telemetryRemoved || result.diagnosticDetailsRemoved) console.log('[api] retención de soporte aplicada', result);
+    } catch (error) { console.error('[api] error en retención de soporte', error); }
+  };
+  setTimeout(run, 60_000);
+  setInterval(run, 24 * 60 * 60 * 1000);
 }
 
 /** Recordatorios de cuotas: una corrida al iniciar y luego cada 24 horas. */

@@ -1,6 +1,6 @@
 {
   "name": "@fitsystem/mobile",
-  "version": "0.1.0",
+  "version": "0.3.69",
   "main": "index.ts",
   "private": true,
   "scripts": {

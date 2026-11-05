@@ -7,6 +7,7 @@
 
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import mobilePackage from '../../package.json';
 
 const DEFAULT_API_URL = Platform.OS === 'web' ? 'http://127.0.0.1:3001' : 'http://10.0.2.2:3001';
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/$/, '');
@@ -22,7 +23,7 @@ export class ApiError extends Error {
 let token: string | null = null;
 let telemetryScreen = 'Inicio';
 
-function sendTelemetry(eventType: 'screen' | 'api_error', message: string) {
+function sendTelemetry(eventType: 'screen' | 'api_error' | 'error', message: string) {
   if (!token) return;
   const safeMessage = message
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
@@ -30,13 +31,18 @@ function sendTelemetry(eventType: 'screen' | 'api_error', message: string) {
     .slice(0, 1000);
   void fetch(`${API_URL}/api/system/client-telemetry`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ eventType: eventType === 'api_error' ? 'api_error' : 'screen', source: 'socios', screen: telemetryScreen, message: safeMessage }),
+    body: JSON.stringify({ eventType: eventType === 'api_error' ? 'api_error' : 'screen', source: 'socios', appVersion: mobilePackage.version, screen: telemetryScreen, message: safeMessage }),
   }).catch(() => undefined);
 }
 
 export function setTelemetryScreen(screen: string) {
   telemetryScreen = screen.slice(0, 120);
   sendTelemetry('screen', 'Pantalla abierta');
+}
+
+export function reportClientError(error: unknown) {
+  const value = error instanceof Error ? error : new Error(String(error));
+  sendTelemetry('error', `${value.message}${value.stack ? `\n${value.stack}` : ''}`);
 }
 
 // El token persiste para que la sesión sobreviva a una recarga (PWA) y al

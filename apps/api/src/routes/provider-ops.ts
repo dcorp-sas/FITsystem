@@ -33,6 +33,7 @@ import { ensureCloudConnected, getCloudConfig, runCloudPull, runCloudSync } from
  */
 
 const DAY_MS = 86_400_000;
+const caseSlaHours = (priority: string) => priority === 'URGENT' ? 1 : priority === 'HIGH' ? 4 : priority === 'LOW' ? 72 : 24;
 
 async function probeHttpService(url: string): Promise<{ status: 'online' | 'offline' | 'sin configurar'; detail: string }> {
   if (!url) return { status: 'sin configurar', detail: 'Falta la dirección del servicio' };
@@ -254,12 +255,21 @@ export function providerOpsRoutes(app: FastifyInstance) {
   app.get('/provider/support/cases', async (request, reply) => {
     try {
       requireProviderToken(request);
+      const legacyCases = await prisma.providerSupportCase.findMany({
+        where: { dueAt: null, status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] } }, select: { id: true, priority: true, createdAt: true, status: true }, take: 500,
+      });
+      if (legacyCases.length) await prisma.$transaction(legacyCases.map((item) => prisma.providerSupportCase.update({
+        where: { id: item.id }, data: {
+          dueAt: new Date(item.createdAt.getTime() + caseSlaHours(item.priority) * 60 * 60_000),
+          ...(item.status === 'OPEN' ? {} : { firstResponseAt: item.createdAt }),
+        },
+      })));
       const query = (request.query ?? {}) as { status?: string; limit?: string };
       const limit = Math.min(200, Math.max(1, Number(query.limit) || 100));
       const status = String(query.status || '').toUpperCase();
       const cases = await prisma.providerSupportCase.findMany({
         where: status && ['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status) ? { status } : {},
-        orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }], take: limit,
+        orderBy: [{ status: 'asc' }, { dueAt: 'asc' }, { updatedAt: 'desc' }], take: limit,
         include: { events: { orderBy: { createdAt: 'desc' }, take: 50 } },
       });
       return ok(reply, { generatedAt: new Date().toISOString(), cases });
@@ -272,11 +282,14 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const { organizationId } = request.params as { organizationId: string };
       const query = (request.query ?? {}) as { limit?: string };
       const limit = Math.min(100, Math.max(1, Number(query.limit) || 40));
-      const events = await prisma.clientTelemetryEvent.findMany({
+      const [events, versions] = await Promise.all([prisma.clientTelemetryEvent.findMany({
         where: { organizationId }, orderBy: { createdAt: 'desc' }, take: limit,
-        select: { id: true, source: true, eventType: true, screen: true, message: true, stack: true, createdAt: true },
-      });
-      return ok(reply, { organizationId, events });
+        select: { id: true, source: true, appVersion: true, eventType: true, screen: true, message: true, stack: true, createdAt: true },
+      }), prisma.clientTelemetryEvent.groupBy({
+        by: ['source', 'appVersion'], where: { organizationId, appVersion: { not: null } },
+        _max: { createdAt: true }, _count: { _all: true }, orderBy: { _max: { createdAt: 'desc' } }, take: 30,
+      })]);
+      return ok(reply, { organizationId, events, versions });
     } catch (error) { return fail(reply, error); }
   });
 
@@ -295,6 +308,7 @@ export function providerOpsRoutes(app: FastifyInstance) {
           installationId: input.installationId ? String(input.installationId).slice(0, 120) : null,
           clientName: input.clientName ? String(input.clientName).slice(0, 160) : null,
           title, summary: message, priority,
+          dueAt: new Date(Date.now() + caseSlaHours(priority) * 60 * 60_000),
           assignedTo: input.assignedTo ? String(input.assignedTo).slice(0, 120) : null,
           events: { create: { kind: 'CREATED', actor: 'Panel FS', message: message || 'Caso creado desde el Panel FS.' } },
         },
@@ -312,20 +326,25 @@ export function providerOpsRoutes(app: FastifyInstance) {
       const current = await prisma.providerSupportCase.findUnique({ where: { id } });
       if (!current) throw new HttpError(404, 'Caso no encontrado');
       const data: Record<string, unknown> = {};
-      const events: Array<{ kind: string; message: string }> = [];
+      const events: Array<{ kind: string; message: string; details?: string }> = [];
       if (input.status !== undefined) {
         const status = String(input.status).toUpperCase();
         if (!['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(status)) throw new HttpError(400, 'Estado de caso inválido');
         if (status !== current.status) {
           data.status = status;
           data.resolvedAt = ['RESOLVED', 'CLOSED'].includes(status) ? new Date() : null;
+          if (status === 'OPEN' && ['RESOLVED', 'CLOSED'].includes(current.status)) data.dueAt = new Date(Date.now() + caseSlaHours(current.priority) * 60 * 60_000);
           events.push({ kind: 'STATUS', message: `Estado cambiado a ${status}.` });
         }
       }
       if (input.priority !== undefined) {
         const priority = String(input.priority).toUpperCase();
         if (!['LOW', 'NORMAL', 'HIGH', 'URGENT'].includes(priority)) throw new HttpError(400, 'Prioridad inválida');
-        if (priority !== current.priority) { data.priority = priority; events.push({ kind: 'PRIORITY', message: `Prioridad cambiada a ${priority}.` }); }
+        if (priority !== current.priority) {
+          data.priority = priority;
+          if (!['RESOLVED', 'CLOSED'].includes(current.status)) data.dueAt = new Date(Date.now() + caseSlaHours(priority) * 60 * 60_000);
+          events.push({ kind: 'PRIORITY', message: `Prioridad cambiada a ${priority}. Nuevo objetivo de respuesta: ${caseSlaHours(priority)} h.` });
+        }
       }
       if (input.assignedTo !== undefined) {
         const assignedTo = String(input.assignedTo || '').trim().slice(0, 120) || null;
@@ -333,7 +352,23 @@ export function providerOpsRoutes(app: FastifyInstance) {
       }
       if (input.message !== undefined) {
         const message = String(input.message || '').trim().slice(0, 4000);
-        if (message) events.push({ kind: 'NOTE', message });
+        if (message) {
+          events.push({ kind: 'NOTE', message });
+          if (!current.firstResponseAt) data.firstResponseAt = new Date();
+        }
+      }
+      if (input.status !== undefined && ['IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'].includes(String(input.status).toUpperCase()) && !current.firstResponseAt) data.firstResponseAt = new Date();
+      if (input.diagnostics !== undefined) {
+        if (!input.diagnostics || typeof input.diagnostics !== 'object' || Array.isArray(input.diagnostics)) throw new HttpError(400, 'El paquete de diagnóstico no tiene un formato válido');
+        const diagnostics = input.diagnostics as Record<string, unknown>;
+        if (diagnostics.reportType !== 'FIT_SYSTEM_DIAGNOSTICS') throw new HttpError(400, 'El archivo no es un paquete de diagnóstico de FIT System');
+        const reportInstallationId = String(diagnostics.installationId || '');
+        if (current.installationId && reportInstallationId && current.installationId !== reportInstallationId) throw new HttpError(409, 'El paquete corresponde a otra instalación');
+        const details = JSON.stringify(diagnostics);
+        if (details.length > 20_000) throw new HttpError(413, 'El paquete supera el tamaño permitido');
+        events.push({ kind: 'DIAGNOSTIC', message: `Paquete importado · capturado ${String(diagnostics.capturedAt || 'sin fecha')}.`, details });
+        if (!current.firstResponseAt) data.firstResponseAt = new Date();
+        if (!current.installationId && reportInstallationId) data.installationId = reportInstallationId;
       }
       const supportCase = await prisma.$transaction(async (tx) => {
         for (const event of events) await tx.providerSupportCaseEvent.create({ data: { caseId: id, actor: 'Panel FS', ...event } });
@@ -578,6 +613,9 @@ export function providerOpsRoutes(app: FastifyInstance) {
       }
       const dbCheck = await prisma.$queryRaw<Array<{ ok: number }>>`SELECT 1 AS ok`
         .then(() => true).catch(() => false);
+      const databaseIntegrity = dbCheck && env.DATABASE_URL.startsWith('file:')
+        ? await prisma.$queryRawUnsafe<Array<{ quick_check: string }>>('PRAGMA quick_check(100)').catch(() => [])
+        : null;
       let cloud: Awaited<ReturnType<typeof getCloudConfig>> | null = null;
       if (dbCheck) cloud = await getCloudConfig().catch(() => null);
       const orgId = cloud?.orgId;
@@ -607,12 +645,19 @@ export function providerOpsRoutes(app: FastifyInstance) {
         localDiagnostics: {
           capturedAt: new Date().toISOString(),
           localApi: { status: 'online', uptimeSeconds: Math.round(process.uptime()), nodeVersion: process.version },
-          database: { status: dbCheck ? 'online' : 'offline', detail: dbCheck ? 'Consulta SELECT 1 correcta' : 'La base local no respondió a SELECT 1' },
+          database: {
+            status: dbCheck ? 'online' : 'offline', detail: dbCheck ? 'Consulta SELECT 1 correcta' : 'La base local no respondió a SELECT 1',
+            integrity: databaseIntegrity === null ? 'no comprobada' : databaseIntegrity.length && databaseIntegrity.every((row) => row.quick_check === 'ok') ? 'correcta' : 'requiere revisión',
+          },
           cloudSync: { status: cloud?.connected && syncRecent && !cloud.lastError ? 'online' : 'attention', lastSuccessAt: cloud?.lastSyncAt ?? null, error: cloud?.lastError || (!dbCheck ? 'No se pudo consultar la configuración de nube' : !syncRecent ? 'Sin sincronización confirmada en los últimos 30 minutos' : null) },
           records: { members, portalAccounts, activePortalAccounts, instructors, activeInstructorUsers: instructorUsers },
           recentErrors: recentErrors.map((row) => ({
             level: row.level, path: row.path, method: row.method, statusCode: row.statusCode, at: row.createdAt.toISOString(),
-            message: row.message.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]').replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]').slice(0, 300),
+            message: row.message.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
+              .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+              .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [secreto]')
+              .replace(/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*[^\s&,;]+/gi, '$1=[secreto]')
+              .slice(0, 300),
           })),
         },
       });

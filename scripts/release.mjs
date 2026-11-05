@@ -48,6 +48,9 @@ const skipPush = hasFlag('--skip-push');
 const dryRun = hasFlag('--dry-run');
 
 const desktopPkgPath = path.join(root, 'apps', 'desktop', 'package.json');
+const webPkgPath = path.join(root, 'apps', 'web', 'package.json');
+const mobilePkgPath = path.join(root, 'apps', 'mobile', 'package.json');
+const mobileAppPath = path.join(root, 'apps', 'mobile', 'app.json');
 const preloadPath = path.join(root, 'apps', 'desktop', 'src', 'preload.ts');
 const manifestPath = path.join(root, 'updates', 'latest.json');
 const setupUrl =
@@ -81,6 +84,17 @@ function updateDesktopPkg(version) {
   const out = raw.replace(/("version"\s*:\s*")[^"]*(")/, `$1${version}$2`);
   if (out === raw) throw new Error('No se pudo actualizar la version en apps/desktop/package.json');
   fs.writeFileSync(desktopPkgPath, out);
+}
+
+function updateClientAppVersions(version) {
+  for (const filename of [webPkgPath, mobilePkgPath]) {
+    const data = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    data.version = version;
+    fs.writeFileSync(filename, `${JSON.stringify(data, null, 2)}\n`);
+  }
+  const appData = JSON.parse(fs.readFileSync(mobileAppPath, 'utf8'));
+  appData.expo.version = version;
+  fs.writeFileSync(mobileAppPath, `${JSON.stringify(appData, null, 2)}\n`);
 }
 
 function updatePreload(version) {
@@ -125,6 +139,9 @@ function main() {
     console.log('\n(dry-run) Archivos a modificar:');
     console.log(' -', path.relative(root, desktopPkgPath));
     console.log(' -', path.relative(root, preloadPath));
+    console.log(' -', path.relative(root, webPkgPath));
+    console.log(' -', path.relative(root, mobilePkgPath));
+    console.log(' -', path.relative(root, mobileAppPath));
     console.log(' -', path.relative(root, manifestPath));
     console.log('Commit:', subject);
     return;
@@ -132,6 +149,7 @@ function main() {
 
   console.log('\n[1/6] Actualizando version en los 3 archivos...');
   updateDesktopPkg(version);
+  updateClientAppVersions(version);
   updatePreload(version);
   updateManifest(version);
 

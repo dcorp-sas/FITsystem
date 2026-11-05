@@ -1354,6 +1354,8 @@ model ProviderSupportCase {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   resolvedAt     DateTime?
+  dueAt          DateTime?
+  firstResponseAt DateTime?
   events         ProviderSupportCaseEvent[]
 
   @@index([status, updatedAt])
@@ -1368,6 +1370,7 @@ model ProviderSupportCaseEvent {
   actor     String   @default("Panel FS")
   kind      String   @default("NOTE")
   message   String
+  details   String?
   createdAt DateTime @default(now())
   supportCase ProviderSupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
@@ -1380,6 +1383,7 @@ model ClientTelemetryEvent {
   organizationId String
   userId         String?
   source         String   @default("web")
+  appVersion     String?
   eventType      String   @default("error")
   screen         String?
   message        String

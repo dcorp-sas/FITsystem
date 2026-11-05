@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('fitsystem', {
-  version: '0.3.68',
+  version: '0.3.69',
   getLicense: () => ipcRenderer.invoke('license:get'),
   activate: (key: string) => ipcRenderer.invoke('license:activate', key),
   requestCode: () => ipcRenderer.invoke('license:request'),
@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('fitsystem', {
   getNetwork: () => ipcRenderer.invoke('network:get'),
   setNetwork: (mode: 'standalone' | 'server' | 'cloud') => ipcRenderer.invoke('network:set', mode),
   restartApp: () => ipcRenderer.invoke('network:restart'),
+  exportDiagnostics: () => ipcRenderer.invoke('support:export-diagnostics'),
   openAccessWindow: () => ipcRenderer.invoke('access:open'),
   openAccessQrWindow: (data: { title: string; subtitle: string; footer: string; image: string | null; enabled: boolean; rotation: string }) => ipcRenderer.invoke('access:qr-open', data),
   onUpdateEvent: (listener: (payload: unknown) => void) => {

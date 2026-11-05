@@ -30,10 +30,11 @@ pnpm release minor                            # o: major, o una version X.Y.Z
 pnpm release patch --skip-push                # sube version y commitea, sin publicar
 ```
 
-El script `scripts/release.mjs` actualiza la version en los 3 lugares
-(`apps/desktop/package.json`, `apps/desktop/src/preload.ts`, `updates/latest.json`),
-hace `git add -A` + commit, `git push`, y crea/empuja el tag `vX.Y.Z`. El push del
-tag dispara `.github/workflows/release.yml`, que compila y publica los instaladores.
+El script `scripts/release.mjs` actualiza la version del escritorio, web y móvil
+(`apps/desktop/package.json`, `apps/desktop/src/preload.ts`, `apps/web/package.json`,
+`apps/mobile/package.json`, `apps/mobile/app.json`, `updates/latest.json`), hace
+`git add -A` + commit, `git push`, y crea/empuja el tag `vX.Y.Z`. El push del tag
+dispara `.github/workflows/release.yml`, que compila y publica los instaladores.
 
 En Windows, para evitar problemas de acentos en la consola, usar `--notes-file`
 con un archivo UTF-8 en vez de `--notes`.

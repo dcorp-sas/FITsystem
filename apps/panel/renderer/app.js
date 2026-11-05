@@ -66,8 +66,9 @@ function placeholder(title, detail) {
 function renderNav() {
   const currentAlerts = state.cache.alerts?.alerts || state.cache.dashboard?.alerts?.alerts || [];
   const criticalAlerts = currentAlerts.filter((alert) => alert.level === 'crit' || alert.level === 'warn').length;
+  const casesNeedingAttention = (state.cache.cases?.cases || []).filter((item) => !['RESOLVED', 'CLOSED'].includes(item.status) && ((item.priority === 'URGENT' || item.priority === 'HIGH') && !item.assignedTo || item.dueAt && new Date(item.dueAt).getTime() < Date.now())).length;
   $('#nav').innerHTML = MODULES.map(
-    (m) => `<button data-view="${m.id}" class="${m.id === state.view ? 'active' : ''}"><span class="glyph">${m.glyph}</span>${esc(m.label)}${m.id === 'alertas' && criticalAlerts ? `<span class="nav-badge">${criticalAlerts > 99 ? '99+' : criticalAlerts}</span>` : ''}</button>`,
+    (m) => `<button data-view="${m.id}" class="${m.id === state.view ? 'active' : ''}"><span class="glyph">${m.glyph}</span>${esc(m.label)}${m.id === 'alertas' && criticalAlerts ? `<span class="nav-badge">${criticalAlerts > 99 ? '99+' : criticalAlerts}</span>` : ''}${m.id === 'casos' && casesNeedingAttention ? `<span class="nav-badge">${casesNeedingAttention > 99 ? '99+' : casesNeedingAttention}</span>` : ''}</button>`,
   ).join('');
   $('#nav').querySelectorAll('button').forEach((b) =>
     b.addEventListener('click', () => {
@@ -764,6 +765,8 @@ function remoteDiagnosticsHtml(diagnostics) {
     ['Nube', local.cloudSync?.status === 'online' ? 'conectada' : local.cloudSync?.status === 'attention' ? 'requiere atención' : 'sin dato', local.cloudSync?.error || (local.cloudSync?.lastSuccessAt ? fmtDate(local.cloudSync.lastSuccessAt) : '')],
     ['Equipo', workstation.platform || 'sin dato', workstation.architecture || ''],
     ['Memoria', workstation.freeMemoryMb != null ? `${workstation.freeMemoryMb} MB libres / ${workstation.totalMemoryMb} MB` : 'sin dato', ''],
+    ['Disco', workstation.diskFreeMb != null ? `${workstation.diskFreeMb} MB libres / ${workstation.diskTotalMb} MB` : 'sin dato', ''],
+    ['Integridad de la base', local.database?.integrity || 'sin comprobar', ''],
     ['Memoria de FIT System', workstation.desktopProcessMemoryMb != null ? `${workstation.desktopProcessMemoryMb} MB` : 'sin dato', ''],
     ['Datos locales', local.records ? `${local.records.members} socios · ${local.records.portalAccounts} cuentas · ${local.records.instructors} profesores` : 'sin dato', ''],
   ];
@@ -806,8 +809,9 @@ function opsHtml() {
   const clientRows = (systems.clients || []).map((c) => {
     const license = licenseFor(c, d.licenses?.licenses || []);
     const telemetry = d.telemetryDetails?.[c.id];
+    const versionRows = (telemetry?.versions || []).map((version) => `<div class="muted">${esc(version.source)} · v${esc(version.appVersion || 'sin versión')} · visto ${esc(version._max?.createdAt ? fmtDate(version._max.createdAt) : '—')} · ${Number(version._count?._all || 0)} señal(es)</div>`).join('');
     const telemetryRows = (telemetry?.events || []).map((event) => `<div class="muted" style="padding:5px 0;border-top:1px solid var(--border)"><strong>${esc(event.eventType === 'screen' ? 'Pantalla abierta' : event.eventType === 'api_error' ? 'Falla de solicitud' : 'Error de pantalla')}</strong> · ${esc(event.source)} · ${esc(fmtDate(event.createdAt))}<div>${esc(event.screen || 'pantalla sin identificar')} · ${esc(event.message)}</div>${event.stack ? `<details><summary>Detalle técnico</summary><pre style="white-space:pre-wrap">${esc(event.stack)}</pre></details>` : ''}</div>`).join('');
-    return `<tr><td><strong>${esc(c.name)}</strong><div class="muted">${esc(c.slug)}</div>${systemExpandedDetails(c, c, license, d.installations?.installations || [], errorRows)}<details style="margin-top:6px"><summary style="cursor:pointer">Actividad y errores de pantallas</summary><button class="btn small" data-client-telemetry="${esc(c.id)}">${telemetry ? 'Actualizar telemetría' : 'Cargar señales'}</button>${telemetry?.error ? `<div class="muted">${esc(telemetry.error)}</div>` : telemetry ? telemetryRows || '<div class="muted">Sin señales de pantalla registradas todavía. Las señales empiezan al actualizar las apps del cliente.</div>' : '<div class="muted">Cargá las señales para ver actividad reciente y fallas informadas por Socios o Profes.</div>'}</details></td><td>${c.isActive ? '<span class="pill ok">activo</span>' : '<span class="pill bad">inactivo</span>'}</td><td>${c.counts?.users ?? 0} usuarios · ${c.counts?.activeMembers ?? 0}/${c.counts?.members ?? 0} socios</td><td>${esc(c.sync?.lastPushAt ? relTime(c.sync.lastPushAt) : 'sin sincronizar')}</td><td>${(c.modules || []).map((m) => `<span class="pill ${m.active ? 'ok' : ''}" title="${esc(m.detail)}">${esc(m.label)}: ${m.active ? 'sí' : 'no'}</span> `).join('')}</td><td>${c.counts?.errors7d ?? 0}</td></tr>`;
+    return `<tr><td><strong>${esc(c.name)}</strong><div class="muted">${esc(c.slug)}</div>${systemExpandedDetails(c, c, license, d.installations?.installations || [], errorRows)}<details style="margin-top:6px"><summary style="cursor:pointer">Actividad, versiones y errores de pantallas</summary><button class="btn small" data-client-telemetry="${esc(c.id)}">${telemetry ? 'Actualizar telemetría' : 'Cargar señales'}</button>${telemetry?.error ? `<div class="muted">${esc(telemetry.error)}</div>` : telemetry ? `${versionRows ? `<div style="margin:6px 0"><strong>Versiones observadas por cliente</strong>${versionRows}</div>` : '<div class="muted">Aún no se recibió una versión de Socios o Profes.</div>'}${telemetryRows || '<div class="muted">Sin fallas de pantalla registradas todavía. Las señales empiezan al actualizar y usar las apps.</div>'}` : '<div class="muted">Cargá las señales para ver versiones y fallas recientes de Socios o Profes.</div>'}</details></td><td>${c.isActive ? '<span class="pill ok">activo</span>' : '<span class="pill bad">inactivo</span>'}</td><td>${c.counts?.users ?? 0} usuarios · ${c.counts?.activeMembers ?? 0}/${c.counts?.members ?? 0} socios</td><td>${esc(c.sync?.lastPushAt ? relTime(c.sync.lastPushAt) : 'sin sincronizar')}</td><td>${(c.modules || []).map((m) => `<span class="pill ${m.active ? 'ok' : ''}" title="${esc(m.detail)}">${esc(m.label)}: ${m.active ? 'sí' : 'no'}</span> `).join('')}</td><td>${c.counts?.errors7d ?? 0}</td></tr>`;
   }).join('');
   const installRows = (() => {
     const byId = new Map();
@@ -895,13 +899,25 @@ async function loadCases() {
   const [cases, systems] = await Promise.allSettled([api.supportCasesList(), state.cache.ops?.systems ? Promise.resolve(state.cache.ops.systems) : api.opsSystems()]);
   if (systems.status === 'fulfilled') state.cache.ops = { ...(state.cache.ops || {}), systems: systems.value };
   state.cache.cases = cases.status === 'fulfilled' ? { ...cases.value, error: null } : { cases: [], error: cases.reason?.message || String(cases.reason) };
+  renderNav();
 }
 
 function casesHtml() {
   const d = state.cache.cases || {};
   const clientOptions = (state.cache.ops?.systems?.clients || []).map((client) => `<option value="${esc(client.id)}" data-client-name="${esc(client.name)}" data-installation="${esc(client.installationId || '')}">${esc(client.name)}</option>`).join('');
-  const cases = (d.cases || []).map((item) => `<article class="card" style="margin-top:12px" data-case="${esc(item.id)}"><div class="row" style="justify-content:space-between"><div><strong>${esc(item.title)}</strong><div class="muted">${esc(item.clientName || 'Cliente no asociado')}${item.installationId ? ` · instalación ${esc(item.installationId)}` : ''} · creado ${esc(fmtDate(item.createdAt))}</div></div><span class="pill ${item.priority === 'URGENT' || item.priority === 'HIGH' ? 'bad' : item.status === 'RESOLVED' || item.status === 'CLOSED' ? 'ok' : 'warn'}">${esc(supportCaseLabel(item.priority))}</span></div>${item.summary ? `<p style="white-space:pre-wrap">${esc(item.summary)}</p>` : ''}<div class="row" style="align-items:flex-end"><label>Estado<select data-case-status><option value="OPEN" ${item.status === 'OPEN' ? 'selected' : ''}>Abierto</option><option value="IN_PROGRESS" ${item.status === 'IN_PROGRESS' ? 'selected' : ''}>En curso</option><option value="WAITING" ${item.status === 'WAITING' ? 'selected' : ''}>En espera</option><option value="RESOLVED" ${item.status === 'RESOLVED' ? 'selected' : ''}>Resuelto</option><option value="CLOSED" ${item.status === 'CLOSED' ? 'selected' : ''}>Cerrado</option></select></label><label>Prioridad<select data-case-priority><option value="LOW" ${item.priority === 'LOW' ? 'selected' : ''}>Baja</option><option value="NORMAL" ${item.priority === 'NORMAL' ? 'selected' : ''}>Normal</option><option value="HIGH" ${item.priority === 'HIGH' ? 'selected' : ''}>Alta</option><option value="URGENT" ${item.priority === 'URGENT' ? 'selected' : ''}>Urgente</option></select></label><label>Asignado a<input data-case-assignee value="${esc(item.assignedTo || '')}" placeholder="Nombre del responsable" /></label></div><details style="margin-top:8px"><summary>Historial · ${(item.events || []).length} movimiento(s)</summary><div style="padding:8px 0">${(item.events || []).slice().reverse().map((event) => `<div class="muted" style="padding:4px 0;border-bottom:1px solid var(--border)">${esc(fmtDate(event.createdAt))} · ${esc(event.actor)} · ${esc(event.kind)}<div style="white-space:pre-wrap">${esc(event.message)}</div></div>`).join('') || '<div class="muted">Sin movimientos</div>'}</div></details><div class="row" style="margin-top:8px"><input data-case-note placeholder="Agregar nota o resultado de una prueba…" style="flex:1" /><button class="btn primary" data-case-save>Guardar actualización</button></div></article>`).join('');
-  return `${d.error ? `<div class="card muted">No se pudieron cargar los casos: ${esc(d.error)}</div>` : ''}<div class="card"><h3>Abrir caso de soporte</h3><div class="grid"><label>Cliente<select id="case-client"><option value="">Sin organización vinculada</option>${clientOptions}</select></label><label>Instalación<input id="case-installation" placeholder="ID inst_… si no aparece arriba" /></label><label>Prioridad<select id="case-priority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label style="display:block;margin-top:10px">Problema<input id="case-title" placeholder="Ej.: Profes no pueden iniciar sesión" style="width:100%" /></label><label style="display:block;margin-top:10px">Síntoma y evidencia<textarea id="case-summary" rows="4" placeholder="Qué informó el cliente, qué se comprobó y qué falta revisar…" style="width:100%"></textarea></label><button class="btn primary" id="case-create" style="margin-top:8px">Crear caso</button></div><div class="row" style="justify-content:space-between;margin-top:14px"><h3>Seguimiento de soporte</h3><button class="btn small" id="case-refresh">Actualizar casos</button></div>${cases || '<div class="card muted">No hay casos guardados todavía.</div>'}`;
+  const allCases = d.cases || [];
+  const active = allCases.filter((item) => !['RESOLVED', 'CLOSED'].includes(item.status));
+  const overdue = active.filter((item) => item.dueAt && new Date(item.dueAt).getTime() < Date.now());
+  const urgentUnassigned = active.filter((item) => ['URGENT', 'HIGH'].includes(item.priority) && !item.assignedTo);
+  const attention = `<div class="grid" style="margin-bottom:12px"><div class="card"><div class="stat">${active.length} <small>casos abiertos</small></div></div><div class="card"><div class="stat">${urgentUnassigned.length} <small>urgentes sin asignar</small></div></div><div class="card"><div class="stat">${overdue.length} <small>fuera del plazo</small></div></div></div>`;
+  const cases = allCases.map((item) => {
+    const isOpen = !['RESOLVED', 'CLOSED'].includes(item.status);
+    const late = isOpen && item.dueAt && new Date(item.dueAt).getTime() < Date.now();
+    const slaLabel = late ? `SLA vencido · objetivo ${fmtDate(item.dueAt)}` : item.firstResponseAt ? `Primera respuesta ${fmtDate(item.firstResponseAt)}` : `Responder antes de ${fmtDate(item.dueAt)}`;
+    const events = (item.events || []).slice().reverse().map((event) => `<div class="muted" style="padding:4px 0;border-bottom:1px solid var(--border)">${esc(fmtDate(event.createdAt))} · ${esc(event.actor)} · ${esc(event.kind)}<div style="white-space:pre-wrap">${esc(event.message)}</div>${event.details ? `<details><summary>Ver informe adjunto</summary><pre style="white-space:pre-wrap;max-height:320px;overflow:auto">${esc(event.details)}</pre></details>` : ''}</div>`).join('');
+    return `<article class="card" style="margin-top:12px" data-case="${esc(item.id)}"><div class="row" style="justify-content:space-between"><div><strong>${esc(item.title)}</strong><div class="muted">${esc(item.clientName || 'Cliente no asociado')}${item.installationId ? ` · instalación ${esc(item.installationId)}` : ''} · creado ${esc(fmtDate(item.createdAt))}</div><div class="pill ${late ? 'bad' : item.firstResponseAt ? 'ok' : 'warn'}" style="margin-top:5px">${esc(slaLabel)}</div></div><span class="pill ${item.priority === 'URGENT' || item.priority === 'HIGH' ? 'bad' : item.status === 'RESOLVED' || item.status === 'CLOSED' ? 'ok' : 'warn'}">${esc(supportCaseLabel(item.priority))}</span></div>${item.summary ? `<p style="white-space:pre-wrap">${esc(item.summary)}</p>` : ''}<div class="row" style="align-items:flex-end"><label>Estado<select data-case-status><option value="OPEN" ${item.status === 'OPEN' ? 'selected' : ''}>Abierto</option><option value="IN_PROGRESS" ${item.status === 'IN_PROGRESS' ? 'selected' : ''}>En curso</option><option value="WAITING" ${item.status === 'WAITING' ? 'selected' : ''}>En espera</option><option value="RESOLVED" ${item.status === 'RESOLVED' ? 'selected' : ''}>Resuelto</option><option value="CLOSED" ${item.status === 'CLOSED' ? 'selected' : ''}>Cerrado</option></select></label><label>Prioridad<select data-case-priority><option value="LOW" ${item.priority === 'LOW' ? 'selected' : ''}>Baja</option><option value="NORMAL" ${item.priority === 'NORMAL' ? 'selected' : ''}>Normal</option><option value="HIGH" ${item.priority === 'HIGH' ? 'selected' : ''}>Alta</option><option value="URGENT" ${item.priority === 'URGENT' ? 'selected' : ''}>Urgente</option></select></label><label>Asignado a<input data-case-assignee value="${esc(item.assignedTo || '')}" placeholder="Nombre del responsable" /></label></div><div class="row" style="margin-top:8px"><button class="btn small" data-case-diagnostic>Adjuntar diagnóstico sin conexión</button><span class="muted">El cliente puede exportarlo desde Configuración. El archivo adjunto se elimina a los 90 días; el historial del caso permanece.</span></div><details style="margin-top:8px"><summary>Historial · ${(item.events || []).length} movimiento(s)</summary><div style="padding:8px 0">${events || '<div class="muted">Sin movimientos</div>'}</div></details><div class="row" style="margin-top:8px"><input data-case-note placeholder="Agregar nota o resultado de una prueba…" style="flex:1" /><button class="btn primary" data-case-save>Guardar actualización</button></div></article>`;
+  }).join('');
+  return `${d.error ? `<div class="card muted">No se pudieron cargar los casos: ${esc(d.error)}</div>` : ''}${allCases.length ? attention : ''}<div class="card"><h3>Abrir caso de soporte</h3><div class="grid"><label>Cliente<select id="case-client"><option value="">Sin organización vinculada</option>${clientOptions}</select></label><label>Instalación<input id="case-installation" placeholder="ID inst_… si no aparece arriba" /></label><label>Prioridad<select id="case-priority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label style="display:block;margin-top:10px">Problema<input id="case-title" placeholder="Ej.: Profes no pueden iniciar sesión" style="width:100%" /></label><label style="display:block;margin-top:10px">Síntoma y evidencia<textarea id="case-summary" rows="4" placeholder="Qué informó el cliente, qué se comprobó y qué falta revisar…" style="width:100%"></textarea></label><button class="btn primary" id="case-create" style="margin-top:8px">Crear caso</button></div><div class="row" style="justify-content:space-between;margin-top:14px"><h3>Seguimiento de soporte</h3><button class="btn small" id="case-refresh">Actualizar casos</button></div>${cases || '<div class="card muted">No hay casos guardados todavía.</div>'}`;
 }
 
 function wireCases(view) {
@@ -928,6 +944,17 @@ function wireCases(view) {
     try {
       await api.supportCaseUpdate(card.dataset.case, { status: card.querySelector('[data-case-status]').value, priority: card.querySelector('[data-case-priority]').value, assignedTo: card.querySelector('[data-case-assignee]').value, message: card.querySelector('[data-case-note]').value });
       toast('Caso actualizado y movimiento registrado.');
+      await loadCases();
+      renderView();
+    } catch (error) { toast(error.message || String(error), 'err'); button.disabled = false; }
+  }));
+  view.querySelectorAll('[data-case-diagnostic]').forEach((button) => button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      const diagnostics = await api.supportDiagnosticsImport();
+      if (!diagnostics) { button.disabled = false; return; }
+      await api.supportCaseUpdate(button.closest('[data-case]').dataset.case, { diagnostics });
+      toast('Informe adjuntado al caso y guardado en el historial.');
       await loadCases();
       renderView();
     } catch (error) { toast(error.message || String(error), 'err'); button.disabled = false; }
@@ -1257,8 +1284,8 @@ async function loadAssistant() {
     m.loadError = e.message;
   }
   try {
-    const res = await api.assistantSuggest({ text: '', organizationId: m.organizationId || '' });
-    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions, workflow: res.workflow, workflowPrompt: '', caseDraft: res.client ? { client: res.client, title: `Diagnóstico de ${res.client.name}` } : null });
+    const res = await api.assistantSuggest({ text: '', organizationId: m.organizationId || '', messages: [] });
+    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions, workflow: res.workflow, aiUsed: res.aiUsed, workflowPrompt: '', caseDraft: res.client ? { client: res.client, title: `Diagnóstico de ${res.client.name}` } : null });
   } catch (e) {
     m.messages.push({ role: 'bot', text: 'No pude analizar el estado: ' + e.message });
   }
@@ -1269,8 +1296,10 @@ async function assistantSend(text) {
   if (text) m.messages.push({ role: 'user', text });
   renderView();
   try {
-    const res = await api.assistantSuggest({ text, organizationId: m.organizationId || '' });
-    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions, workflow: res.workflow, workflowPrompt: text, caseDraft: res.client ? { client: res.client, title: text ? `Soporte ${res.client.name}: ${text.slice(0, 110)}` : `Diagnóstico de ${res.client.name}`, message: text } : null });
+    const messages = m.messages.filter((message) => message.role === 'user' || message.role === 'bot').map((message) => ({ role: message.role === 'user' ? 'user' : 'assistant', content: message.text }));
+    if (text && messages[messages.length - 1]?.role === 'user' && messages[messages.length - 1]?.content === text) messages.pop();
+    const res = await api.assistantSuggest({ text, organizationId: m.organizationId || '', messages });
+    m.messages.push({ role: 'bot', text: res.reply, suggestions: res.suggestions, workflow: res.workflow, aiUsed: res.aiUsed, workflowPrompt: text, caseDraft: res.client ? { client: res.client, title: text ? `Soporte ${res.client.name}: ${text.slice(0, 110)}` : `Diagnóstico de ${res.client.name}`, message: text } : null });
   } catch (e) {
     m.messages.push({ role: 'bot', text: 'No pude analizarlo: ' + e.message });
   }
@@ -1300,6 +1329,7 @@ function assistantHtml() {
   const m = state.cache.assistant || {};
   const msgs = m.messages || [];
   const clientOptions = (m.clients || []).map((client) => `<option value="${esc(client.id)}" ${m.organizationId === client.id ? 'selected' : ''}>${esc(client.name)}</option>`).join('');
+  const aiConfigured = Boolean(state.config?.secrets?.assistantApiKey);
   const cards = msgs
     .map((msg, messageIndex) => {
       if (msg.role === 'user')
@@ -1325,6 +1355,7 @@ function assistantHtml() {
     })
     .join('');
   return `<div class="card" style="padding:14px">
+      <div class="muted" style="margin-bottom:8px"><span class="pill ${aiConfigured ? 'ok' : 'warn'}">${aiConfigured ? 'Conversación con IA activa' : 'Guía por reglas · IA sin configurar'}</span> ${aiConfigured ? 'Las respuestas consultan datos actuales antes de contestar.' : 'Agregá la clave de OpenAI en Configuración para habilitar conversación abierta.'}</div>
       <div class="row" style="margin-bottom:10px"><label for="as-client"><strong>Cliente afectado</strong></label><select id="as-client" style="min-width:240px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"><option value="">Toda la empresa</option>${clientOptions}</select><button class="btn small" type="button" id="as-refresh">Actualizar diagnóstico</button></div>
       <div id="as-stream" style="min-height:240px;max-height:480px;overflow:auto">${cards || '<div class="muted">Consultando el estado…</div>'}</div>
       <form id="as-form" style="display:flex;gap:8px;margin-top:12px">
@@ -2111,6 +2142,11 @@ function configHtml() {
     </div>
     <p class="muted">Brevo usa primero la API del servidor y su IP fija (190.183.229.160). Si Brevo todavía no reconoce esa IP, el panel usa temporalmente la clave que ya tenías guardada en esta computadora. Cuando autorices la IP del servidor una vez, las llamadas quedan estables y no requieren cambiar ni crear claves.</p>
 
+    <h3 style="margin-top:22px">Asistente con IA</h3>
+    <p class="muted">La clave queda en este equipo y se protege con el sistema operativo cuando está disponible. El mensaje y el historial reciente, junto con un resumen técnico sin la lista de cuentas, se envían a OpenAI para redactar respuestas; no pegues contraseñas, DNI ni códigos. El uso de la API puede generar cargos en tu cuenta de OpenAI.</p>
+    <div class="form-2"><div class="field"><label>Modelo</label><input data-path="assistant.model" value="${esc(c.assistant?.model || 'gpt-6-astra')}" /></div><div class="field"><label>Clave de API de OpenAI ${c.secrets?.assistantApiKey ? '· configurada' : '· sin configurar'}</label><input id="assistant-api-key" type="password" placeholder="${c.secrets?.assistantApiKey ? 'Dejar vacío para conservar la clave' : 'Pegá la clave de API'}" /></div></div>
+    <button class="btn small" id="assistant-key-clear" type="button" ${c.secrets?.assistantApiKey ? '' : 'disabled'}>Quitar clave guardada</button>
+
     <h3 style="margin-top:22px">Correo</h3>
     <p class="muted">API primero, IMAP como respaldo. Cada casilla se autoriza por separado (grant code de ~5 min, un solo uso).</p>
     <div class="field"><label>Modo</label>
@@ -2146,7 +2182,7 @@ function configHtml() {
 }
 
 function readConfigForm() {
-  const patch = { vps: {}, licensador: {}, api: {}, brevo: {}, site: {}, mail: {} };
+  const patch = { vps: {}, licensador: {}, api: {}, brevo: {}, site: {}, assistant: {}, mail: {} };
   document.querySelectorAll('[data-path]').forEach((input) => {
     const [group, key] = input.dataset.path.split('.');
     const value = input.value.trim();
@@ -2157,6 +2193,7 @@ function readConfigForm() {
     if (value !== '') patch[group][key] = value;
   });
   patch.mail.mode = $('#mail-mode').value;
+  patch.assistant.apiKey = $('#assistant-api-key')?.value || '';
   patch.mail.zoho = {
     region: ($('#zoho-region')?.value || 'com').trim(),
     accounts: zohoAccountsFromForm(),
@@ -2216,6 +2253,13 @@ async function renderView() {
       } catch (e) {
         toast(e.message, 'err');
       }
+    });
+    view.querySelector('#assistant-key-clear')?.addEventListener('click', async () => {
+      try {
+        state.config = await api.saveConfig({ assistant: { apiKey: '__CLEAR__' } });
+        toast('Se quitó la clave del asistente.');
+        renderView();
+      } catch (e) { toast(e.message || String(e), 'err'); }
     });
     view.querySelectorAll('[data-zoho-auth]').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -2658,6 +2702,30 @@ async function boot() {
   }
   renderVaultBadge();
   renderView();
+  const refreshCaseAlerts = async () => {
+    try {
+      const result = await api.supportCasesList();
+      const attention = (result.cases || []).filter((item) => !['RESOLVED', 'CLOSED'].includes(item.status) && ((['URGENT', 'HIGH'].includes(item.priority) && !item.assignedTo) || item.dueAt && new Date(item.dueAt).getTime() < Date.now()));
+      const sent = state.cache.caseAlertKeys || (state.cache.caseAlertKeys = {});
+      const fresh = attention.filter((item) => {
+        const reason = item.dueAt && new Date(item.dueAt).getTime() < Date.now() ? 'vencido' : 'sin asignar';
+        const key = `${item.id}:${item.status}:${reason}:${item.dueAt || ''}`;
+        if (sent[key]) return false;
+        sent[key] = true;
+        return true;
+      });
+      state.cache.cases = result;
+      renderNav();
+      if (fresh.length) {
+        const label = fresh.length === 1 ? `${fresh[0].title}: ${fresh[0].priority === 'URGENT' || fresh[0].priority === 'HIGH' ? 'prioridad alta sin asignar' : 'plazo de atención vencido'}` : `${fresh.length} casos urgentes sin asignar o fuera de plazo.`;
+        if (state.view === 'casos') toast(label, 'err');
+        else await api.supportNotify(label);
+      }
+    }
+    catch { /* la vista de casos mostrará el error al abrirse */ }
+  };
+  void refreshCaseAlerts();
+  setInterval(refreshCaseAlerts, 120_000);
 }
 
 boot();

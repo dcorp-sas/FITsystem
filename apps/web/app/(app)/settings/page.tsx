@@ -1662,6 +1662,7 @@ function SystemPanel() {
   const [testing, setTesting] = useState(false);
   const [purging, setPurging] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [desktopDiagnosticsAvailable, setDesktopDiagnosticsAvailable] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -1679,6 +1680,10 @@ function SystemPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setDesktopDiagnosticsAvailable(Boolean(window.fitsystem?.exportDiagnostics));
+  }, []);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -1716,11 +1721,11 @@ function SystemPanel() {
     if (!confirm('¿Borrar logs y notificaciones más antiguos que la retención configurada?')) return;
     setPurging(true);
     try {
-      const res = await http.post<{ retentionDays: number; errorLogs: number; activityLogs: number; notifications: number }>(
+      const res = await http.post<{ retentionDays: number; errorLogs: number; activityLogs: number; notifications: number; clientTelemetry: number }>(
         '/system/retention/purge',
         {},
       );
-      toast.success(`Limpieza aplicada (${res.errorLogs + res.activityLogs + res.notifications} registros)`);
+      toast.success(`Limpieza aplicada (${res.errorLogs + res.activityLogs + res.notifications + res.clientTelemetry} registros, incluida telemetría)`);
       await load();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : 'Error al limpiar');
@@ -1754,6 +1759,16 @@ function SystemPanel() {
       toast.error(error instanceof ApiError ? error.message : 'Error al exportar');
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function exportLocalDiagnostics() {
+    try {
+      const result = await window.fitsystem?.exportDiagnostics?.();
+      if (result?.ok) toast.success(`Informe guardado: ${result.fileName}. Podés adjuntarlo a un caso de soporte.`);
+      else if (!result?.canceled) toast.error('La exportación solo está disponible en el escritorio FIT System.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar el informe');
     }
   }
 
@@ -1807,6 +1822,7 @@ function SystemPanel() {
               <Button type="button" variant="secondary" onClick={exportData} loading={exporting}>
                 Exportar datos
               </Button>
+              {desktopDiagnosticsAvailable && <Button type="button" variant="secondary" onClick={exportLocalDiagnostics}>Guardar diagnóstico para soporte</Button>}
               <Button type="button" variant="secondary" onClick={purge} loading={purging}>
                 Aplicar retención
               </Button>

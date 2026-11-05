@@ -404,12 +404,52 @@ async function readLocalDesktopDiagnostics(): Promise<Record<string, unknown> | 
         totalMemoryMb: Math.round(os.totalmem() / 1024 / 1024),
         systemUptimeSeconds: Math.round(os.uptime()),
         desktopProcessMemoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        ...diskSpaceSnapshot(),
       },
       desktopLog: recentDesktopWarnings(),
     } : null;
   } catch {
     return null;
   }
+}
+
+function diskSpaceSnapshot(): Record<string, number> {
+  try {
+    const stat = fs.statfsSync(app.getPath('userData'));
+    return { diskFreeMb: Math.round(Number(stat.bavail * stat.bsize) / 1024 / 1024), diskTotalMb: Math.round(Number(stat.blocks * stat.bsize) / 1024 / 1024) };
+  } catch { return {}; }
+}
+
+async function exportSupportDiagnostics(): Promise<{ ok: boolean; canceled?: boolean; fileName?: string }> {
+  const local = await readLocalDesktopDiagnostics();
+  const localFallback = {
+    capturedAt: new Date().toISOString(),
+    localApi: { status: 'offline', detail: 'La API local no respondió; se incluye el registro del escritorio.' },
+    workstation: {
+      platform: os.platform(), release: os.release(), architecture: os.arch(),
+      freeMemoryMb: Math.round(os.freemem() / 1024 / 1024), totalMemoryMb: Math.round(os.totalmem() / 1024 / 1024),
+      systemUptimeSeconds: Math.round(os.uptime()), desktopProcessMemoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      ...diskSpaceSnapshot(),
+    },
+    desktopLog: recentDesktopWarnings(),
+  };
+  const report = {
+    reportType: 'FIT_SYSTEM_DIAGNOSTICS',
+    schemaVersion: 1,
+    capturedAt: new Date().toISOString(),
+    installationId: getInstallationId(),
+    appVersion: app.getVersion(),
+    networkMode: readNetworkConfig().mode,
+    localDiagnostics: local ? diagnosticSnapshot(local) : localFallback,
+  };
+  const result = await dialog.showSaveDialog({
+    title: 'Guardar diagnóstico de FIT System',
+    defaultPath: path.join(app.getPath('desktop'), `fitsystem-diagnostico-${new Date().toISOString().slice(0, 10)}.json`),
+    filters: [{ name: 'Informe FIT System', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+  fs.writeFileSync(result.filePath, JSON.stringify(report, null, 2), { encoding: 'utf8', mode: 0o600 });
+  return { ok: true, fileName: path.basename(result.filePath) };
 }
 
 function diagnosticSnapshot(value: Record<string, unknown> | null) {
@@ -430,6 +470,8 @@ function recentDesktopWarnings(): string[] {
         .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
         .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[ip]')
         .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]')
+        .replace(/\b(?:bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [secreto]')
+        .replace(/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*[^\s&,;]+/gi, '$1=[secreto]')
         .slice(0, 350));
   } catch { return []; }
 }
@@ -1090,6 +1132,8 @@ function registerAccessIpc() {
 }
 
 function registerNetworkIpc() {
+  ipcMain.handle('support:export-diagnostics', () => exportSupportDiagnostics());
+
   ipcMain.handle('network:get', () => {
     const config = readNetworkConfig();
     const addresses = getLanAddresses();

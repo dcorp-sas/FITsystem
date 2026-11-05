@@ -22,16 +22,17 @@ export function systemRoutes(app: FastifyInstance) {
       const input = (request.body ?? {}) as Record<string, unknown>;
       const eventType = String(input.eventType ?? 'error').toLowerCase();
       if (!['error', 'api_error', 'screen'].includes(eventType)) throw new HttpError(400, 'Tipo de señal inválido');
-      const screen = String(input.screen ?? '').replace(/[?#].*$/, '').slice(0, 180) || null;
       const redact = (value: string) => value
         .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]')
         .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono]');
+      const screen = redact(String(input.screen ?? '').replace(/[?#].*$/, '')).slice(0, 180) || null;
       const message = redact(String(input.message ?? (eventType === 'screen' ? 'Pantalla abierta' : '')).trim()).slice(0, 1000);
       if (!message) throw new HttpError(400, 'La señal necesita un detalle');
       const stack = input.stack == null ? null : redact(String(input.stack)).slice(0, 4000);
       const source = String(input.source ?? 'web').slice(0, 40);
+      const appVersion = input.appVersion == null ? null : String(input.appVersion).slice(0, 40);
       await prisma.clientTelemetryEvent.create({
-        data: { organizationId: req.user.organizationId, userId: req.user.id, source, eventType, screen, message, stack },
+        data: { organizationId: req.user.organizationId, userId: req.user.id, source, appVersion, eventType, screen, message, stack },
       });
       return ok(reply, { recorded: true });
     } catch (error) { return fail(reply, error); }
@@ -119,7 +120,7 @@ export function systemRoutes(app: FastifyInstance) {
     }
   });
 
-  // Aplica la retencion de datos: borra logs/actividad/notificaciones viejos.
+  // Aplica la retención configurada a logs, actividad, notificaciones y telemetría de cliente.
   app.post('/system/retention/purge', { onRequest: [app.authenticate, app.requireRoles(ADMIN)] }, async (request, reply) => {
     try {
       const req = request as AuthedRequest;

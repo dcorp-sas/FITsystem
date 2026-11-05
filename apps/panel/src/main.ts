@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell, Notification, Tray, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, safeStorage, shell, Notification, Tray, Menu, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -37,6 +37,7 @@ interface PanelConfig {
   api: { url: string; providerToken: string };
   brevo: { apiKey: string };
   site: { url: string };
+  assistant: { model: string; apiKey: string };
   mail: MailConfig;
 }
 
@@ -46,6 +47,7 @@ const DEFAULT_CONFIG: PanelConfig = {
   api: { url: 'https://api.fitsystem.com.ar', providerToken: '' },
   brevo: { apiKey: '' },
   site: { url: 'https://fitsystem.com.ar' },
+  assistant: { model: 'gpt-6-astra', apiKey: '' },
   mail: DEFAULT_MAIL,
 };
 
@@ -54,6 +56,7 @@ const SECRET_PATHS: Array<[string, (c: PanelConfig) => string | undefined]> = [
   ['vpsPassphrase', (c) => c.vps.passphrase],
   ['brevoApiKey', (c) => c.brevo.apiKey],
   ['providerToken', (c) => c.api.providerToken],
+  ['assistantApiKey', (c) => c.assistant.apiKey],
 ];
 
 function configFile(): string {
@@ -91,6 +94,7 @@ function readConfig(): PanelConfig {
     api: { ...DEFAULT_CONFIG.api, ...((raw.api as object) ?? {}) },
     brevo: { ...DEFAULT_CONFIG.brevo, ...((raw.brevo as object) ?? {}) },
     site: { ...DEFAULT_CONFIG.site, ...((raw.site as object) ?? {}) },
+    assistant: { ...DEFAULT_CONFIG.assistant, ...((raw.assistant as object) ?? {}) },
     mail: {
       mode: rawMail.mode === 'zoho' ? 'zoho' : 'imap',
       imap: Array.isArray(rawMail.imap) ? rawMail.imap.map((a) => ({ ...a, password: '' })) : [],
@@ -112,6 +116,7 @@ function readConfig(): PanelConfig {
   merged.vps.passphrase = dec(secrets.vpsPassphrase ?? merged.vps.passphrase ?? '');
   merged.brevo.apiKey = dec(secrets.brevoApiKey ?? merged.brevo.apiKey ?? '');
   merged.api.providerToken = dec(secrets.providerToken ?? merged.api.providerToken ?? '');
+  merged.assistant.apiKey = dec(secrets.assistantApiKey ?? merged.assistant.apiKey ?? '');
   const zohoSecrets = dec(secrets.zohoAccounts ?? '');
   if (zohoSecrets) {
     try {
@@ -162,6 +167,7 @@ function writeConfig(cfg: PanelConfig) {
     api: { ...cfg.api, providerToken: '' },
     brevo: { apiKey: '' },
     site: cfg.site,
+    assistant: { model: cfg.assistant.model },
     mail: {
       mode: cfg.mail.mode,
       imap: cfg.mail.imap.map((a) => ({ ...a, password: '' })),
@@ -183,6 +189,7 @@ function publicConfig(cfg: PanelConfig) {
     api: { ...cfg.api, providerToken: '' },
     brevo: {},
     site: cfg.site,
+    assistant: { model: cfg.assistant.model },
     mail: {
       mode: cfg.mail.mode,
       imap: cfg.mail.imap.map((a) => ({ ...a, password: '' })),
@@ -200,6 +207,7 @@ function publicConfig(cfg: PanelConfig) {
       vpsPassphrase: Boolean(cfg.vps.passphrase),
       brevoApiKey: Boolean(cfg.brevo.apiKey),
       providerToken: Boolean(cfg.api.providerToken),
+      assistantApiKey: Boolean(cfg.assistant.apiKey),
       imapPasswords: cfg.mail.imap.some((a) => a.password),
       zoho: cfg.mail.zoho.accounts.some((a) => a.clientId && a.clientSecret && a.refreshToken),
     },
@@ -1104,9 +1112,38 @@ function suggestedFromAlerts(alerts: AlertItem[]): AssistantAction[] {
     .slice(0, 4);
 }
 
-async function assistantSuggest(cfg: PanelConfig, input: string | { text?: string; organizationId?: string }) {
+type AssistantMessage = { role: 'user' | 'assistant'; content: string };
+
+async function openAiAssistantReply(cfg: PanelConfig, question: string, evidence: string, conversation: AssistantMessage[]): Promise<string> {
+  if (!cfg.assistant.apiKey) return '';
+  const redact = (value: string) => value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo oculto]')
+    .replace(/\b(?:\+?54)?[\d ()-]{8,}\b/g, '[teléfono oculto]')
+    .replace(/\binst_[a-f0-9]{16,}\b/gi, '[instalación]')
+    .slice(0, 2500);
+  const input = [
+    { role: 'developer', content: 'Sos el asistente de soporte interno de FIT System. Respondé en español rioplatense, con conversación natural, preguntas aclaratorias útiles y pasos concretos. Usá solo los hallazgos técnicos provistos; distinguí hechos de hipótesis y decí claramente cuando algo no se pudo comprobar. No inventes estados, resultados ni acciones completadas. Nunca pidas claves, contraseñas, tokens ni datos personales. No ejecutes cambios: solo orientá y ofrece los controles disponibles en el Panel. Para cada intervención, indicá qué evidencia viste y cómo confirmar la recuperación; hacé una sola pregunta aclaratoria a la vez.' },
+    ...conversation.slice(-10).map((message) => ({ role: message.role, content: redact(message.content) })),
+    { role: 'user', content: `Consulta actual: ${redact(question || 'Analizá el estado actual y preguntame qué problema quiero resolver si falta contexto.') }\n\nEvidencia técnica actual del Panel (fuente de verdad):\n${redact(evidence)}` },
+  ];
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.assistant.apiKey}` },
+    body: JSON.stringify({ model: cfg.assistant.model || 'gpt-6-astra', input, store: false }),
+    signal: AbortSignal.timeout(25_000),
+  });
+  const payload = await response.json().catch(() => null) as Record<string, any> | null;
+  if (!response.ok) throw new Error(payload?.error?.message || `OpenAI respondió HTTP ${response.status}`);
+  const text = String(payload?.output_text || (payload?.output || []).flatMap((item: any) => item.content || []).filter((item: any) => item.type === 'output_text').map((item: any) => item.text).join('\n') || '').trim();
+  if (!text) throw new Error('El modelo no devolvió texto');
+  return text.slice(0, 8000);
+}
+
+async function assistantSuggest(cfg: PanelConfig, input: string | { text?: string; organizationId?: string; messages?: AssistantMessage[] }) {
   const text = typeof input === 'string' ? input : String(input?.text || '');
   const requestedOrganizationId = typeof input === 'string' ? '' : String(input?.organizationId || '');
+  const conversation = typeof input === 'string' || !Array.isArray(input.messages) ? [] : input.messages
+    .filter((message) => message && ['user', 'assistant'].includes(message.role) && typeof message.content === 'string')
+    .slice(-10).map((message) => ({ role: message.role, content: message.content.slice(0, 2500) }));
   const [healthResult, systemsResult, errorsResult, installationsResult, licensesResult] = await Promise.allSettled([
     runAlerts(cfg),
     providerOps<{ clients?: Array<Record<string, any>>; platform?: Array<Record<string, any>> }>(cfg, 'systems'),
@@ -1247,7 +1284,25 @@ async function assistantSuggest(cfg: PanelConfig, input: string | { text?: strin
     if (/socio|app|portal|acceso|cuenta|login|contrase/i.test(text)) return { title: 'Revisar acceso de Socios', steps: [portal?.summary ? `${portal.summary.active}/${portal.summary.total} cuentas activas; ${portal.summary.neverLoggedIn} nunca inició sesión.` : 'No se pudo comprobar el inventario de Socios; volvé a cargar Sistemas activos.', 'Identificá la cuenta exacta por correo, nombre o código; confirmá que esté activa y vinculada al socio correcto.', 'Probá el acceso en el mismo dispositivo del socio y anotá el mensaje exacto; restablecé la clave solo si confirma un error de credenciales.', 'Después del cambio, pedile que vuelva a iniciar sesión y actualizá el diagnóstico para confirmar el último acceso o detectar errores nuevos.'] };
     return { title: 'Aislar el problema informado', steps: ['Confirmá el cliente y el módulo afectado (escritorio, Socios o Profes).', 'Registrá pantalla, hora, usuario afectado y texto exacto del error en el caso de soporte.', 'Revisá la telemetría reciente del cliente y ejecutá solo la comprobación correspondiente al módulo.', 'Aplicá un cambio a la vez y volvé a consultar para confirmar si desapareció el síntoma.'] };
   })();
-  return { reply: lines.join('\n'), suggestions, alerts, workflow, client: selectedClient ? { id: selectedClient.id, name: selectedClient.name, installationId: installationId || null } : null, evidenceAt: new Date().toISOString() };
+  const sensitiveNames = [
+    selectedClient?.name,
+    ...(portal?.accounts || []).flatMap((account: Record<string, any>) => [account.email, `${account.member?.firstName || ''} ${account.member?.lastName || ''}`.trim()]),
+    ...(portal?.profes?.users || []).flatMap((user: Record<string, any>) => [user.email, user.name, user.instructor?.name]),
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length >= 3).sort((a, b) => b.length - a.length);
+  const scrubKnownClientData = (value: string) => {
+    let safeValue = value;
+    for (const privateValue of new Set(sensitiveNames)) safeValue = safeValue.replace(new RegExp(privateValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[dato del cliente]');
+    return safeValue;
+  };
+  const evidence = scrubKnownClientData([...lines, workflow ? `Procedimiento recomendado: ${workflow.title}\n${workflow.steps.join('\n')}` : ''].join('\n'));
+  const aiConversation = conversation.map((message) => ({ ...message, content: scrubKnownClientData(message.content) }));
+  let aiReply = '';
+  let aiError: string | null = null;
+  try { aiReply = await openAiAssistantReply(cfg, scrubKnownClientData(text), evidence, aiConversation); }
+  catch (error) { aiError = (error as Error).message.slice(0, 300); }
+  const fallbackReply = lines.join('\n');
+  const reply = aiReply || `${fallbackReply}${aiError ? `\n\nNo pude consultar la IA (${aiError}); te dejo el diagnóstico basado en los datos disponibles.` : ''}`;
+  return { reply, suggestions, alerts, workflow, aiConfigured: Boolean(cfg.assistant.apiKey), aiUsed: Boolean(aiReply), client: selectedClient ? { id: selectedClient.id, name: selectedClient.name, installationId: installationId || null } : null, evidenceAt: new Date().toISOString() };
 }
 
 async function assistantRun(cfg: PanelConfig, id: string) {
@@ -1382,6 +1437,15 @@ function registerIpc() {
     }
     if (patch.brevo) Object.assign(cfg.brevo, patch.brevo);
     if (patch.site) Object.assign(cfg.site, patch.site);
+    if (patch.assistant) {
+      if (typeof patch.assistant.model === 'string') {
+        const model = patch.assistant.model.trim();
+        if (!/^[a-zA-Z0-9._-]{1,80}$/.test(model)) throw new Error('El modelo indicado no es válido');
+        cfg.assistant.model = model;
+      }
+      if (patch.assistant.apiKey === '__CLEAR__') cfg.assistant.apiKey = '';
+      else if (typeof patch.assistant.apiKey === 'string' && patch.assistant.apiKey.trim()) cfg.assistant.apiKey = patch.assistant.apiKey.trim();
+    }
     if (patch.mail) {
       if (patch.mail.mode) cfg.mail.mode = patch.mail.mode;
       if (patch.mail.zoho) {
@@ -1451,6 +1515,24 @@ function registerIpc() {
   handle('panel:support:cases:list', () => providerOps(readConfig(), 'support/cases'));
   handle('panel:support:cases:create', (input: unknown) => providerOps(readConfig(), 'support/cases', { method: 'POST', body: input }));
   handle('panel:support:cases:update', (id: string, input: unknown) => providerOps(readConfig(), `support/cases/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }));
+  handle('panel:support:diagnostics:import', async () => {
+    const selected = await dialog.showOpenDialog({ title: 'Elegir paquete de diagnóstico de FIT System', properties: ['openFile'], filters: [{ name: 'Informe FIT System', extensions: ['json'] }] });
+    if (selected.canceled || !selected.filePaths[0]) return null;
+    const filePath = selected.filePaths[0];
+    const stat = fs.statSync(filePath);
+    if (stat.size > 100_000) throw new Error('El archivo de diagnóstico supera 100 KB.');
+    const report = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    if (report.reportType !== 'FIT_SYSTEM_DIAGNOSTICS' || Number(report.schemaVersion) !== 1) throw new Error('El archivo no es un paquete FIT System compatible.');
+    if (typeof report.installationId !== 'string' || !/^inst_[a-f0-9]{32}$/i.test(report.installationId)) throw new Error('El paquete no incluye un ID de instalación válido.');
+    return report;
+  });
+  handle('panel:support:notify', (message: string) => {
+    const body = String(message || '').slice(0, 400);
+    if (body && Notification.isSupported() && !mainWindow?.isFocused()) {
+      new Notification({ title: 'FIT System · caso requiere atención', body }).show();
+    }
+    return { shown: Boolean(body && Notification.isSupported() && !mainWindow?.isFocused()) };
+  });
   handle('panel:ops:downloads', (days = 90) => providerOps(readConfig(), `downloads?days=${encodeURIComponent(String(days))}`));
   handle('panel:ops:enrich-downloads', (limit = 100) => providerOps(readConfig(), 'downloads/enrich', { method: 'POST', body: { limit } }));
   handle('panel:ops:errors', () => providerOps(readConfig(), 'errors'));
@@ -1511,7 +1593,7 @@ function registerIpc() {
   handle('panel:audit:list', () => auditList());
 
   handle('panel:assistant:catalog', () => assistantCatalog());
-  handle('panel:assistant:suggest', (text: string) => assistantSuggest(readConfig(), String(text ?? '')));
+  handle('panel:assistant:suggest', (input: string | { text?: string; organizationId?: string; messages?: AssistantMessage[] }) => assistantSuggest(readConfig(), input ?? ''));
   handle('panel:assistant:run', (id: string) => assistantRun(readConfig(), String(id ?? '')));
 
   handle('panel:brevo:check', () => brevoCheck(readConfig()));

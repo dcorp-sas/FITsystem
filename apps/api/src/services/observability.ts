@@ -122,17 +122,19 @@ export interface PruneResult {
   errorLogs: number;
   activityLogs: number;
   notifications: number;
+  clientTelemetry: number;
 }
 
 /** Elimina datos mas viejos que `retentionDays` (logs de error, actividad y notificaciones). */
 export async function pruneOldData(orgId: string, retentionDays: number): Promise<PruneResult> {
   const cutoff = new Date(Date.now() - Math.max(1, retentionDays) * 86400000);
-  const [errorLogs, activityLogs, notifications] = await prisma.$transaction([
+  const [errorLogs, activityLogs, notifications, clientTelemetry] = await prisma.$transaction([
     prisma.errorLog.deleteMany({ where: { organizationId: orgId, createdAt: { lt: cutoff } } }),
     prisma.activityLog.deleteMany({ where: { organizationId: orgId, createdAt: { lt: cutoff } } }),
     prisma.notification.deleteMany({
       where: { organizationId: orgId, createdAt: { lt: cutoff }, status: { in: ['SENT', 'FAILED'] } },
     }),
+    prisma.clientTelemetryEvent.deleteMany({ where: { organizationId: orgId, createdAt: { lt: cutoff } } }),
   ]);
-  return { errorLogs: errorLogs.count, activityLogs: activityLogs.count, notifications: notifications.count };
+  return { errorLogs: errorLogs.count, activityLogs: activityLogs.count, notifications: notifications.count, clientTelemetry: clientTelemetry.count };
 }

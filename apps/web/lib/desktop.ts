@@ -28,6 +28,7 @@ export interface DesktopBridge {
   getNetwork?: () => Promise<NetworkInfo>;
   setNetwork?: (mode: 'standalone' | 'server' | 'cloud') => Promise<{ ok: boolean; mode: 'standalone' | 'server' | 'cloud' }>;
   restartApp?: () => Promise<{ ok: boolean }>;
+  exportDiagnostics?: () => Promise<{ ok: boolean; canceled?: boolean; fileName?: string }>;
   openAccessWindow?: () => Promise<{ ok: boolean }>;
   openAccessQrWindow?: (data: { title: string; subtitle: string; footer: string; image: string | null; enabled: boolean; rotation: string }) => Promise<{ ok: boolean }>;
 }

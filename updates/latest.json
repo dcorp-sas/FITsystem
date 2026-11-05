@@ -1,6 +1,6 @@
 {
-  "version": "0.3.68",
+  "version": "0.3.69",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Diagnóstico remoto de instalaciones con estado de API, base local, sincronización, equipo y errores recientes. Telemetría de pantallas y fallas de Socios y Profes. Casos de soporte con prioridad, asignación e historial hasta la recuperación. Procedimientos de diagnóstico por problema y comprobación posterior. Estado de versiones y publicaciones en el Panel.",
+  "notes": "Mejoras para soporte integral desde el Panel FS:\n- Exportación e importación segura de diagnósticos de instalaciones, incluso cuando la conexión local falla.\n- Casos con prioridad, vencimientos de primera respuesta, avisos de atención e historial; los adjuntos de diagnóstico se depuran a los 90 días.\n- Señales de errores y versiones de Socios y Profes por cliente.\n- Asistente conversacional conectado opcionalmente a OpenAI, con clave protegida en el Panel, contexto técnico real y respuesta de respaldo si la IA no está disponible.\n- Registro de versión sincronizado entre escritorio, web y móvil.",
   "mandatory": false
 }
