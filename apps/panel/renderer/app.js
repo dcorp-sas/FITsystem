@@ -20,9 +20,10 @@ const MODULES = [
   { id: 'metricas', label: 'Métricas', glyph: '◪' },
   { id: 'asistente', label: 'Asistente', glyph: '✧' },
   { id: 'config', label: 'Configuración', glyph: '⚙' },
+  { id: 'accesos', label: 'Operadores y permisos', glyph: '♙' },
 ];
 
-const state = { view: 'inicio', config: null, cache: {} };
+const state = { view: 'inicio', config: null, cache: {}, operator: null };
 const api = window.panel;
 
 const $ = (sel) => document.querySelector(sel);
@@ -67,7 +68,9 @@ function renderNav() {
   const currentAlerts = state.cache.alerts?.alerts || state.cache.dashboard?.alerts?.alerts || [];
   const criticalAlerts = currentAlerts.filter((alert) => alert.level === 'crit' || alert.level === 'warn').length;
   const casesNeedingAttention = (state.cache.cases?.cases || []).filter((item) => !['RESOLVED', 'CLOSED'].includes(item.status) && ((item.priority === 'URGENT' || item.priority === 'HIGH') && !item.assignedTo || item.dueAt && new Date(item.dueAt).getTime() < Date.now())).length;
-  $('#nav').innerHTML = MODULES.map(
+  const allowedIds = state.operator?.role === 'OBSERVER' ? ['dashboard', 'sistemas', 'alertas', 'casos'] : ['dashboard', 'sistemas', 'alertas', 'casos', 'asistente'];
+  const allowedModules = state.operator?.role === 'ADMIN' ? MODULES : MODULES.filter((m) => allowedIds.includes(m.id));
+  $('#nav').innerHTML = allowedModules.map(
     (m) => `<button data-view="${m.id}" class="${m.id === state.view ? 'active' : ''}"><span class="glyph">${m.glyph}</span>${esc(m.label)}${m.id === 'alertas' && criticalAlerts ? `<span class="nav-badge">${criticalAlerts > 99 ? '99+' : criticalAlerts}</span>` : ''}${m.id === 'casos' && casesNeedingAttention ? `<span class="nav-badge">${casesNeedingAttention > 99 ? '99+' : casesNeedingAttention}</span>` : ''}</button>`,
   ).join('');
   $('#nav').querySelectorAll('button').forEach((b) =>
@@ -78,6 +81,28 @@ function renderNav() {
     }),
   );
   $('#view-title').textContent = MODULES.find((m) => m.id === state.view)?.label ?? '';
+  $('#logout')?.addEventListener('click', async () => { await api.authLogout(); window.location.reload(); });
+}
+
+function renderAuthScreen(setupRequired) {
+  $('#sidebar').style.display = 'none';
+  $('#topbar').style.display = 'none';
+  const view = $('#view');
+  view.style.position = 'fixed'; view.style.inset = '0'; view.style.zIndex = '1000'; view.style.background = 'var(--bg)';
+  view.innerHTML = `<div style="min-height:100%;display:grid;place-items:center;padding:24px"><form id="operator-auth" class="card" style="width:min(480px,100%)"><h1>${setupRequired ? 'Configurar acceso al Panel FS' : 'Ingresar al Panel FS'}</h1><p class="muted">${setupRequired ? 'Creá el primer administrador. Usá una contraseña única de al menos 12 caracteres.' : 'La sesión se bloquea automáticamente después de 30 minutos sin actividad.'}</p>${setupRequired ? '<label style="display:block;margin-top:12px">Nombre<input name="name" required autocomplete="name" style="width:100%"/></label>' : ''}<label style="display:block;margin-top:12px">Usuario<input name="username" required autocomplete="username" style="width:100%"/></label><label style="display:block;margin-top:12px">Contraseña<input name="password" type="password" required autocomplete="${setupRequired ? 'new-password' : 'current-password'}" style="width:100%"/></label>${setupRequired ? '<label style="display:block;margin-top:12px">Repetir contraseña<input name="confirm" type="password" required autocomplete="new-password" style="width:100%"/></label>' : ''}<div id="auth-error" class="muted" style="margin-top:10px;color:#f87171"></div><button class="btn primary" style="margin-top:14px;width:100%">${setupRequired ? 'Crear administrador' : 'Iniciar sesión'}</button></form></div>`;
+  view.querySelector('#operator-auth').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const username = String(form.get('username') || '');
+    const password = String(form.get('password') || '');
+    try {
+      if (setupRequired) {
+        if (password !== form.get('confirm')) throw new Error('Las contraseñas no coinciden.');
+        await api.authSetup({ username, password, name: String(form.get('name') || '') });
+      } else await api.authLogin({ username, password });
+      window.location.reload();
+    } catch (error) { view.querySelector('#auth-error').textContent = error.message || String(error); }
+  });
 }
 
 /* --------------------------------- elenco --------------------------------- */
@@ -903,6 +928,35 @@ async function loadCases() {
   renderNav();
 }
 
+async function loadOperators() {
+  state.cache.operators = await api.authOperators();
+}
+
+function operatorsHtml() {
+  const rows = (state.cache.operators || []).map((operator) => `<tr><td><strong>${esc(operator.name)}</strong><div class="muted">${esc(operator.username)}</div></td><td><select data-operator-role="${esc(operator.id)}"><option value="OBSERVER" ${operator.role === 'OBSERVER' ? 'selected' : ''}>Consulta</option><option value="SUPPORT" ${operator.role === 'SUPPORT' ? 'selected' : ''}>Soporte</option><option value="ADMIN" ${operator.role === 'ADMIN' ? 'selected' : ''}>Administrador</option></select></td><td>${operator.active ? '<span class="pill ok">activo</span>' : '<span class="pill warn">desactivado</span>'}</td><td><input data-operator-password="${esc(operator.id)}" type="password" autocomplete="new-password" placeholder="Nueva contraseña (opcional)"/><button class="btn small" data-operator-save="${esc(operator.id)}">Guardar</button><button class="btn small" data-operator-toggle="${esc(operator.id)}" data-active="${operator.active}">${operator.active ? 'Desactivar' : 'Activar'}</button></td></tr>`).join('');
+  return `<div class="card"><h3>Operadores del Panel FS</h3><p class="muted">Las cuentas son locales a esta instalación del Panel. Se guardan contraseñas derivadas con scrypt; no se guardan en texto legible. Se bloquea la sesión tras 30 minutos sin actividad.</p><div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>Operador</th><th>Permiso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="card" style="margin-top:14px"><h3>Agregar operador</h3><div class="grid"><label>Nombre<input id="operator-name"/></label><label>Usuario<input id="operator-username" autocomplete="username"/></label><label>Contraseña (mínimo 12 caracteres)<input id="operator-new-password" type="password" autocomplete="new-password"/></label><label>Permiso<select id="operator-role"><option value="SUPPORT">Soporte</option><option value="OBSERVER">Consulta</option><option value="ADMIN">Administrador</option></select></label></div><button id="operator-add" class="btn primary" style="margin-top:10px">Crear operador</button></div><div class="card muted" style="margin-top:14px">Administrador: acceso completo. Soporte: sistemas, diagnósticos, casos y asistente. Consulta: puede revisar el estado y casos sin modificar ni ejecutar acciones.</div>`;
+}
+
+function wireOperators(view) {
+  view.querySelector('#operator-add')?.addEventListener('click', async () => {
+    try {
+      await api.authOperatorAdd({ name: view.querySelector('#operator-name').value, username: view.querySelector('#operator-username').value, password: view.querySelector('#operator-new-password').value, role: view.querySelector('#operator-role').value });
+      toast('Operador creado.'); await loadOperators(); renderView();
+    } catch (error) { toast(error.message || String(error), 'err'); }
+  });
+  view.querySelectorAll('[data-operator-save]').forEach((button) => button.addEventListener('click', async () => {
+    const id = button.dataset.operatorSave;
+    try {
+      await api.authOperatorUpdate(id, { role: view.querySelector(`[data-operator-role="${id}"]`).value, password: view.querySelector(`[data-operator-password="${id}"]`).value || undefined });
+      toast('Permisos actualizados.'); await loadOperators(); renderView();
+    } catch (error) { toast(error.message || String(error), 'err'); }
+  }));
+  view.querySelectorAll('[data-operator-toggle]').forEach((button) => button.addEventListener('click', async () => {
+    try { await api.authOperatorUpdate(button.dataset.operatorToggle, { active: button.dataset.active !== 'true' }); toast('Estado de acceso actualizado.'); await loadOperators(); renderView(); }
+    catch (error) { toast(error.message || String(error), 'err'); }
+  }));
+}
+
 function casesHtml() {
   const d = state.cache.cases || {};
   const clientOptions = (state.cache.ops?.systems?.clients || []).map((client) => `<option value="${esc(client.id)}" data-client-name="${esc(client.name)}" data-installation="${esc(client.installationId || '')}">${esc(client.name)}</option>`).join('');
@@ -953,6 +1007,10 @@ function wireCases(view) {
     } catch (error) { toast(error.message || String(error), 'err'); }
   });
   view.querySelector('#case-refresh')?.addEventListener('click', async () => { await loadCases(); renderView(); });
+  if (state.operator?.role === 'OBSERVER') {
+    view.querySelectorAll('#case-create,[data-case-status],[data-case-priority],[data-case-assignee],[data-case-verified],[data-case-verification],[data-case-diagnostic],[data-case-note],[data-case-save]').forEach((element) => { element.disabled = true; });
+    return;
+  }
   view.querySelectorAll('[data-case-save]').forEach((button) => button.addEventListener('click', async () => {
     const card = button.closest('[data-case]');
     const requestedStatus = card.querySelector('[data-case-status]').value;
@@ -2451,6 +2509,7 @@ async function renderView() {
     crm: { load: loadCrm, html: crmHtml, wire: wireCrm },
     sitio: { load: loadSite, html: sitioHtml, wire: wireSitio },
     metricas: { load: loadMetrics, html: metricsHtml, wire: wireMetrics },
+    accesos: { load: loadOperators, html: operatorsHtml, wire: wireOperators },
   };
   const mod = LOADERS[state.view];
   if (mod) {
@@ -2459,6 +2518,7 @@ async function renderView() {
       await mod.load();
       view.innerHTML = mod.html();
       mod.wire?.(view);
+      if (state.operator?.role === 'OBSERVER') view.querySelectorAll('[data-portal-reset],[data-portal-toggle],[data-desktop-sync],[data-diag-request]').forEach((element) => { element.disabled = true; });
     } catch (e) {
       view.innerHTML = errorView(e);
     }
@@ -2720,6 +2780,11 @@ async function boot() {
     state.cache = {};
     renderView();
   };
+  let auth;
+  try { auth = await api.authStatus(); }
+  catch { auth = { setupRequired: true, authenticated: false }; }
+  if (!auth.authenticated) { renderAuthScreen(auth.setupRequired); return; }
+  state.operator = auth.user;
   api.onHealthUpdate((value) => {
     const update = value || {};
     state.cache.alerts = { alerts: update.alerts || [], checks: update.checks || [], at: update.at };
@@ -2756,13 +2821,17 @@ async function boot() {
       if (fresh.length) {
         const label = fresh.length === 1 ? `${fresh[0].title}: ${fresh[0].priority === 'URGENT' || fresh[0].priority === 'HIGH' ? 'prioridad alta sin asignar' : 'plazo de atención vencido'}` : `${fresh.length} casos urgentes sin asignar o fuera de plazo.`;
         if (state.view === 'casos') toast(label, 'err');
-        else await api.supportNotify(label);
+        else if (state.operator?.role !== 'OBSERVER') await api.supportNotify(label);
       }
     }
     catch { /* la vista de casos mostrará el error al abrirse */ }
   };
   void refreshCaseAlerts();
   setInterval(refreshCaseAlerts, 120_000);
+  setInterval(async () => {
+    const auth = await api.authStatus().catch(() => ({ authenticated: false }));
+    if (!auth.authenticated && state.operator) { state.operator = null; renderAuthScreen(false); }
+  }, 60_000);
 }
 
 boot();

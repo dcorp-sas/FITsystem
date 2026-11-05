@@ -5,6 +5,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import net from 'node:net';
 import dns from 'node:dns/promises';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { DEFAULT_MAIL, mailInbox, mailRead, mailSend, mailDelete, zohoExchangeCode, zohoRegion, type MailConfig, type ZohoAccount } from './mail.js';
 import { contentFile, findRepoRoot, loadContent, publishContent, saveContent, validateContent, type SiteContent } from './site.js';
 
@@ -39,8 +40,13 @@ interface PanelConfig {
   site: { url: string };
   assistant: { model: string; apiKey: string };
   support: { operatorName: string };
+  operators: PanelOperator[];
   mail: MailConfig;
 }
+
+type PanelRole = 'ADMIN' | 'SUPPORT' | 'OBSERVER';
+interface PanelOperator { id: string; username: string; name: string; role: PanelRole; salt: string; passwordHash: string; active: boolean; createdAt: string }
+interface PanelSession { id: string; username: string; name: string; role: PanelRole; lastActivity: number }
 
 const DEFAULT_CONFIG: PanelConfig = {
   vps: { host: '190.183.229.160', port: 22, user: 'root', privateKeyPath: '', passphrase: '' },
@@ -50,6 +56,7 @@ const DEFAULT_CONFIG: PanelConfig = {
   site: { url: 'https://fitsystem.com.ar' },
   assistant: { model: 'gpt-6-astra', apiKey: '' },
   support: { operatorName: '' },
+  operators: [],
   mail: DEFAULT_MAIL,
 };
 
@@ -98,6 +105,7 @@ function readConfig(): PanelConfig {
     site: { ...DEFAULT_CONFIG.site, ...((raw.site as object) ?? {}) },
     assistant: { ...DEFAULT_CONFIG.assistant, ...((raw.assistant as object) ?? {}) },
     support: { ...DEFAULT_CONFIG.support, ...((raw.support as object) ?? {}) },
+    operators: Array.isArray(raw.operators) ? raw.operators as PanelOperator[] : [],
     mail: {
       mode: rawMail.mode === 'zoho' ? 'zoho' : 'imap',
       imap: Array.isArray(rawMail.imap) ? rawMail.imap.map((a) => ({ ...a, password: '' })) : [],
@@ -172,6 +180,7 @@ function writeConfig(cfg: PanelConfig) {
     site: cfg.site,
     assistant: { model: cfg.assistant.model },
     support: cfg.support,
+    operators: cfg.operators,
     mail: {
       mode: cfg.mail.mode,
       imap: cfg.mail.imap.map((a) => ({ ...a, password: '' })),
@@ -195,6 +204,7 @@ function publicConfig(cfg: PanelConfig) {
     site: cfg.site,
     assistant: { model: cfg.assistant.model },
     support: cfg.support,
+    operators: cfg.operators.map(({ id, username, name, role, active, createdAt }) => ({ id, username, name, role, active, createdAt })),
     mail: {
       mode: cfg.mail.mode,
       imap: cfg.mail.imap.map((a) => ({ ...a, password: '' })),
@@ -1434,10 +1444,80 @@ function createWindow() {
 /* IPC                                                                 */
 /* ------------------------------------------------------------------ */
 
+let activeSession: PanelSession | null = null;
+const failedOperatorLogins = new Map<string, { attempts: number; lockedUntil: number }>();
+const publicAuthChannels = new Set(['panel:auth:status', 'panel:auth:setup', 'panel:auth:login']);
+const supportChannels = new Set([
+  'panel:config:get', 'panel:api:health', 'panel:api:database-health', 'panel:vps:metrics', 'panel:alerts:run', 'panel:health:history', 'panel:audit:list',
+  'panel:licensador:overview', 'panel:brevo:check', 'panel:clients:list', 'panel:ops:downloads', 'panel:ops:errors',
+  'panel:ops:systems', 'panel:ops:partner-app', 'panel:ops:desktop-installations', 'panel:ops:desktop-diagnostics-get',
+  'panel:ops:desktop-diagnostics-request', 'panel:ops:desktop-sync-retry', 'panel:ops:client-telemetry', 'panel:ops:releases',
+  'panel:ops:portal-reset', 'panel:ops:portal-toggle',
+  'panel:support:cases:list', 'panel:support:cases:create', 'panel:support:cases:update', 'panel:support:diagnostics:import',
+  'panel:support:notify', 'panel:assistant:suggest', 'panel:assistant:test',
+]);
+const readOnlyIPC = new Set([
+  'panel:auth:status', 'panel:auth:operators:list', 'panel:config:get', 'panel:licensador:overview', 'panel:brevo:check', 'panel:marketing:overview',
+  'panel:marketing:contacts', 'panel:crm:leads', 'panel:metrics:summary', 'panel:clients:list', 'panel:subscriptions:list', 'panel:site:load',
+  'panel:api:health', 'panel:api:database-health', 'panel:vps:metrics', 'panel:ip:analyze', 'panel:alerts:run', 'panel:health:history',
+  'panel:audit:list', 'panel:assistant:catalog', 'panel:assistant:suggest', 'panel:assistant:test', 'panel:mail:inbox', 'panel:mail:read',
+  'panel:ops:systems', 'panel:ops:partner-app', 'panel:ops:desktop-installations', 'panel:ops:desktop-diagnostics-get', 'panel:ops:releases',
+  'panel:ops:client-telemetry', 'panel:support:cases:list', 'panel:ops:downloads', 'panel:ops:errors', 'panel:invoice:config', 'panel:invoice:list',
+]);
+
+function authStatus() {
+  if (activeSession && Date.now() - activeSession.lastActivity > 30 * 60_000) activeSession = null;
+  return { setupRequired: readConfig().operators.length === 0, authenticated: Boolean(activeSession), user: activeSession ? { username: activeSession.username, name: activeSession.name, role: activeSession.role } : null };
+}
+
+function createOperator(input: { username: string; name: string; password: string; role: PanelRole }): PanelOperator {
+  const username = String(input.username || '').trim().toLowerCase();
+  const name = String(input.name || '').trim().slice(0, 120);
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) throw new Error('El usuario debe tener 3–40 caracteres: letras, números, punto, guion o guion bajo.');
+  if (name.length < 2) throw new Error('Ingresá el nombre del operador.');
+  if (String(input.password || '').length < 12) throw new Error('La contraseña debe tener al menos 12 caracteres.');
+  if (!['ADMIN', 'SUPPORT', 'OBSERVER'].includes(input.role)) throw new Error('El rol indicado no es válido.');
+  const salt = randomBytes(16).toString('hex');
+  const passwordHash = scryptSync(input.password, salt, 64).toString('hex');
+  return { id: randomBytes(16).toString('hex'), username, name, role: input.role, salt, passwordHash, active: true, createdAt: new Date().toISOString() };
+}
+
+function authenticateOperator(usernameInput: string, password: string) {
+  const username = String(usernameInput || '').trim().toLowerCase();
+  const recent = failedOperatorLogins.get(username);
+  if (recent && recent.lockedUntil > Date.now()) throw new Error('Demasiados intentos. Esperá unos minutos antes de volver a probar.');
+  const operator = readConfig().operators.find((item) => item.username === username && item.active);
+  const valid = Boolean(operator && /^[a-f0-9]{32}$/i.test(operator.salt) && /^[a-f0-9]{128}$/i.test(operator.passwordHash)
+    && timingSafeEqual(scryptSync(String(password || ''), operator.salt, 64), Buffer.from(operator.passwordHash, 'hex')));
+  if (!operator || !valid) {
+    const attempts = (recent?.attempts || 0) + 1;
+    failedOperatorLogins.set(username, { attempts, lockedUntil: attempts >= 5 ? Date.now() + 5 * 60_000 : 0 });
+    throw new Error('Usuario o contraseña incorrectos.');
+  }
+  failedOperatorLogins.delete(username);
+  activeSession = { id: operator.id, username: operator.username, name: operator.name, role: operator.role, lastActivity: Date.now() };
+  audit('sesion.inicio', `${operator.username} (${operator.role})`);
+  return authStatus();
+}
+
+function requireOperator(channel: string) {
+  if (publicAuthChannels.has(channel)) return;
+  const status = authStatus();
+  if (!status.authenticated || !activeSession) throw new Error('La sesión venció. Volvé a iniciar sesión.');
+  if (activeSession.role === 'ADMIN') { activeSession.lastActivity = Date.now(); return; }
+  const canSupport = supportChannels.has(channel);
+  if (!canSupport) throw new Error('Tu rol no tiene permiso para esta acción.');
+  if (activeSession.role === 'OBSERVER' && ['panel:support:cases:create', 'panel:support:cases:update', 'panel:ops:desktop-diagnostics-request', 'panel:ops:desktop-sync-retry', 'panel:support:diagnostics:import', 'panel:support:notify', 'panel:assistant:test', 'panel:assistant:suggest'].includes(channel)) throw new Error('Tu rol puede consultar, pero no modificar casos ni instalaciones.');
+  activeSession.lastActivity = Date.now();
+}
+
 function handle<T>(channel: string, fn: (...args: any[]) => Promise<T> | T) {
   ipcMain.handle(channel, async (_event, ...args) => {
     try {
-      return { ok: true, data: await fn(...args) };
+      requireOperator(channel);
+      const data = await fn(...args);
+      if (!readOnlyIPC.has(channel) && !channel.startsWith('panel:auth:')) audit('acción.panel', `${activeSession?.username || 'operador'} · ${channel}`);
+      return { ok: true, data };
     } catch (err) {
       return { ok: false, error: (err as Error)?.message || String(err) };
     }
@@ -1445,6 +1525,54 @@ function handle<T>(channel: string, fn: (...args: any[]) => Promise<T> | T) {
 }
 
 function registerIpc() {
+  handle('panel:auth:status', () => authStatus());
+  handle('panel:auth:setup', (input: { username: string; name: string; password: string }) => {
+    const cfg = readConfig();
+    if (cfg.operators.length) throw new Error('El Panel ya fue configurado. Iniciá sesión.');
+    const owner = createOperator({ ...input, role: 'ADMIN' });
+    cfg.operators.push(owner);
+    writeConfig(cfg);
+    activeSession = { id: owner.id, username: owner.username, name: owner.name, role: owner.role, lastActivity: Date.now() };
+    audit('operadores.configurados', `${owner.username} (ADMIN)`);
+    return authStatus();
+  });
+  handle('panel:auth:login', (input: { username: string; password: string }) => authenticateOperator(input.username, input.password));
+  handle('panel:auth:logout', () => {
+    if (activeSession) audit('sesion.cierre', activeSession.username);
+    activeSession = null;
+    return { ok: true };
+  });
+  handle('panel:auth:operators:list', () => readConfig().operators.map(({ id, username, name, role, active, createdAt }) => ({ id, username, name, role, active, createdAt })));
+  handle('panel:auth:operators:add', (input: { username: string; name: string; password: string; role: PanelRole }) => {
+    const cfg = readConfig();
+    const operator = createOperator(input);
+    if (cfg.operators.some((item) => item.username === operator.username)) throw new Error('Ya existe un operador con ese usuario.');
+    cfg.operators.push(operator);
+    writeConfig(cfg);
+    audit('operador.alta', `${operator.username} (${operator.role})`);
+    return cfg.operators.map(({ id, username, name, role, active, createdAt }) => ({ id, username, name, role, active, createdAt }));
+  });
+  handle('panel:auth:operators:update', (id: string, patch: { active?: boolean; role?: PanelRole; name?: string; password?: string }) => {
+    const cfg = readConfig();
+    const operator = cfg.operators.find((item) => item.id === id);
+    if (!operator) throw new Error('Operador no encontrado.');
+    if (patch.role && !['ADMIN', 'SUPPORT', 'OBSERVER'].includes(patch.role)) throw new Error('Rol no válido.');
+    if (patch.active === false && operator.role === 'ADMIN' && cfg.operators.filter((item) => item.active && item.role === 'ADMIN').length < 2) throw new Error('No podés desactivar al último administrador.');
+    if (patch.role && operator.role === 'ADMIN' && patch.role !== 'ADMIN' && operator.active && cfg.operators.filter((item) => item.active && item.role === 'ADMIN').length < 2) throw new Error('Debe quedar al menos un administrador activo.');
+    if (patch.name) operator.name = patch.name.trim().slice(0, 120);
+    if (patch.role) operator.role = patch.role;
+    if (patch.active !== undefined) operator.active = patch.active;
+    if (patch.password) {
+      if (patch.password.length < 12) throw new Error('La contraseña debe tener al menos 12 caracteres.');
+      operator.salt = randomBytes(16).toString('hex');
+      operator.passwordHash = scryptSync(patch.password, operator.salt, 64).toString('hex');
+    }
+    writeConfig(cfg);
+    audit('operador.actualizado', `${operator.username} · ${[patch.role, patch.active === undefined ? '' : patch.active ? 'activo' : 'inactivo', patch.password ? 'contraseña renovada' : ''].filter(Boolean).join(' · ')}`);
+    if (activeSession?.id === id && (!operator.active || patch.role !== undefined || patch.password)) activeSession = null;
+    return cfg.operators.map(({ id: operatorId, username, name, role, active, createdAt }) => ({ id: operatorId, username, name, role, active, createdAt }));
+  });
+
   handle('panel:config:get', () => publicConfig(readConfig()));
 
   handle('panel:config:save', (patch: Partial<PanelConfig>) => {
@@ -1535,8 +1663,8 @@ function registerIpc() {
   handle('panel:ops:releases', () => githubReleaseOverview());
   handle('panel:ops:client-telemetry', (organizationId: string) => providerOps(readConfig(), `clients/${encodeURIComponent(organizationId)}/telemetry`));
   handle('panel:support:cases:list', () => providerOps(readConfig(), 'support/cases?limit=200'));
-  handle('panel:support:cases:create', (input: Record<string, unknown>) => providerOps(readConfig(), 'support/cases', { method: 'POST', body: { ...input, actor: readConfig().support.operatorName || 'Equipo de soporte' } }));
-  handle('panel:support:cases:update', (id: string, input: Record<string, unknown>) => providerOps(readConfig(), `support/cases/${encodeURIComponent(id)}`, { method: 'PATCH', body: { ...input, actor: readConfig().support.operatorName || 'Equipo de soporte' } }));
+  handle('panel:support:cases:create', (input: Record<string, unknown>) => providerOps(readConfig(), 'support/cases', { method: 'POST', body: { ...input, actor: activeSession?.name || 'Equipo de soporte' } }));
+  handle('panel:support:cases:update', (id: string, input: Record<string, unknown>) => providerOps(readConfig(), `support/cases/${encodeURIComponent(id)}`, { method: 'PATCH', body: { ...input, actor: activeSession?.name || 'Equipo de soporte' } }));
   handle('panel:support:diagnostics:import', async () => {
     const selected = await dialog.showOpenDialog({ title: 'Elegir paquete de diagnóstico de FIT System', properties: ['openFile'], filters: [{ name: 'Informe FIT System', extensions: ['json'] }] });
     if (selected.canceled || !selected.filePaths[0]) return null;
@@ -1697,6 +1825,31 @@ function registerIpc() {
   handle('panel:ip:analyze', (ip: string) => ipAnalyze(readConfig(), ip));
 }
 
+let supportCaseMonitorRunning = false;
+const notifiedSupportCases = new Set<string>();
+async function monitorSupportCases() {
+  if (supportCaseMonitorRunning) return;
+  supportCaseMonitorRunning = true;
+  try {
+    const cfg = readConfig();
+    if (!cfg.api.providerToken) return;
+    const result = await providerOps<{ cases?: Array<Record<string, any>> }>(cfg, 'support/cases?limit=200');
+    for (const item of result.cases || []) {
+      if (['RESOLVED', 'CLOSED'].includes(String(item.status))) continue;
+      const overdue = item.dueAt && new Date(item.dueAt).getTime() < Date.now();
+      const urgentUnassigned = ['URGENT', 'HIGH'].includes(String(item.priority)) && !item.assignedTo;
+      if (!overdue && !urgentUnassigned) continue;
+      const reason = overdue ? 'fuera del plazo de respuesta' : 'prioridad alta sin asignar';
+      const key = `${item.id}:${reason}:${item.dueAt || ''}`;
+      if (notifiedSupportCases.has(key)) continue;
+      notifiedSupportCases.add(key);
+      if (notifiedSupportCases.size > 1000) notifiedSupportCases.clear();
+      if (Notification.isSupported()) new Notification({ title: `Caso requiere atención · ${item.clientName || 'FIT System'}`, body: `${item.title || 'Caso de soporte'} · ${reason}` }).show();
+    }
+  } catch { /* los errores se muestran en la vista de casos cuando haya sesión */ }
+  finally { supportCaseMonitorRunning = false; }
+}
+
 app.whenReady().then(() => {
   registerIpc();
   createTray();
@@ -1713,6 +1866,8 @@ app.whenReady().then(() => {
   };
   setTimeout(() => void monitor(), 12_000);
   setInterval(() => void monitor(), 5 * 60_000);
+  setTimeout(() => void monitorSupportCases(), 25_000);
+  setInterval(() => void monitorSupportCases(), 2 * 60_000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
   });

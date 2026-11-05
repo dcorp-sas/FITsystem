@@ -7,6 +7,13 @@ async function invoke<T = unknown>(channel: string, ...args: unknown[]): Promise
 }
 
 const api = {
+  authStatus: () => invoke('panel:auth:status'),
+  authSetup: (input: unknown) => invoke('panel:auth:setup', input),
+  authLogin: (input: unknown) => invoke('panel:auth:login', input),
+  authLogout: () => invoke('panel:auth:logout'),
+  authOperators: () => invoke('panel:auth:operators:list'),
+  authOperatorAdd: (input: unknown) => invoke('panel:auth:operators:add', input),
+  authOperatorUpdate: (id: string, patch: unknown) => invoke('panel:auth:operators:update', id, patch),
   getConfig: () => invoke('panel:config:get'),
   saveConfig: (patch: unknown) => invoke('panel:config:save', patch),
   licensadorOverview: () => invoke('panel:licensador:overview'),
