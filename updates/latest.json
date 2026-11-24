@@ -1,6 +1,6 @@
 {
-  "version": "0.3.73",
+  "version": "0.3.74",
   "url": "https://github.com/dcorp-sas/FITsystem/releases/latest/download/FIT-System-Setup.exe",
-  "notes": "Corregir inicio por roles, buscador de casos, telemetría de Profes y reapertura de incidentes",
+  "notes": "Abrir el sistema con la base local cuando el VPS no responde",
   "mandatory": false
 }

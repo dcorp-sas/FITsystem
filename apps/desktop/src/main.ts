@@ -314,6 +314,23 @@ function isCloudMode(): boolean {
   return readNetworkConfig().mode === 'cloud';
 }
 
+/** La aplicación de escritorio puede seguir trabajando con la base SQLite local
+ * cuando el VPS no está disponible. Se comprueban tanto el panel como la API:
+ * un HTML que responde por sí solo no alcanza para operar el sistema. */
+async function isCloudAvailable(): Promise<boolean> {
+  try {
+    const [panel, api] = await Promise.all([
+      fetch(CLOUD_PANEL_URL, { signal: AbortSignal.timeout(5000), redirect: 'follow' }),
+      fetch(`${CLOUD_API_URL}/health`, { signal: AbortSignal.timeout(5000), redirect: 'follow' }),
+    ]);
+    if (!panel.ok || !api.ok) return false;
+    const health = (await api.json().catch(() => null)) as { status?: string } | null;
+    return health?.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
 function writeNetworkConfig(config: NetworkConfig): void {
   try {
     fs.writeFileSync(networkFile(), JSON.stringify(config, null, 2), 'utf8');
@@ -1563,9 +1580,18 @@ app.whenReady().then(async () => {
   }
 
   let servicesReady = false;
+  let cloudFallback = false;
   try {
     if (app.isPackaged) {
-      const network = readNetworkConfig();
+      let network = readNetworkConfig();
+      if (network.mode === 'cloud' && !(await isCloudAvailable())) {
+        // Si el VPS está caído, pasar al panel y la base local. Guardamos el
+        // cambio para que el próximo inicio tampoco dependa del servidor.
+        network = { mode: 'standalone' };
+        writeNetworkConfig(network);
+        cloudFallback = true;
+        log('VPS no disponible; iniciando en modo local con la base de datos del equipo');
+      }
       const cloud = network.mode === 'cloud';
       const lanMode = network.mode === 'server';
       const bindHost = lanMode ? '0.0.0.0' : '127.0.0.1';
@@ -1602,6 +1628,17 @@ app.whenReady().then(async () => {
   // La ventana se crea SIEMPRE primero: nunca debe quedar sin abrir por una
   // validación de licencia/red lenta o colgada. La licencia se consulta después.
   await createWindow();
+
+  if (app.isPackaged && cloudFallback) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      title: 'FIT system™ funciona en modo local',
+      message: 'No se pudo conectar con el servidor. El sistema se abrió con los datos guardados en esta computadora.',
+      detail: 'Podés seguir trabajando localmente. Los cambios hechos mientras el servidor esté fuera de servicio se sincronizarán cuando vuelvas a activar el modo nube y el servidor esté disponible.',
+      buttons: ['Continuar'],
+      defaultId: 0,
+    });
+  }
 
   if (app.isPackaged && servicesReady) {
     let heartbeatLicense: LicenseInfo | null = null;
